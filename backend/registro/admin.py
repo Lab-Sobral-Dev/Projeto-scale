@@ -12,7 +12,7 @@ class ProdutoAdmin(admin.ModelAdmin):
 
 @admin.register(MateriaPrima)
 class MateriaPrimaAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'ativo')
+    list_display = ('nome', 'codigo_interno','ativo')
     list_filter = ('ativo',)
     search_fields = ('nome',)
     ordering = ('nome',)

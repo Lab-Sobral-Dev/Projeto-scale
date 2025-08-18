@@ -22,6 +22,11 @@ class MateriaPrimaViewSet(viewsets.ModelViewSet):
     serializer_class = MateriaPrimaSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    # 👇 habilita ?search= no endpoint (por nome ou código)
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nome', 'codigo_interno']
+    ordering_fields = ['nome', 'codigo_interno']
+
 
 class BalancaViewSet(viewsets.ModelViewSet):
     """

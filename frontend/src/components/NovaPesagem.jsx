@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -56,7 +56,7 @@ const NovaPesagem = () => {
         const [prodRes, mpRes, balRes, userRes] = await Promise.all([
           api.getProdutos(),
           api.getMateriasPrimas(),
-          api.getBalancas(),              // 👈 novo
+          api.getBalancas(),              // carrega balanças (FK)
           api.me().catch(e => { console.error("Falha ao buscar usuário", e); return null; })
         ])
 
@@ -68,10 +68,12 @@ const NovaPesagem = () => {
           volumePadrao: p.volume_padrao ?? p.volumePadrao ?? '',
         }))
 
+        // ⬇️ inclui codigo_interno para exibir no Select
         const mpsNorm = normalizeList(mpRes).map(m => ({
           id: m.id,
           nome: m.nome,
-          ativo: !!m.ativo
+          ativo: !!m.ativo,
+          codigoInterno: m.codigo_interno ?? m.codigoInterno ?? ''
         }))
 
         const balsNorm = normalizeList(balRes).map(b => ({
@@ -82,12 +84,12 @@ const NovaPesagem = () => {
         setProdutos(produtosNorm)
         setMateriasPrimas(mpsNorm)
         setBalancas(balsNorm)
-        setLocalUser(userRes)
+
+        const display = getDisplayName(userRes)
+        setLocalUser({ ...userRes, displayName: display })
 
         // Preenche o pesador após carregar o usuário
-        const display = getDisplayName(userRes)
         setFormData(prev => ({ ...prev, pesador: display }))
-        setLocalUser({ ...userRes, displayName: display })
       } catch (e) {
         console.error(e)
         setError('Não foi possível carregar os dados iniciais.')
@@ -151,7 +153,7 @@ const NovaPesagem = () => {
         bruto: parseFloat(formData.bruto),
         tara: parseFloat(formData.tara),
         volume: (formData.volume ?? '').toString(),
-        // 👇 agora usando FK
+        // agora usando FK
         balanca_id: formData.balanca ? Number(formData.balanca) : null,
         codigo_interno: formData.codigoInterno || '',
       }
@@ -190,6 +192,7 @@ const NovaPesagem = () => {
   }
 
   const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
+  const canSave = !loading && formData.produto && formData.materiaPrima && formData.bruto && formData.tara
 
   return (
     <div className="space-y-6">
@@ -222,7 +225,7 @@ const NovaPesagem = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="produto">Produto *</Label>
-                <Select value={formData.produto} onValueChange={handleProdutoChange}>
+                <Select value={formData.produto || undefined} onValueChange={handleProdutoChange}>
                   <SelectTrigger>
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione o produto'} />
                   </SelectTrigger>
@@ -238,14 +241,17 @@ const NovaPesagem = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="materiaPrima">Matéria-Prima *</Label>
-                <Select value={formData.materiaPrima} onValueChange={(value) => handleChange('materiaPrima', value)}>
+                <Select
+                  value={formData.materiaPrima || undefined}
+                  onValueChange={(value) => handleChange('materiaPrima', value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a matéria-prima'} />
                   </SelectTrigger>
                   <SelectContent>
                     {materiasPrimas.map(mp => (
                       <SelectItem key={mp.id} value={mp.id.toString()}>
-                        {mp.nome}
+                        {mp.codigoInterno ? `${mp.codigoInterno} — ${mp.nome}` : mp.nome}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -309,7 +315,10 @@ const NovaPesagem = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="balanca">Balança</Label>
-                <Select value={formData.balanca} onValueChange={(value) => handleChange('balanca', value)}>
+                <Select
+                  value={formData.balanca || undefined}
+                  onValueChange={(value) => handleChange('balanca', value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a balança'} />
                   </SelectTrigger>
@@ -359,7 +368,7 @@ const NovaPesagem = () => {
             )}
 
             <div className="flex flex-wrap gap-3">
-              <Button type="submit" disabled={loading} className="flex items-center gap-2">
+              <Button type="submit" disabled={!canSave} className="flex items-center gap-2">
                 <Save className="h-4 w-4" />
                 {loading ? 'Salvando...' : 'Salvar'}
               </Button>

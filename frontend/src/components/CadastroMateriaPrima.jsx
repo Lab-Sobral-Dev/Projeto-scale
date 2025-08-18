@@ -18,14 +18,32 @@ const CadastroMateriaPrima = () => {
   const [editingId, setEditingId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
-  const [formData, setFormData] = useState({ nome: '', ativo: true })
+  // agora temos nome, codigoInterno e ativo
+  const [formData, setFormData] = useState({
+    nome: '',
+    codigoInterno: '',
+    ativo: true
+  })
 
   const token = useMemo(() => localStorage.getItem('access') || '', [])
-
   const headers = useMemo(() => ({
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   }), [token])
+
+  // Helpers camelCase <-> snake_case
+  const apiToUi = (mp) => ({
+    id: mp.id,
+    nome: mp.nome ?? '',
+    codigoInterno: mp.codigo_interno ?? '',
+    ativo: !!mp.ativo,
+  })
+
+  const uiToApi = (mp) => ({
+    nome: mp.nome,
+    codigo_interno: mp.codigoInterno,
+    ativo: mp.ativo,
+  })
 
   // Helper para lidar com paginação do DRF e normalizar array
   const normalizeList = (data) => Array.isArray(data) ? data : (data?.results ?? [])
@@ -37,7 +55,7 @@ const CadastroMateriaPrima = () => {
       const res = await fetch(`${API_BASE}/materias-primas/`, { headers })
       if (!res.ok) throw new Error(`GET materias-primas: ${res.status}`)
       const json = await res.json()
-      setMateriasPrimas(normalizeList(json))
+      setMateriasPrimas(normalizeList(json).map(apiToUi))
     } catch (e) {
       console.error(e)
       setError('Não foi possível carregar as matérias-primas. Verifique conexão e permissões.')
@@ -64,17 +82,25 @@ const CadastroMateriaPrima = () => {
     setSuccess('')
 
     try {
-      if (!formData.nome.trim()) {
-        setError('Por favor, preencha o nome da matéria-prima')
+      if (!formData.nome.trim() || !formData.codigoInterno.trim()) {
+        setError('Por favor, preencha Nome e Código Interno')
         return
       }
 
       // Checagem local de duplicidade (não substitui validação no backend)
       const nomeExiste = materiasPrimas.some(mp =>
-        mp.nome?.toLowerCase() === formData.nome.toLowerCase() && mp.id !== editingId
+        (mp.nome || '').toLowerCase() === formData.nome.toLowerCase() && mp.id !== editingId
       )
       if (nomeExiste) {
         setError('Já existe uma matéria-prima com este nome')
+        return
+      }
+
+      const codigoExiste = materiasPrimas.some(mp =>
+        (mp.codigoInterno || '').toLowerCase() === formData.codigoInterno.toLowerCase() && mp.id !== editingId
+      )
+      if (codigoExiste) {
+        setError('Já existe uma matéria-prima com este código interno')
         return
       }
 
@@ -83,10 +109,18 @@ const CadastroMateriaPrima = () => {
         const res = await fetch(`${API_BASE}/materias-primas/${editingId}/`, {
           method: 'PUT',
           headers,
-          body: JSON.stringify(formData),
+          body: JSON.stringify(uiToApi(formData)),
         })
-        if (!res.ok) throw new Error(`PUT materia-prima: ${res.status}`)
-        const atualizado = await res.json()
+        if (!res.ok) {
+          let msg = `PUT materia-prima: ${res.status}`
+          try {
+            const j = await res.json()
+            if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
+            if (j?.nome?.[0]) msg = j.nome[0]
+          } catch {}
+          throw new Error(msg)
+        }
+        const atualizado = apiToUi(await res.json())
         setMateriasPrimas(prev => prev.map(mp => (mp.id === editingId ? atualizado : mp)))
         setSuccess('Matéria-prima atualizada com sucesso!')
         setEditingId(null)
@@ -96,24 +130,32 @@ const CadastroMateriaPrima = () => {
         const res = await fetch(`${API_BASE}/materias-primas/`, {
           method: 'POST',
           headers,
-          body: JSON.stringify(formData),
+          body: JSON.stringify(uiToApi(formData)),
         })
-        if (!res.ok) throw new Error(`POST materia-prima: ${res.status}`)
-        const criado = await res.json()
+        if (!res.ok) {
+          let msg = `POST materia-prima: ${res.status}`
+          try {
+            const j = await res.json()
+            if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
+            if (j?.nome?.[0]) msg = j.nome[0]
+          } catch {}
+          throw new Error(msg)
+        }
+        const criado = apiToUi(await res.json())
         setMateriasPrimas(prev => [criado, ...prev])
         setSuccess('Matéria-prima cadastrada com sucesso!')
         handleLimparFormulario(false)
       }
     } catch (err) {
       console.error(err)
-      setError('Erro ao salvar matéria-prima. Verifique os dados e tente novamente.')
+      setError(typeof err?.message === 'string' ? err.message : 'Erro ao salvar matéria-prima. Verifique os dados e tente novamente.')
     } finally {
       setLoading(false)
     }
   }
 
   const handleLimparFormulario = (clearAlerts = true) => {
-    setFormData({ nome: '', ativo: true })
+    setFormData({ nome: '', codigoInterno: '', ativo: true })
     setEditingId(null)
     if (clearAlerts) {
       setError('')
@@ -122,7 +164,11 @@ const CadastroMateriaPrima = () => {
   }
 
   const handleEditar = (materiaPrima) => {
-    setFormData({ nome: materiaPrima.nome || '', ativo: !!materiaPrima.ativo })
+    setFormData({
+      nome: materiaPrima.nome || '',
+      codigoInterno: materiaPrima.codigoInterno || '',
+      ativo: !!materiaPrima.ativo
+    })
     setEditingId(materiaPrima.id)
     setError('')
     setSuccess('')
@@ -147,16 +193,10 @@ const CadastroMateriaPrima = () => {
     }
   }
 
-  const materiasPrimasFiltradas = materiasPrimas.filter(mp =>
-    (mp.nome || '').toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-'
-    const d = new Date(dateString)
-    if (isNaN(d)) return '-'
-    return d.toLocaleDateString('pt-BR')
-  }
+  const materiasPrimasFiltradas = materiasPrimas.filter(mp => {
+    const t = searchTerm.toLowerCase()
+    return (mp.nome || '').toLowerCase().includes(t) || (mp.codigoInterno || '').toLowerCase().includes(t)
+  })
 
   return (
     <div className="space-y-6">
@@ -189,12 +229,21 @@ const CadastroMateriaPrima = () => {
                   id="nome"
                   value={formData.nome}
                   onChange={(e) => handleChange('nome', e.target.value)}
-                  placeholder="Digite o nome da matéria-prima"
+                  placeholder="Ex.: Ácido Cítrico"
                   required
                 />
-                <p className="text-xs text-gray-500">
-                  Exemplo: MP-001 - Glicerina, MP-002 - Ácido Cítrico, etc.
-                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="codigoInterno">Código Interno *</Label>
+                <Input
+                  id="codigoInterno"
+                  value={formData.codigoInterno}
+                  onChange={(e) => handleChange('codigoInterno', e.target.value)}
+                  placeholder="Ex.: MP-0001"
+                  required
+                />
+                <p className="text-xs text-gray-500">Deve ser único (ex.: MP-0001, MP-0002...)</p>
               </div>
 
               <div className="flex items-center space-x-2">
@@ -252,7 +301,7 @@ const CadastroMateriaPrima = () => {
             </CardDescription>
             <div className="mt-4">
               <Input
-                placeholder="Buscar matérias-primas..."
+                placeholder="Buscar por nome ou código..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="max-w-sm"
@@ -284,7 +333,7 @@ const CadastroMateriaPrima = () => {
                             </Badge>
                           </div>
                           <p className="text-sm text-gray-500">
-                            Cadastrada em: {formatDate(materiaPrima.dataCadastro)}
+                            Código: <span className="font-mono">{materiaPrima.codigoInterno || '-'}</span>
                           </p>
                         </div>
                         <div className="flex gap-2">

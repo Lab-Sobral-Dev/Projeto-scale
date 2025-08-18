@@ -14,10 +14,12 @@ class Produto(models.Model):
 
 class MateriaPrima(models.Model):
     nome = models.CharField(max_length=100)
+    codigo_interno = models.CharField(max_length=50, unique=True, db_index=True)
     ativo = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.nome
+        # opcional: mostrar o código junto
+        return f"{self.nome} ({self.codigo_interno})"
 
 
 class Balanca(models.Model):
@@ -30,8 +32,8 @@ class Balanca(models.Model):
         (TIPO_USB, 'USB'),
     )
 
-    nome = models.CharField(max_length=100, unique=True)            # Ex.: "Balança 01"
-    identificador = models.CharField(max_length=50, unique=True)    # Ex.: "sala02-eth"
+    nome = models.CharField(max_length=100, unique=True)            
+    identificador = models.CharField(max_length=50, unique=True)  
     tipo_conexao = models.CharField(max_length=20, choices=TIPO_CHOICES, default=TIPO_ETHERNET)
 
     # Ethernet
