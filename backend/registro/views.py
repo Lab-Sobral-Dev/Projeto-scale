@@ -1,4 +1,6 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
+from rest_framework.response import Response
+from django.db.models.deletion import ProtectedError  # <-- importar
 from .models import Produto, MateriaPrima, Pesagem, Balanca
 from .serializers import ProdutoSerializer, MateriaPrimaSerializer, PesagemSerializer, BalancaSerializer
 from django.http import HttpResponse
@@ -17,15 +19,44 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     serializer_class = ProdutoSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    # opcional, para padronizar com MateriaPrima
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nome', 'codigo_interno']
+    ordering_fields = ['nome', 'codigo_interno']
+
+    # bloqueia exclusão quando houver relacionamentos protegidos
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            return Response(
+                {"detail": "Não é possível excluir: existem registros vinculados (ex.: pesagens)."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class MateriaPrimaViewSet(viewsets.ModelViewSet):
     queryset = MateriaPrima.objects.all().order_by('nome')
     serializer_class = MateriaPrimaSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-    # 👇 habilita ?search= no endpoint (por nome ou código)
+    # 👇 habilita ?search= e ?ordering=
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nome', 'codigo_interno']
     ordering_fields = ['nome', 'codigo_interno']
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            return Response(
+                {"detail": "Não é possível excluir: existem registros vinculados (ex.: pesagens)."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class BalancaViewSet(viewsets.ModelViewSet):
@@ -34,13 +65,23 @@ class BalancaViewSet(viewsets.ModelViewSet):
     """
     queryset = Balanca.objects.all().order_by('nome')
     serializer_class = BalancaSerializer
-    # leitura autenticada; escrita só admin
     permission_classes = [IsAdminOrReadOnly]
 
-    # (Opcional) search/ordering — remova se não quiser/precisar
+    # (Opcional) search/ordering
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nome', 'identificador', 'localizacao', 'protocolo']
     ordering_fields = ['nome', 'criado_em', 'atualizado_em']
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            return Response(
+                {"detail": "Não é possível excluir: existem pesagens vinculadas a esta balança."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PesagemViewSet(viewsets.ModelViewSet):

@@ -4,12 +4,10 @@ from django.db import models
 class Produto(models.Model):
     nome = models.CharField(max_length=100)
     codigo_interno = models.CharField(max_length=50, unique=True)
-    volume_padrao = models.CharField(max_length=20)  # Ex: "200 mL"
-    unidade_medida = models.CharField(max_length=10)  # Ex: "mL", "kg"
     ativo = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.nome} ({self.volume_padrao})"
+        return f"{self.nome}"
 
 
 class MateriaPrima(models.Model):
@@ -62,8 +60,8 @@ class Balanca(models.Model):
 
 
 class Pesagem(models.Model):
-    produto = models.ForeignKey(Produto, on_delete=models.CASCADE)
-    materia_prima = models.ForeignKey(MateriaPrima, on_delete=models.CASCADE)
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT, related_name="pesagens")
+    materia_prima = models.ForeignKey(MateriaPrima, on_delete=models.PROTECT, related_name="pesagens")
     op = models.CharField(max_length=50)
     pesador = models.CharField(max_length=100)
     lote = models.CharField(max_length=50)

@@ -4,8 +4,8 @@ from .models import Produto, MateriaPrima, Pesagem, Balanca
 
 @admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'codigo_interno', 'volume_padrao', 'unidade_medida', 'ativo')
-    list_filter = ('ativo', 'unidade_medida')
+    list_display = ('nome', 'codigo_interno', 'ativo')
+    list_filter = ('ativo',)
     search_fields = ('nome', 'codigo_interno')
     ordering = ('nome',)
 

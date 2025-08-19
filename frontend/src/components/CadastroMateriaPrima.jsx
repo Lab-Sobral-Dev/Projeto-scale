@@ -45,17 +45,37 @@ const CadastroMateriaPrima = () => {
     ativo: mp.ativo,
   })
 
-  // Helper para lidar com paginação do DRF e normalizar array
-  const normalizeList = (data) => Array.isArray(data) ? data : (data?.results ?? [])
+  // 1) Troque o normalizeList por esta versão
+  const normalizeList = (data) => {
+    if (Array.isArray(data)) return data
+    if (data?.results && Array.isArray(data.results)) return data.results
+    return []
+  }
 
+  // 2) Troque a carregarMateriasPrimas por esta versão
   const carregarMateriasPrimas = async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`${API_BASE}/materias-primas/`, { headers })
-      if (!res.ok) throw new Error(`GET materias-primas: ${res.status}`)
-      const json = await res.json()
-      setMateriasPrimas(normalizeList(json).map(apiToUi))
+      let url = `${API_BASE}/materias-primas/?page_size=500` // tenta puxar mais itens
+      const all = []
+
+      while (url) {
+        const res = await fetch(url, { headers })
+        if (!res.ok) throw new Error(`GET materias-primas: ${res.status}`)
+
+        const json = await res.json()
+        const pageItems = normalizeList(json).map(apiToUi)
+        all.push(...pageItems)
+
+        // segue a paginação (DRF expõe "next")
+        url = json?.next || null
+
+        // sem paginação (API retorna array): sai após 1 volta
+        if (Array.isArray(json)) break
+      }
+
+      setMateriasPrimas(all)
     } catch (e) {
       console.error(e)
       setError('Não foi possível carregar as matérias-primas. Verifique conexão e permissões.')
@@ -63,6 +83,7 @@ const CadastroMateriaPrima = () => {
       setLoading(false)
     }
   }
+
 
   useEffect(() => {
     carregarMateriasPrimas()
@@ -117,7 +138,7 @@ const CadastroMateriaPrima = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch {}
+          } catch { }
           throw new Error(msg)
         }
         const atualizado = apiToUi(await res.json())
@@ -138,7 +159,7 @@ const CadastroMateriaPrima = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch {}
+          } catch { }
           throw new Error(msg)
         }
         const criado = apiToUi(await res.json())
@@ -182,7 +203,19 @@ const CadastroMateriaPrima = () => {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (res.status !== 204 && res.status !== 200) throw new Error(`DELETE materia-prima: ${res.status}`)
+
+      if (res.status === 400 || res.status === 409) {
+        // lê a resposta do backend e mostra no alerta
+        const data = await res.json().catch(() => ({}))
+        setError(data?.detail || 'Esta matéria-prima não pode ser excluída, pois está vinculada a registros.')
+        return
+      }
+
+      if (res.status !== 204 && res.status !== 200) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.detail || `DELETE matéria-prima: ${res.status}`)
+      }
+
       setMateriasPrimas(prev => prev.filter(mp => mp.id !== id))
       setSuccess('Matéria-prima excluída com sucesso!')
     } catch (err) {
@@ -192,6 +225,7 @@ const CadastroMateriaPrima = () => {
       setLoading(false)
     }
   }
+
 
   const materiasPrimasFiltradas = materiasPrimas.filter(mp => {
     const t = searchTerm.toLowerCase()

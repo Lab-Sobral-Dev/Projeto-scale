@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -22,8 +21,6 @@ const CadastroProduto = () => {
   const [formData, setFormData] = useState({
     nome: '',
     codigoInterno: '',
-    volumePadrao: '',
-    unidade: 'kg',
     ativo: true
   })
 
@@ -38,30 +35,49 @@ const CadastroProduto = () => {
     id: p.id,
     nome: p.nome ?? '',
     codigoInterno: p.codigo_interno ?? '',
-    volumePadrao: p.volume_padrao ?? '',
-    unidade: p.unidade_medida ?? p.unidade ?? 'kg',
     ativo: !!p.ativo,
   })
 
   const uiToApi = (p) => ({
     nome: p.nome,
     codigo_interno: p.codigoInterno,
-    volume_padrao: p.volumePadrao,       // backend pode ser string; se quiser número: String/Number aqui
-    unidade_medida: p.unidade,
     ativo: p.ativo,
   })
 
-  const normalizeList = (data) => Array.isArray(data) ? data : (data?.results ?? [])
+  // SUBSTITUA a função normalizeList por esta versão:
+  const normalizeList = (data) => {
+    // aceita array puro ou objeto paginado do DRF
+    if (Array.isArray(data)) return data
+    if (data?.results && Array.isArray(data.results)) return data.results
+    return []
+  }
 
+  // SUBSTITUA a função carregarProdutos por esta versão com paginação acumulando tudo:
   const carregarProdutos = async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`${API_BASE}/produtos/`, { headers })
-      if (!res.ok) throw new Error(`GET produtos: ${res.status}`)
-      const json = await res.json()
-      const list = normalizeList(json).map(apiToUi)
-      setProdutos(list)
+      // tenta pedir um page_size grande; o backend pode ignorar, mas ajuda
+      let url = `${API_BASE}/produtos/?page_size=500`
+      const all = []
+
+      while (url) {
+        const res = await fetch(url, { headers })
+        if (!res.ok) throw new Error(`GET produtos: ${res.status}`)
+        const json = await res.json()
+
+        // acumula página atual
+        const pageItems = normalizeList(json).map(apiToUi)
+        all.push(...pageItems)
+
+        // segue a paginação do DRF (se não houver, será undefined)
+        url = json?.next || null
+
+        // caso o backend não seja paginado (retorna array), paramos após 1 iteração
+        if (Array.isArray(json)) break
+      }
+
+      setProdutos(all)
     } catch (e) {
       console.error(e)
       setError('Não foi possível carregar os produtos. Verifique conexão e permissões.')
@@ -69,6 +85,7 @@ const CadastroProduto = () => {
       setLoading(false)
     }
   }
+
 
   useEffect(() => {
     carregarProdutos()
@@ -89,7 +106,7 @@ const CadastroProduto = () => {
 
     try {
       // Validações básicas
-      if (!formData.nome.trim() || !formData.codigoInterno.trim() || !String(formData.volumePadrao).trim()) {
+      if (!formData.nome.trim() || !formData.codigoInterno.trim()) {
         setError('Por favor, preencha todos os campos obrigatórios')
         return
       }
@@ -141,8 +158,6 @@ const CadastroProduto = () => {
     setFormData({
       nome: '',
       codigoInterno: '',
-      volumePadrao: '',
-      unidade: 'kg',
       ativo: true
     })
     setEditingId(null)
@@ -156,8 +171,6 @@ const CadastroProduto = () => {
     setFormData({
       nome: produto.nome,
       codigoInterno: produto.codigoInterno,
-      volumePadrao: String(produto.volumePadrao ?? ''),
-      unidade: produto.unidade,
       ativo: produto.ativo
     })
     setEditingId(produto.id)
@@ -173,7 +186,18 @@ const CadastroProduto = () => {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (res.status !== 204 && res.status !== 200) throw new Error(`DELETE produto: ${res.status}`)
+
+      if (res.status === 400 || res.status === 409) {
+        // lê a resposta do backend e mostra no alerta
+        const data = await res.json()
+        setError(data?.detail || 'Este produto não pode ser excluído, pois está vinculado a registros.')
+        return
+      }
+
+      if (res.status !== 204 && res.status !== 200) {
+        throw new Error(`DELETE produto: ${res.status}`)
+      }
+
       setProdutos(prev => prev.filter(p => p.id !== id))
       setSuccess('Produto excluído com sucesso!')
     } catch (err) {
@@ -183,6 +207,7 @@ const CadastroProduto = () => {
       setLoading(false)
     }
   }
+
 
   const produtosFiltrados = produtos.filter(produto =>
     produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,35 +259,6 @@ const CadastroProduto = () => {
                   placeholder="Digite o código interno"
                   required
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="volumePadrao">Volume Padrão *</Label>
-                <Input
-                  id="volumePadrao"
-                  type="number"
-                  step="0.01"
-                  value={formData.volumePadrao}
-                  onChange={(e) => handleChange('volumePadrao', e.target.value)}
-                  placeholder="Digite o volume padrão"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="unidade">Unidade</Label>
-                <Select value={formData.unidade} onValueChange={(value) => handleChange('unidade', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a unidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kg">Quilograma (kg)</SelectItem>
-                    <SelectItem value="g">Grama (g)</SelectItem>
-                    <SelectItem value="t">Tonelada (t)</SelectItem>
-                    <SelectItem value="l">Litro (l)</SelectItem>
-                    <SelectItem value="ml">Mililitro (ml)</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="flex items-center space-x-2">
@@ -353,9 +349,6 @@ const CadastroProduto = () => {
                           </div>
                           <p className="text-sm text-gray-500">
                             Código: {produto.codigoInterno}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Volume: {produto.volumePadrao} {produto.unidade}
                           </p>
                         </div>
                         <div className="flex gap-2">

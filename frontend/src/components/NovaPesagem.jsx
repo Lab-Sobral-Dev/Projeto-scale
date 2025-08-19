@@ -5,8 +5,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Scale, Save, Printer, RotateCcw, Calculator } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from '@/components/ui/command'
+import { Scale, Save, Printer, RotateCcw, Calculator, ChevronsUpDown, Check } from 'lucide-react'
 import api from '@/services/api'
+import { cn } from '@/lib/utils' // se não tiver util cn, troque por uma concatenação simples de className
 
 const NovaPesagem = () => {
   const [localUser, setLocalUser] = useState(null)
@@ -20,17 +30,20 @@ const NovaPesagem = () => {
 
   const [createdId, setCreatedId] = useState(null)
 
+  // estado para abrir/fechar combobox de MP
+  const [openMp, setOpenMp] = useState(false)
+
   // Estado inicial do formulário
   const getInitialFormData = (user = null) => ({
     produto: '',
     materiaPrima: '',
     op: '',
-    pesador: user?.nome || '', // preenchido após carregar /me
+    pesador: user?.nome || '',
     lote: '',
     bruto: '',
     tara: '',
     volume: '',
-    balanca: '',               // guarda o ID (string) da balança selecionada
+    balanca: '',
     codigoInterno: '',
     pesoLiquido: 0
   })
@@ -39,7 +52,6 @@ const NovaPesagem = () => {
 
   const normalizeList = (data) => Array.isArray(data) ? data : (data?.results ?? [])
 
-  // helper para exibir nome do usuário com fallback
   const getDisplayName = (user) => {
     if (!user) return ''
     return user.nome?.trim()
@@ -56,7 +68,7 @@ const NovaPesagem = () => {
         const [prodRes, mpRes, balRes, userRes] = await Promise.all([
           api.getProdutos(),
           api.getMateriasPrimas(),
-          api.getBalancas(),              // carrega balanças (FK)
+          api.getBalancas(),
           api.me().catch(e => { console.error("Falha ao buscar usuário", e); return null; })
         ])
 
@@ -68,7 +80,6 @@ const NovaPesagem = () => {
           volumePadrao: p.volume_padrao ?? p.volumePadrao ?? '',
         }))
 
-        // ⬇️ inclui codigo_interno para exibir no Select
         const mpsNorm = normalizeList(mpRes).map(m => ({
           id: m.id,
           nome: m.nome,
@@ -87,8 +98,6 @@ const NovaPesagem = () => {
 
         const display = getDisplayName(userRes)
         setLocalUser({ ...userRes, displayName: display })
-
-        // Preenche o pesador após carregar o usuário
         setFormData(prev => ({ ...prev, pesador: display }))
       } catch (e) {
         console.error(e)
@@ -153,7 +162,6 @@ const NovaPesagem = () => {
         bruto: parseFloat(formData.bruto),
         tara: parseFloat(formData.tara),
         volume: (formData.volume ?? '').toString(),
-        // agora usando FK
         balanca_id: formData.balanca ? Number(formData.balanca) : null,
         codigo_interno: formData.codigoInterno || '',
       }
@@ -193,6 +201,13 @@ const NovaPesagem = () => {
 
   const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
   const canSave = !loading && formData.produto && formData.materiaPrima && formData.bruto && formData.tara
+
+  // helpers de exibição para o combobox de MP
+  const getMateriaPrimaLabel = (id) => {
+    const mp = materiasPrimas.find(m => m.id.toString() === id?.toString())
+    if (!mp) return ''
+    return mp.codigoInterno ? `${mp.codigoInterno} — ${mp.nome}` : mp.nome
+  }
 
   return (
     <div className="space-y-6">
@@ -239,24 +254,55 @@ const NovaPesagem = () => {
                 </Select>
               </div>
 
+              {/* ===== Matéria-Prima com busca (ComboBox) ===== */}
               <div className="space-y-2">
                 <Label htmlFor="materiaPrima">Matéria-Prima *</Label>
-                <Select
-                  value={formData.materiaPrima || undefined}
-                  onValueChange={(value) => handleChange('materiaPrima', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a matéria-prima'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {materiasPrimas.map(mp => (
-                      <SelectItem key={mp.id} value={mp.id.toString()}>
-                        {mp.codigoInterno ? `${mp.codigoInterno} — ${mp.nome}` : mp.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={openMp} onOpenChange={setOpenMp}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openMp}
+                      className="w-full justify-between"
+                    >
+                      {formData.materiaPrima
+                        ? getMateriaPrimaLabel(formData.materiaPrima)
+                        : (loading ? 'Carregando...' : 'Selecione ou pesquise')}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar por nome ou código..." />
+                      <CommandEmpty>Nenhuma matéria-prima encontrada.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {materiasPrimas.map((mp) => {
+                            const label = mp.codigoInterno ? `${mp.codigoInterno} — ${mp.nome}` : mp.nome
+                            const selected = formData.materiaPrima?.toString() === mp.id.toString()
+                            return (
+                              <CommandItem
+                                key={mp.id}
+                                value={`${mp.codigoInterno || ''} ${mp.nome}`}
+                                onSelect={() => {
+                                  handleChange('materiaPrima', mp.id.toString())
+                                  setOpenMp(false)
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                                {label}
+                              </CommandItem>
+                            )
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
+              {/* ============================================= */}
 
               <div className="space-y-2">
                 <Label htmlFor="op">OP</Label>
@@ -349,7 +395,7 @@ const NovaPesagem = () => {
                 <Label className="text-blue-900 font-semibold">Peso Líquido (Calculado Automaticamente)</Label>
               </div>
               <div className="text-2xl font-bold text-blue-900">
-                {formData.pesoLiquido.toFixed(2)} kg
+                {Number.isFinite(formData.pesoLiquido) ? formData.pesoLiquido.toFixed(2) : '0.00'} kg
               </div>
               <p className="text-sm text-blue-700 mt-1">
                 Peso Bruto ({formData.bruto || '0'} kg) - Tara ({formData.tara || '0'} kg)
