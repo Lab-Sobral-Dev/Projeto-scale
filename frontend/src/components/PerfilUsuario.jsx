@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { User, LogOut, Shield, Calendar, Clock, Settings } from 'lucide-react'
+import { User, LogOut, Shield, Calendar, Clock, UserPlus } from 'lucide-react'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+/** Base da API do backend. Ex.: http://localhost:8000 + /api/usuarios */
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/usuarios'
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
 })
 
+/** GET com tratamento de 401 (expiração de token) */
 const apiGet = async (path) => {
-  const res = await fetch(`${API}${path}`, { headers: authHeaders() })
+  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() })
+  if (res.status === 401) {
+    const err = new Error('UNAUTHORIZED')
+    err.code = 401
+    throw err
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `HTTP ${res.status}`)
@@ -19,67 +27,75 @@ const apiGet = async (path) => {
   return res.json()
 }
 
-// Mapeia a resposta do backend para o shape usado na UI
-const mapUserFromAPI = (data) => {
+/** Normaliza o usuário vindo do backend/prop para o shape da UI */
+const mapUserFromAPI = (data = {}) => {
   const full =
-    (data.first_name ? data.first_name.trim() : '') +
-    (data.last_name ? ` ${data.last_name.trim()}` : '')
+    (data.first_name ? String(data.first_name).trim() : '') +
+    (data.last_name ? ` ${String(data.last_name).trim()}` : '')
   const nome =
-    (data.nome_exibicao && data.nome_exibicao.trim()) ||
+    (data.nome_exibicao && String(data.nome_exibicao).trim()) ||
     (full && full.trim()) ||
     data.nome ||
     data.username ||
+    data.usuario ||
     'Usuário'
 
-  // Se o backend ainda não enviar 'tipo', usa fallback por permissões do User
+  // Prioriza staff/superuser como admin. Depois usa 'tipo' se existir. Fallback operador.
+  const isStaff = data.is_staff === true || data.is_staff === 'True'
+  const isSuper = data.is_superuser === true || data.is_superuser === 'True'
+  const tipoCanon =
+    isStaff || isSuper ? 'admin'
+    : data.tipo ? String(data.tipo).toLowerCase()
+    : 'operador'
+
   const tipo =
-    data.tipo ||
-    (data.is_staff || data.is_superuser ? 'admin' : 'operador')
+    ['admin', 'operador', 'supervisor'].includes(tipoCanon) ? tipoCanon
+    : (tipoCanon.includes('admin') ? 'admin'
+      : tipoCanon.includes('super') ? 'admin'
+      : tipoCanon.includes('oper') ? 'operador'
+      : tipoCanon.includes('superv') ? 'supervisor'
+      : 'operador')
 
   return {
     id: data.id,
     nome,
     usuario: data.usuario || data.username || '',
     email: data.email || '',
-    tipo, // 'admin' | 'operador' | (outros no futuro)
+    tipo,
+    is_staff: !!isStaff,
+    is_superuser: !!isSuper,
+  }
+}
+
+/** Mapeia tipo → Badge variant + rótulo */
+const getUserTypeBadge = (tipo) => {
+  switch (tipo) {
+    case 'admin': return { label: 'Administrador', variant: 'destructive' }
+    case 'supervisor': return { label: 'Supervisor', variant: 'secondary' }
+    case 'operador': return { label: 'Operador', variant: 'default' }
+    default: return { label: 'Usuário', variant: 'outline' }
   }
 }
 
 const PerfilUsuario = ({ user: userProp, onLogout }) => {
-  const [user, setUser] = useState(userProp || null)
-  const [loading, setLoading] = useState(!userProp)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Relógio "vivo" com timezone America/Fortaleza
+  const [now, setNow] = useState(new Date())
   useEffect(() => {
-    let mounted = true
-    if (userProp) {
-      setUser(userProp)
-      setLoading(false)
-      return
-    }
-    ;(async () => {
-      try {
-        setLoading(true)
-        setError('')
-        const data = await apiGet('/api/usuarios/auth/me/')
-        if (!mounted) return
-        setUser(mapUserFromAPI(data))
-      } catch (e) {
-        console.error(e)
-        setError('Não foi possível carregar os dados do usuário.')
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    })()
-    return () => { mounted = false }
-  }, [userProp])
+    const id = setInterval(() => setNow(new Date()), 1000) // pode trocar para 60_000
+    return () => clearInterval(id)
+  }, [])
+  const currentDate = now.toLocaleDateString('pt-BR', { timeZone: 'America/Fortaleza' })
+  const currentTime = now.toLocaleTimeString('pt-BR', { timeZone: 'America/Fortaleza' })
 
-  const handleLogout = () => {
-    if (window.confirm('Tem certeza que deseja sair do sistema?')) {
+  const handleLogout = (ask = true) => {
+    if (!ask || window.confirm('Tem certeza que deseja sair do sistema?')) {
       if (typeof onLogout === 'function') {
         onLogout()
       } else {
-        // fallback: limpa tokens e vai pro login
         localStorage.removeItem('access')
         localStorage.removeItem('refresh')
         window.location.href = '/login'
@@ -87,38 +103,57 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
     }
   }
 
-  const getUserTypeLabel = (tipo) => {
-    switch (tipo) {
-      case 'admin':
-        return 'Administrador'
-      case 'operador':
-        return 'Operador'
-      case 'supervisor':
-        return 'Supervisor'
-      default:
-        return 'Usuário'
-    }
-  }
+  useEffect(() => {
+    let mounted = true
 
-  const getUserTypeColor = (tipo) => {
-    switch (tipo) {
-      case 'admin':
-        return 'bg-red-100 text-red-800'
-      case 'supervisor':
-        return 'bg-blue-100 text-blue-800'
-      case 'operador':
-        return 'bg-green-100 text-green-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
+    // 1) Se veio userProp, normaliza com o mesmo mapeamento do backend
+    if (userProp) {
+      const mapped = mapUserFromAPI(userProp)
+      setUser(mapped)
+      // 2) Se após normalizar ainda não houver um tipo confiável, busca o /auth/me/
+      const tipoConfiavel = ['admin', 'operador', 'supervisor'].includes(mapped.tipo)
+      if (!tipoConfiavel) {
+        ;(async () => {
+          try {
+            const data = await apiGet('/auth/me/') // ✅ rota correta: /api/usuarios/auth/me/
+            if (!mounted) return
+            setUser(mapUserFromAPI(data))
+          } catch (e) {
+            console.error(e)
+            if (e.code === 401) return handleLogout(false)
+            setError('Não foi possível carregar os dados do usuário.')
+          } finally {
+            if (mounted) setLoading(false)
+          }
+        })()
+      } else {
+        setLoading(false)
+      }
+      return () => { mounted = false }
     }
-  }
 
-  const currentDate = new Date().toLocaleDateString('pt-BR')
-  const currentTime = new Date().toLocaleTimeString('pt-BR')
+    // 3) Sem userProp → sempre consulta /auth/me/
+    ;(async () => {
+      try {
+        setError('')
+        const data = await apiGet('/auth/me/') // ✅ rota correta
+        if (!mounted) return
+        setUser(mapUserFromAPI(data))
+      } catch (e) {
+        console.error(e)
+        if (e.code === 401) return handleLogout(false)
+        setError('Não foi possível carregar os dados do usuário.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+
+    return () => { mounted = false }
+  }, [userProp])
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" aria-busy="true" aria-live="polite">
         <div className="h-8 w-64 bg-gray-200 rounded animate-pulse" />
         <Card>
           <CardHeader>
@@ -135,7 +170,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" role="status" aria-live="polite">
         <p className="text-red-600 text-sm">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Tentar novamente
@@ -144,15 +179,28 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
     )
   }
 
+  const badge = getUserTypeBadge(user?.tipo)
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <User className="h-8 w-8 text-blue-600" />
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Perfil do Usuário</h1>
-          <p className="text-gray-600">Informações da conta e configurações</p>
+      {/* Header com botão condicional */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <User className="h-8 w-8 text-blue-600" />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Perfil do Usuário</h1>
+            <p className="text-gray-600">Informações da conta e configurações</p>
+          </div>
         </div>
+
+        {user?.tipo === 'admin' && (
+          <Button asChild className="flex items-center gap-2">
+            <Link to="/cadastro-usuario">
+              <UserPlus className="h-4 w-4" />
+              Cadastrar usuários
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -189,9 +237,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm font-medium text-gray-600">Tipo de Usuário</span>
-                <Badge className={getUserTypeColor(user?.tipo)}>
-                  {getUserTypeLabel(user?.tipo)}
-                </Badge>
+                <Badge variant={badge.variant}>{badge.label}</Badge>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
@@ -231,7 +277,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm font-medium text-gray-600">Status da Sessão</span>
-                <Badge className="bg-green-100 text-green-800">Ativa</Badge>
+                <Badge variant="default">Ativa</Badge>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
@@ -241,7 +287,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
             </div>
 
             <div className="pt-4">
-              <Button onClick={handleLogout} variant="destructive" className="w-full flex items-center gap-2">
+              <Button onClick={() => handleLogout(true)} variant="destructive" className="w-full flex items-center gap-2">
                 <LogOut className="h-4 w-4" />
                 Sair do Sistema
               </Button>
@@ -249,56 +295,6 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Permissões e Funcionalidades 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Permissões e Funcionalidades
-          </CardTitle>
-          <CardDescription>Funcionalidades disponíveis para seu tipo de usuário</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Pesagens</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>✓ Registrar nova pesagem</li>
-                <li>✓ Visualizar histórico</li>
-                <li>✓ Gerar etiquetas</li>
-                {user?.tipo === 'admin' && <li>✓ Editar pesagens</li>}
-              </ul>
-            </div>
-
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Cadastros</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                {(user?.tipo === 'admin' || user?.tipo === 'supervisor') ? (
-                  <>
-                    <li>✓ Cadastrar produtos</li>
-                    <li>✓ Cadastrar matérias-primas</li>
-                    <li>✓ Editar cadastros</li>
-                  </>
-                ) : (
-                  <li>○ Acesso limitado aos cadastros</li>
-                )}
-              </ul>
-            </div>
-
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Relatórios</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>✓ Visualizar dashboard</li>
-                <li>✓ Consultar histórico</li>
-                {(user?.tipo === 'admin' || user?.tipo === 'supervisor') && (
-                  <li>✓ Relatórios avançados</li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>*/}
     </div>
   )
 }

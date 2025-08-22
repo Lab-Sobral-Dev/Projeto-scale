@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/command'
 import { Scale, Save, Printer, RotateCcw, Calculator, ChevronsUpDown, Check } from 'lucide-react'
 import api from '@/services/api'
-import { cn } from '@/lib/utils' // se não tiver util cn, troque por uma concatenação simples de className
+import { cn } from '@/lib/utils'
 
 const NovaPesagem = () => {
   const [localUser, setLocalUser] = useState(null)
@@ -30,10 +30,18 @@ const NovaPesagem = () => {
 
   const [createdId, setCreatedId] = useState(null)
 
-  // estado para abrir/fechar combobox de MP
   const [openMp, setOpenMp] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
 
-  // Estado inicial do formulário
+  // Conversor robusto para pt-BR (aceita "1.234,56" e "1234,56")
+  const toNumber = (v) => {
+    if (typeof v !== 'string') return Number(v) || 0
+    const s = v.replace(/\s/g, '')
+    // remove separador de milhar . e troca vírgula por ponto
+    return Number(s.replace(/\./g, '').replace(',', '.')) || 0
+  }
+
   const getInitialFormData = (user = null) => ({
     produto: '',
     materiaPrima: '',
@@ -44,8 +52,8 @@ const NovaPesagem = () => {
     tara: '',
     volume: '',
     balanca: '',
-    codigoInterno: '',
-    pesoLiquido: 0
+    codigoInterno: ''
+    // pesoLiquido NÃO fica mais no estado (é derivado)
   })
 
   const [formData, setFormData] = useState(getInitialFormData())
@@ -65,11 +73,10 @@ const NovaPesagem = () => {
     async function loadInitialData() {
       setLoading(true)
       try {
-        const [prodRes, mpRes, balRes, userRes] = await Promise.all([
+        const [prodRes, balRes, userRes] = await Promise.all([
           api.getProdutos(),
-          api.getMateriasPrimas(),
           api.getBalancas(),
-          api.me().catch(e => { console.error("Falha ao buscar usuário", e); return null; })
+          api.me().catch(e => { console.error('Falha ao buscar usuário', e); return null })
         ])
 
         if (abort) return
@@ -80,24 +87,17 @@ const NovaPesagem = () => {
           volumePadrao: p.volume_padrao ?? p.volumePadrao ?? '',
         }))
 
-        const mpsNorm = normalizeList(mpRes).map(m => ({
-          id: m.id,
-          nome: m.nome,
-          ativo: !!m.ativo,
-          codigoInterno: m.codigo_interno ?? m.codigoInterno ?? ''
-        }))
-
         const balsNorm = normalizeList(balRes).map(b => ({
           id: b.id,
           nome: b.nome
         }))
 
         setProdutos(produtosNorm)
-        setMateriasPrimas(mpsNorm)
         setBalancas(balsNorm)
 
         const display = getDisplayName(userRes)
-        setLocalUser({ ...userRes, displayName: display })
+        const safeUser = userRes ? userRes : {}
+        setLocalUser({ ...safeUser, displayName: display })
         setFormData(prev => ({ ...prev, pesador: display }))
       } catch (e) {
         console.error(e)
@@ -111,10 +111,41 @@ const NovaPesagem = () => {
   }, [])
 
   useEffect(() => {
-    const bruto = parseFloat(formData.bruto) || 0
-    const tara = parseFloat(formData.tara) || 0
-    const pesoLiquido = Math.max(bruto - tara, 0)
-    setFormData(prev => ({ ...prev, pesoLiquido }))
+    if (searchTerm.length === 0) {
+      setMateriasPrimas([])
+      return
+    }
+
+    const handler = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const mpRes = await api.getMateriasPrimas({ search: searchTerm })
+        const mpsNorm = normalizeList(mpRes).map(m => ({
+          id: m.id,
+          nome: m.nome,
+          ativo: !!m.ativo,
+          codigoInterno: m.codigo_interno ?? m.codigoInterno ?? ''
+        }))
+        setMateriasPrimas(mpsNorm)
+      } catch (e) {
+        console.error('Falha na busca de matérias-primas', e)
+        setError('Falha ao buscar matérias-primas.')
+        setMateriasPrimas([])
+      } finally {
+        setIsSearching(false)
+      }
+    }, 500)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [searchTerm])
+
+  // peso líquido calculado sob demanda (não fica em estado)
+  const pesoLiquido = useMemo(() => {
+    const bruto = toNumber(formData.bruto)
+    const tara = toNumber(formData.tara)
+    return Math.max(bruto - tara, 0)
   }, [formData.bruto, formData.tara])
 
   const handleChange = (name, value) => {
@@ -133,6 +164,9 @@ const NovaPesagem = () => {
         ? String(produto.volumePadrao)
         : ''
     }))
+    setError('')
+    setSuccess('')
+    setCreatedId(null)
   }
 
   const handleSubmit = async (e) => {
@@ -148,7 +182,8 @@ const NovaPesagem = () => {
         setLoading(false)
         return
       }
-      if (parseFloat(formData.bruto) <= parseFloat(formData.tara)) {
+
+      if (toNumber(formData.bruto) <= toNumber(formData.tara)) {
         setError('O peso bruto deve ser maior que a tara.')
         setLoading(false)
         return
@@ -159,11 +194,13 @@ const NovaPesagem = () => {
         materia_prima_id: Number(formData.materiaPrima),
         op: formData.op || '',
         lote: formData.lote || '',
-        bruto: parseFloat(formData.bruto),
-        tara: parseFloat(formData.tara),
+        bruto: toNumber(formData.bruto),
+        tara: toNumber(formData.tara),
         volume: (formData.volume ?? '').toString(),
         balanca_id: formData.balanca ? Number(formData.balanca) : null,
         codigo_interno: formData.codigoInterno || '',
+        // Se o backend exigir o nome do pesador via payload, descomente:
+        // pesador: formData.pesador || ''
       }
 
       const created = await api.createPesagem(payload)
@@ -182,6 +219,8 @@ const NovaPesagem = () => {
     setError('')
     setSuccess('')
     setCreatedId(null)
+    setMateriasPrimas([])
+    setSearchTerm('')
   }
 
   const handleGerarEtiqueta = async () => {
@@ -193,6 +232,8 @@ const NovaPesagem = () => {
       const blob = await api.gerarEtiquetaPDF(createdId)
       const pdfUrl = URL.createObjectURL(blob)
       window.open(pdfUrl, '_blank')
+      // evita vazamento de memória de blob URL
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000)
     } catch (e) {
       console.error(e)
       setError('Não foi possível gerar a etiqueta.')
@@ -202,7 +243,6 @@ const NovaPesagem = () => {
   const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
   const canSave = !loading && formData.produto && formData.materiaPrima && formData.bruto && formData.tara
 
-  // helpers de exibição para o combobox de MP
   const getMateriaPrimaLabel = (id) => {
     const mp = materiasPrimas.find(m => m.id.toString() === id?.toString())
     if (!mp) return ''
@@ -240,13 +280,17 @@ const NovaPesagem = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="produto">Produto *</Label>
-                <Select value={formData.produto || undefined} onValueChange={handleProdutoChange}>
+                <Select
+                  value={formData.produto ? String(formData.produto) : undefined}
+                  onValueChange={handleProdutoChange}
+                  disabled={loading}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione o produto'} />
                   </SelectTrigger>
                   <SelectContent>
                     {produtos.map(produto => (
-                      <SelectItem key={produto.id} value={produto.id.toString()}>
+                      <SelectItem key={produto.id} value={String(produto.id)}>
                         {produto.nome}
                       </SelectItem>
                     ))}
@@ -254,10 +298,12 @@ const NovaPesagem = () => {
                 </Select>
               </div>
 
-              {/* ===== Matéria-Prima com busca (ComboBox) ===== */}
               <div className="space-y-2">
                 <Label htmlFor="materiaPrima">Matéria-Prima *</Label>
-                <Popover open={openMp} onOpenChange={setOpenMp}>
+                <Popover
+                  open={openMp}
+                  onOpenChange={(v) => { setOpenMp(v); if (!v) setSearchTerm('') }}
+                >
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -265,18 +311,33 @@ const NovaPesagem = () => {
                       role="combobox"
                       aria-expanded={openMp}
                       className="w-full justify-between"
+                      disabled={loading}
                     >
-                      {formData.materiaPrima
-                        ? getMateriaPrimaLabel(formData.materiaPrima)
-                        : (loading ? 'Carregando...' : 'Selecione ou pesquise')}
+                      <span className="w-full truncate whitespace-nowrap overflow-hidden text-left">
+                        {formData.materiaPrima
+                          ? getMateriaPrimaLabel(formData.materiaPrima)
+                          : (isSearching ? 'Buscando...' : 'Pesquise e selecione')}
+                      </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <PopoverContent
+                    className="w-[--radix-popover-trigger-width] p-0"
+                    sideOffset={5}
+                  >
                     <Command>
-                      <CommandInput placeholder="Pesquisar por nome ou código..." />
-                      <CommandEmpty>Nenhuma matéria-prima encontrada.</CommandEmpty>
-                      <CommandList>
+                      <CommandInput
+                        placeholder="Pesquisar por nome ou código..."
+                        onValueChange={setSearchTerm}
+                      />
+                      <CommandEmpty>
+                        {isSearching ? 'Buscando...' : 'Nenhuma matéria-prima encontrada.'}
+                      </CommandEmpty>
+                      <CommandList
+                        className="max-h-[300px] overflow-y-auto"
+                        aria-busy={isSearching}
+                        aria-live="polite"
+                      >
                         <CommandGroup>
                           {materiasPrimas.map((mp) => {
                             const label = mp.codigoInterno ? `${mp.codigoInterno} — ${mp.nome}` : mp.nome
@@ -302,7 +363,6 @@ const NovaPesagem = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              {/* ============================================= */}
 
               <div className="space-y-2">
                 <Label htmlFor="op">OP</Label>
@@ -328,11 +388,11 @@ const NovaPesagem = () => {
                 <Label htmlFor="bruto">Peso Bruto (kg) *</Label>
                 <Input
                   id="bruto"
-                  type="number"
-                  step="0.01"
+                  type="text" // text para aceitar vírgula; converter com toNumber
+                  inputMode="decimal"
                   value={formData.bruto}
                   onChange={(e) => handleChange('bruto', e.target.value)}
-                  placeholder="0.00"
+                  placeholder="0,00"
                 />
               </div>
 
@@ -340,11 +400,11 @@ const NovaPesagem = () => {
                 <Label htmlFor="tara">Tara (kg) *</Label>
                 <Input
                   id="tara"
-                  type="number"
-                  step="0.01"
+                  type="text" // text para aceitar vírgula; converter com toNumber
+                  inputMode="decimal"
                   value={formData.tara}
                   onChange={(e) => handleChange('tara', e.target.value)}
-                  placeholder="0.00"
+                  placeholder="0,00"
                 />
               </div>
 
@@ -352,7 +412,7 @@ const NovaPesagem = () => {
                 <Label htmlFor="volume">Volume</Label>
                 <Input
                   id="volume"
-                  type="number"
+                  type="text" // manter string; se for numérico puro, trocar para number + step
                   value={formData.volume}
                   onChange={(e) => handleChange('volume', e.target.value)}
                   placeholder="Volume"
@@ -362,15 +422,16 @@ const NovaPesagem = () => {
               <div className="space-y-2">
                 <Label htmlFor="balanca">Balança</Label>
                 <Select
-                  value={formData.balanca || undefined}
+                  value={formData.balanca ? String(formData.balanca) : undefined}
                   onValueChange={(value) => handleChange('balanca', value)}
+                  disabled={loading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a balança'} />
                   </SelectTrigger>
                   <SelectContent>
                     {balancas.map(b => (
-                      <SelectItem key={b.id} value={b.id.toString()}>
+                      <SelectItem key={b.id} value={String(b.id)}>
                         {b.nome}
                       </SelectItem>
                     ))}
@@ -395,10 +456,10 @@ const NovaPesagem = () => {
                 <Label className="text-blue-900 font-semibold">Peso Líquido (Calculado Automaticamente)</Label>
               </div>
               <div className="text-2xl font-bold text-blue-900">
-                {Number.isFinite(formData.pesoLiquido) ? formData.pesoLiquido.toFixed(2) : '0.00'} kg
+                {Number.isFinite(pesoLiquido) ? pesoLiquido.toFixed(2) : '0,00'} kg
               </div>
               <p className="text-sm text-blue-700 mt-1">
-                Peso Bruto ({formData.bruto || '0'} kg) - Tara ({formData.tara || '0'} kg)
+                Peso Bruto ({formData.bruto || '0'}) - Tara ({formData.tara || '0'})
               </p>
             </div>
 
@@ -419,7 +480,14 @@ const NovaPesagem = () => {
                 {loading ? 'Salvando...' : 'Salvar'}
               </Button>
 
-              <Button type="button" variant="outline" onClick={handleGerarEtiqueta} className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGerarEtiqueta}
+                className="flex items-center gap-2"
+                disabled={!createdId}
+                title={!createdId ? 'Salve a pesagem para liberar a etiqueta' : 'Gerar etiqueta em PDF'}
+              >
                 <Printer className="h-4 w-4" />
                 Gerar Etiqueta
               </Button>

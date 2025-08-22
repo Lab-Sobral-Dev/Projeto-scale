@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { UserPlus, Users, Save, Trash2 } from 'lucide-react'
 
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
-const USUARIOS_BASE = `${API_BASE}/usuarios`
+const USUARIOS_URL = `${API_BASE}/usuarios/usuarios/`
+const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
+const ME_URL = `${API_BASE}/usuarios/auth/me/`
 
 const PAPEL_OPTIONS = [
   { value: 'operador', label: 'Operador' },
@@ -28,12 +30,14 @@ export default function UsuariosAdmin() {
   )
 
   const [loading, setLoading] = useState(false)
+  const [rowLoading, setRowLoading] = useState(null) // id do usuário em operação
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
   // listas
-  const [users, setUsers] = useState([])         // /usuarios/
-  const [perfis, setPerfis] = useState([])       // /perfis/
+  const [users, setUsers] = useState([])   // /usuarios/
+  const [perfis, setPerfis] = useState([]) // /perfis/
+  const [me, setMe] = useState(null)       // /auth/me/ (pra bloqueio de auto-exclusão)
 
   // form criação
   const [form, setForm] = useState({
@@ -54,28 +58,34 @@ export default function UsuariosAdmin() {
 
   async function carregar() {
     setLoading(true)
-    // NÃO zerar success aqui (para não apagar mensagens positivas durante reloads voluntários)
     setError('')
     try {
-      const [uRes, pRes] = await Promise.all([
-        fetch(`${USUARIOS_BASE}/usuarios/`, { headers: authHeaders }),
-        fetch(`${USUARIOS_BASE}/perfis/`, { headers: authHeaders }),
+      const [uRes, pRes, meRes] = await Promise.all([
+        fetch(USUARIOS_URL, { headers: authHeaders }),
+        fetch(PERFIS_URL, { headers: authHeaders }),
+        fetch(ME_URL, { headers: authHeaders }),
       ])
 
-      if (!uRes.ok || !pRes.ok) {
-        setError('Não foi possível carregar os usuários/perfis.')
+      if (uRes.status === 401 || pRes.status === 401 || meRes.status === 401) {
+        setError('Sessão expirada. Faça login novamente.')
         return
       }
 
-      const [uJson, pJson] = await Promise.all([uRes.json(), pRes.json()])
+      if (!uRes.ok || !pRes.ok || !meRes.ok) {
+        setError('Não foi possível carregar usuários/perfis.')
+        return
+      }
+
+      const [uJson, pJson, meJson] = await Promise.all([uRes.json(), pRes.json(), meRes.json()])
       const uList = Array.isArray(uJson) ? uJson : (uJson?.results ?? [])
       const pList = Array.isArray(pJson) ? pJson : (pJson?.results ?? [])
 
       setUsers(uList)
       setPerfis(pList)
+      setMe(meJson)
     } catch (e) {
       console.error(e)
-      setError('Não foi possível carregar os usuários. Verifique permissões (admin) e token.')
+      setError('Falha ao carregar dados. Verifique permissões (admin) e token.')
     } finally {
       setLoading(false)
     }
@@ -104,15 +114,13 @@ export default function UsuariosAdmin() {
         return
       }
 
-      // POST /usuarios/ (usa UserCreateSerializer com campo "papel")
-      const res = await fetch(`${USUARIOS_BASE}/usuarios/`, {
+      const res = await fetch(USUARIOS_URL, {
         method: 'POST',
         headers: jsonHeaders,
         body: JSON.stringify(form),
       })
 
       if (!res.ok) {
-        // lê o body UMA ÚNICA vez
         const raw = await res.text()
         let detail = raw
         try { detail = JSON.stringify(JSON.parse(raw)) } catch {}
@@ -128,18 +136,13 @@ export default function UsuariosAdmin() {
         password: '',
         papel: 'operador',
       })
+
+      await carregar()
     } catch (e) {
       console.error(e)
       setError('Não foi possível criar o usuário. Verifique dados/duplicidade.')
     } finally {
       setLoading(false)
-    }
-
-    // 🔹 Tenta recarregar a lista sem derrubar a mensagem de sucesso
-    try {
-      await carregar()
-    } catch (e) {
-      console.warn('Falha ao recarregar listas após criação:', e)
     }
   }
 
@@ -149,13 +152,13 @@ export default function UsuariosAdmin() {
       setError('Perfil não encontrado para este usuário.')
       return
     }
-    setLoading(true)
+    setRowLoading(username)
     setError('')
-    // não limpamos o success aqui
 
     try {
-      const res = await fetch(`${USUARIOS_BASE}/perfis/${perfil.id}/`, {
-        method: 'PUT',
+      // PATCH para atualizar só o campo "papel"
+      const res = await fetch(`${PERFIS_URL}${perfil.id}/`, {
+        method: 'PATCH',
         headers: jsonHeaders,
         body: JSON.stringify({ papel: novoPapel }),
       })
@@ -166,28 +169,27 @@ export default function UsuariosAdmin() {
         throw new Error(`Erro ao atualizar papel (${res.status}) ${detail}`)
       }
       setSuccess('Papel atualizado!')
+      await carregar()
     } catch (e) {
       console.error(e)
       setError('Não foi possível atualizar o papel.')
     } finally {
-      setLoading(false)
-    }
-
-    try {
-      await carregar()
-    } catch (e) {
-      console.warn('Falha ao recarregar após atualizar papel:', e)
+      setRowLoading(null)
     }
   }
 
-  async function removerUsuario(id) {
+  async function removerUsuario(id, username) {
+    if (me?.username && username === me.username) {
+      setError('Você não pode excluir sua própria conta.')
+      return
+    }
     if (!window.confirm('Excluir este usuário?')) return
-    setLoading(true)
+
+    setRowLoading(username)
     setError('')
-    // não limpamos o success aqui
 
     try {
-      const res = await fetch(`${USUARIOS_BASE}/usuarios/${id}/`, {
+      const res = await fetch(`${USUARIOS_URL}${id}/`, {
         method: 'DELETE',
         headers: authHeaders,
       })
@@ -198,18 +200,12 @@ export default function UsuariosAdmin() {
         throw new Error(`Erro ao excluir (${res.status}) ${detail}`)
       }
       setSuccess('Usuário excluído!')
-      setUsers(prev => prev.filter(u => u.id !== id))
+      await carregar()
     } catch (e) {
       console.error(e)
       setError('Não foi possível excluir o usuário.')
     } finally {
-      setLoading(false)
-    }
-
-    try {
-      await carregar()
-    } catch (e) {
-      console.warn('Falha ao recarregar após exclusão:', e)
+      setRowLoading(null)
     }
   }
 
@@ -292,6 +288,8 @@ export default function UsuariosAdmin() {
               ) : users.map(u => {
                 const perfil = perfilByUsername.get(u.username)
                 const papel = perfil?.papel || u.papel || 'operador'
+                const isRowBusy = rowLoading === u.username
+                const isMe = me?.username === u.username
                 return (
                   <div key={u.id} className="p-4 hover:bg-gray-50">
                     <div className="flex items-center justify-between gap-3">
@@ -301,6 +299,7 @@ export default function UsuariosAdmin() {
                           <Badge variant={papel === 'admin' ? 'default' : 'secondary'}>
                             {papel === 'admin' ? 'Administrador' : 'Operador'}
                           </Badge>
+                          {isMe && <Badge variant="outline">você</Badge>}
                         </div>
                         <div className="text-sm text-gray-600 truncate">
                           @{u.username} {u.email ? `• ${u.email}` : ''}
@@ -310,6 +309,7 @@ export default function UsuariosAdmin() {
                         <Select
                           value={papel}
                           onValueChange={(v) => atualizarPapel(u.username, v)}
+                          disabled={isRowBusy}
                         >
                           <SelectTrigger className="w-40">
                             <SelectValue />
@@ -322,8 +322,10 @@ export default function UsuariosAdmin() {
                         </Select>
                         <Button
                           variant="ghost"
-                          className="text-red-600 hover:text-red-800"
-                          onClick={() => removerUsuario(u.id)}
+                          className={`text-red-600 hover:text-red-800 ${isMe ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          onClick={() => removerUsuario(u.id, u.username)}
+                          disabled={isRowBusy || isMe}
+                          title={isMe ? 'Você não pode excluir sua própria conta' : 'Excluir usuário'}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

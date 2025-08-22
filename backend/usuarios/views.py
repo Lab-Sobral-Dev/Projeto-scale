@@ -1,4 +1,5 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth.models import User
@@ -6,18 +7,10 @@ from django.contrib.auth.models import User
 from .serializers import UserSerializer, UserCreateSerializer, PerfilUsuarioSerializer
 from .models import PerfilUsuario
 
-class IsAdminOrReadOnly(permissions.BasePermission):
-    def has_permission(self, request, view):
-        # permite leitura autenticada; escrita só admin
-        if request.method in permissions.SAFE_METHODS:
-            return request.user and request.user.is_authenticated
-        return request.user and request.user.is_staff
-
-
 class UserViewSet(viewsets.ModelViewSet):
     """
     Admin pode listar/criar/editar usuários.
-    (Ajuste a permissão conforme seu fluxo)
+    Operador não tem acesso aqui (IsAdminUser).
     """
     queryset = User.objects.all().order_by('username')
     permission_classes = [permissions.IsAdminUser]
@@ -30,29 +23,50 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class PerfilUsuarioViewSet(viewsets.ModelViewSet):
     """
-    Admin gerencia perfis; operador pode ler apenas o próprio via /me/
+    Admin gerencia todos os perfis.
+    Operador: só consegue ver o próprio perfil via /perfis/me/ (custom action).
     """
     queryset = PerfilUsuario.objects.select_related('user').all()
     serializer_class = PerfilUsuarioSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action in ['me']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        perfil = getattr(request.user, 'perfil', None)
+        if not perfil:
+            return Response({"detail": "Perfil não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(self.get_serializer(perfil).data)
 
 
+# views.py (substitua o MeView atual)
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         u = request.user
-        perfil = getattr(u, 'perfil', None)  # OneToOne PerfilUsuario
+        perfil = getattr(u, 'perfil', None)
         nome = (u.get_full_name() or '').strip() or u.username
+
+        # 🔧 regra: se é staff/superuser => admin, senão usa perfil.papel (fallback operador)
+        if u.is_staff or u.is_superuser:
+            tipo = 'admin'
+        else:
+            tipo = getattr(perfil, 'papel', 'operador')
+
         return Response({
             "id": u.id,
             "username": u.username,
-            "usuario": u.username,           # conveniência p/ frontend
+            "usuario": u.username,
             "first_name": u.first_name,
             "last_name": u.last_name,
             "email": u.email,
             "nome_exibicao": nome,
-            "tipo": getattr(perfil, 'papel', 'operador'),  # 'admin' | 'operador'
+            "tipo": tipo,                # <- agora consistente
             "is_staff": u.is_staff,
             "is_superuser": u.is_superuser,
         })
+

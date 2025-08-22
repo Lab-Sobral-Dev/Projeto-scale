@@ -68,9 +68,11 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
 }
 
+# (Opcional) tempo dos tokens
+from datetime import timedelta
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=3),
-    "REFRESH_TOKEN_LIFETIME": timedelta(hours=10),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
 ROOT_URLCONF = 'conf.urls'
