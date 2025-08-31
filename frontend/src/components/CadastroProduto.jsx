@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Package, Save, X, Plus, Edit, Trash2, Search } from 'lucide-react'
+import { Package, Save, X, Plus, Edit, Trash2, Search, FlaskConical } from 'lucide-react'
 
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api') + '/registro'
 
@@ -21,6 +21,7 @@ const CadastroProduto = () => {
   const [formData, setFormData] = useState({
     nome: '',
     codigoInterno: '',
+    volumePadrao: '',   // 👈 novo
     ativo: true
   })
 
@@ -30,34 +31,32 @@ const CadastroProduto = () => {
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   }), [token])
 
-  // Helpers de mapeamento camelCase <-> snake_case
+  // Helpers camelCase <-> snake_case
   const apiToUi = (p) => ({
     id: p.id,
     nome: p.nome ?? '',
     codigoInterno: p.codigo_interno ?? '',
+    volumePadrao: p.volume_padrao ?? '',
     ativo: !!p.ativo,
   })
 
   const uiToApi = (p) => ({
     nome: p.nome,
     codigo_interno: p.codigoInterno,
+    volume_padrao: p.volumePadrao,
     ativo: p.ativo,
   })
 
-  // SUBSTITUA a função normalizeList por esta versão:
   const normalizeList = (data) => {
-    // aceita array puro ou objeto paginado do DRF
     if (Array.isArray(data)) return data
     if (data?.results && Array.isArray(data.results)) return data.results
     return []
   }
 
-  // SUBSTITUA a função carregarProdutos por esta versão com paginação acumulando tudo:
   const carregarProdutos = async () => {
     setLoading(true)
     setError('')
     try {
-      // tenta pedir um page_size grande; o backend pode ignorar, mas ajuda
       let url = `${API_BASE}/produtos/?page_size=500`
       const all = []
 
@@ -66,14 +65,10 @@ const CadastroProduto = () => {
         if (!res.ok) throw new Error(`GET produtos: ${res.status}`)
         const json = await res.json()
 
-        // acumula página atual
         const pageItems = normalizeList(json).map(apiToUi)
         all.push(...pageItems)
 
-        // segue a paginação do DRF (se não houver, será undefined)
         url = json?.next || null
-
-        // caso o backend não seja paginado (retorna array), paramos após 1 iteração
         if (Array.isArray(json)) break
       }
 
@@ -85,7 +80,6 @@ const CadastroProduto = () => {
       setLoading(false)
     }
   }
-
 
   useEffect(() => {
     carregarProdutos()
@@ -105,42 +99,55 @@ const CadastroProduto = () => {
     setSuccess('')
 
     try {
-      // Validações básicas
       if (!formData.nome.trim() || !formData.codigoInterno.trim()) {
-        setError('Por favor, preencha todos os campos obrigatórios')
+        setError('Por favor, preencha Nome e Código Interno.')
         return
       }
 
-      // Checar duplicidade local de código interno
+      // Duplicidades locais
       const codigoExiste = produtos.some(p =>
         p.codigoInterno.toLowerCase() === formData.codigoInterno.toLowerCase() && p.id !== editingId
       )
       if (codigoExiste) {
-        setError('Código interno já existe')
+        setError('Código interno já existe.')
         return
       }
 
       if (editingId) {
-        // UPDATE
         const res = await fetch(`${API_BASE}/produtos/${editingId}/`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(uiToApi(formData)),
         })
-        if (!res.ok) throw new Error(`PUT produto: ${res.status}`)
+        if (!res.ok) {
+          let msg = `PUT produto: ${res.status}`
+          try {
+            const j = await res.json()
+            if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
+            if (j?.nome?.[0]) msg = j.nome[0]
+          } catch {}
+          throw new Error(msg)
+        }
         const atualizado = apiToUi(await res.json())
         setProdutos(prev => prev.map(p => (p.id === editingId ? atualizado : p)))
         setSuccess('Produto atualizado com sucesso!')
         setEditingId(null)
         handleLimparFormulario(false)
       } else {
-        // CREATE
         const res = await fetch(`${API_BASE}/produtos/`, {
           method: 'POST',
           headers,
           body: JSON.stringify(uiToApi(formData)),
         })
-        if (!res.ok) throw new Error(`POST produto: ${res.status}`)
+        if (!res.ok) {
+          let msg = `POST produto: ${res.status}`
+          try {
+            const j = await res.json()
+            if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
+            if (j?.nome?.[0]) msg = j.nome[0]
+          } catch {}
+          throw new Error(msg)
+        }
         const criado = apiToUi(await res.json())
         setProdutos(prev => [criado, ...prev])
         setSuccess('Produto cadastrado com sucesso!')
@@ -148,7 +155,7 @@ const CadastroProduto = () => {
       }
     } catch (err) {
       console.error(err)
-      setError('Erro ao salvar produto. Verifique os dados e tente novamente.')
+      setError(typeof err?.message === 'string' ? err.message : 'Erro ao salvar produto. Verifique os dados e tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -158,6 +165,7 @@ const CadastroProduto = () => {
     setFormData({
       nome: '',
       codigoInterno: '',
+      volumePadrao: '',
       ativo: true
     })
     setEditingId(null)
@@ -171,6 +179,7 @@ const CadastroProduto = () => {
     setFormData({
       nome: produto.nome,
       codigoInterno: produto.codigoInterno,
+      volumePadrao: produto.volumePadrao || '',
       ativo: produto.ativo
     })
     setEditingId(produto.id)
@@ -188,8 +197,7 @@ const CadastroProduto = () => {
       })
 
       if (res.status === 400 || res.status === 409) {
-        // lê a resposta do backend e mostra no alerta
-        const data = await res.json()
+        const data = await res.json().catch(() => ({}))
         setError(data?.detail || 'Este produto não pode ser excluído, pois está vinculado a registros.')
         return
       }
@@ -207,7 +215,6 @@ const CadastroProduto = () => {
       setLoading(false)
     }
   }
-
 
   const produtosFiltrados = produtos.filter(produto =>
     produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -259,6 +266,22 @@ const CadastroProduto = () => {
                   placeholder="Digite o código interno"
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="volumePadrao" className="inline-flex items-center gap-2">
+                  <FlaskConical className="h-4 w-4 text-gray-500" />
+                  Volume padrão (opcional)
+                </Label>
+                <Input
+                  id="volumePadrao"
+                  value={formData.volumePadrao}
+                  onChange={(e) => handleChange('volumePadrao', e.target.value)}
+                  placeholder="Ex.: Balde 5L, Saco 25kg, etc."
+                />
+                <p className="text-xs text-gray-500">
+                  Usado como sugestão automática na tela de pesagem.
+                </p>
               </div>
 
               <div className="flex items-center space-x-2">
@@ -348,8 +371,13 @@ const CadastroProduto = () => {
                             </Badge>
                           </div>
                           <p className="text-sm text-gray-500">
-                            Código: {produto.codigoInterno}
+                            Código: <span className="font-mono">{produto.codigoInterno}</span>
                           </p>
+                          {produto.volumePadrao && (
+                            <p className="text-sm text-gray-500">
+                              Volume padrão: {produto.volumePadrao}
+                            </p>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <Button

@@ -18,7 +18,6 @@ const CadastroMateriaPrima = () => {
   const [editingId, setEditingId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // agora temos nome, codigoInterno e ativo
   const [formData, setFormData] = useState({
     nome: '',
     codigoInterno: '',
@@ -31,7 +30,6 @@ const CadastroMateriaPrima = () => {
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   }), [token])
 
-  // Helpers camelCase <-> snake_case
   const apiToUi = (mp) => ({
     id: mp.id,
     nome: mp.nome ?? '',
@@ -45,19 +43,17 @@ const CadastroMateriaPrima = () => {
     ativo: mp.ativo,
   })
 
-  // 1) Troque o normalizeList por esta versão
   const normalizeList = (data) => {
     if (Array.isArray(data)) return data
     if (data?.results && Array.isArray(data.results)) return data.results
     return []
   }
 
-  // 2) Troque a carregarMateriasPrimas por esta versão
   const carregarMateriasPrimas = async () => {
     setLoading(true)
     setError('')
     try {
-      let url = `${API_BASE}/materias-primas/?page_size=500` // tenta puxar mais itens
+      let url = `${API_BASE}/materias-primas/?page_size=500`
       const all = []
 
       while (url) {
@@ -68,10 +64,7 @@ const CadastroMateriaPrima = () => {
         const pageItems = normalizeList(json).map(apiToUi)
         all.push(...pageItems)
 
-        // segue a paginação (DRF expõe "next")
         url = json?.next || null
-
-        // sem paginação (API retorna array): sai após 1 volta
         if (Array.isArray(json)) break
       }
 
@@ -83,7 +76,6 @@ const CadastroMateriaPrima = () => {
       setLoading(false)
     }
   }
-
 
   useEffect(() => {
     carregarMateriasPrimas()
@@ -108,7 +100,6 @@ const CadastroMateriaPrima = () => {
         return
       }
 
-      // Checagem local de duplicidade (não substitui validação no backend)
       const nomeExiste = materiasPrimas.some(mp =>
         (mp.nome || '').toLowerCase() === formData.nome.toLowerCase() && mp.id !== editingId
       )
@@ -126,7 +117,6 @@ const CadastroMateriaPrima = () => {
       }
 
       if (editingId) {
-        // UPDATE
         const res = await fetch(`${API_BASE}/materias-primas/${editingId}/`, {
           method: 'PUT',
           headers,
@@ -138,7 +128,7 @@ const CadastroMateriaPrima = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch { }
+          } catch {}
           throw new Error(msg)
         }
         const atualizado = apiToUi(await res.json())
@@ -147,7 +137,6 @@ const CadastroMateriaPrima = () => {
         setEditingId(null)
         handleLimparFormulario(false)
       } else {
-        // CREATE
         const res = await fetch(`${API_BASE}/materias-primas/`, {
           method: 'POST',
           headers,
@@ -159,7 +148,7 @@ const CadastroMateriaPrima = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch { }
+          } catch {}
           throw new Error(msg)
         }
         const criado = apiToUi(await res.json())
@@ -205,7 +194,6 @@ const CadastroMateriaPrima = () => {
       })
 
       if (res.status === 400 || res.status === 409) {
-        // lê a resposta do backend e mostra no alerta
         const data = await res.json().catch(() => ({}))
         setError(data?.detail || 'Esta matéria-prima não pode ser excluída, pois está vinculada a registros.')
         return
@@ -225,7 +213,6 @@ const CadastroMateriaPrima = () => {
       setLoading(false)
     }
   }
-
 
   const materiasPrimasFiltradas = materiasPrimas.filter(mp => {
     const t = searchTerm.toLowerCase()
@@ -323,7 +310,7 @@ const CadastroMateriaPrima = () => {
           </CardContent>
         </Card>
 
-        {/* Lista de Matérias-Primas */}
+        {/* Lista */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -400,45 +387,9 @@ const CadastroMateriaPrima = () => {
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{materiasPrimas.length}</p>
-              </div>
-              <Layers className="h-8 w-8 text-gray-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Ativas</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {materiasPrimas.filter(mp => mp.ativo).length}
-                </p>
-              </div>
-              <Layers className="h-8 w-8 text-green-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Inativas</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {materiasPrimas.filter(mp => !mp.ativo).length}
-                </p>
-              </div>
-              <Layers className="h-8 w-8 text-red-400" />
-            </div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Total</p><p className="text-2xl font-bold text-gray-900">{materiasPrimas.length}</p></div><Layers className="h-8 w-8 text-gray-400" /></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Ativas</p><p className="text-2xl font-bold text-green-600">{materiasPrimas.filter(mp => mp.ativo).length}</p></div><Layers className="h-8 w-8 text-green-400" /></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Inativas</p><p className="text-2xl font-bold text-red-600">{materiasPrimas.filter(mp => !mp.ativo).length}</p></div><Layers className="h-8 w-8 text-red-400" /></div></CardContent></Card>
       </div>
     </div>
   )

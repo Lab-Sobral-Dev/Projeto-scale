@@ -4,15 +4,21 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
   Scale, History, Package, Layers, TrendingUp,
-  Calendar, Clock, Weight, RefreshCw
+  Calendar, Clock, Weight, RefreshCw, Factory, Hammer, ListChecks
 } from 'lucide-react'
 import api from '@/services/api'
 
 /* =========================
-   Utils
+    Utils
 ========================= */
 const tz = 'America/Fortaleza'
-const nfKg = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+const nf3 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+
+// NOVO FORMATADOR PARA GRAMAS
+const fmtG = (v) => {
+  const n = Math.round(Number(v) || 0)
+  return n.toLocaleString('pt-BR') + ' g'
+}
 
 function formatDateTimeISOToBR(iso) {
   if (!iso) return '-'
@@ -32,18 +38,23 @@ function isWithinLastDaysFortaleza(iso, days = 7) {
   const diff = now.getTime() - d.getTime()
   return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000
 }
+const normalize = (data) => Array.isArray(data) ? data : (data?.results ?? [])
 
 /* =========================
-   Componente
+    Componente
 ========================= */
 const Dashboard = () => {
   const [stats, setStats] = useState({
     pesagensHoje: 0,
     pesagensSemana: 0,
     produtosCadastrados: 0,
-    materiasPrimas: 0
+    materiasPrimas: 0,
+    opsPendentes: 0,
+    opsAbertas: 0,
+    opsAndamento: 0,
   })
   const [ultimasPesagens, setUltimasPesagens] = useState([])
+  const [pendingOps, setPendingOps] = useState([]) // [{id, numero, lote, produto, status, progresso, necessario, pesado, restante, criada_em}]
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -51,48 +62,59 @@ const Dashboard = () => {
   const quickActions = useMemo(() => ([
     { title: 'Nova Pesagem', description: 'Registrar uma nova pesagem', icon: Scale, href: '/nova-pesagem', color: 'bg-blue-500 hover:bg-blue-600' },
     { title: 'Histórico', description: 'Consultar pesagens anteriores', icon: History, href: '/historico', color: 'bg-green-500 hover:bg-green-600' },
-    { title: 'Cadastrar Produto', description: 'Adicionar novo produto', icon: Package, href: '/cadastro-produto', color: 'bg-purple-500 hover:bg-purple-600' },
-    { title: 'Cadastrar MP', description: 'Adicionar matéria-prima', icon: Layers, href: '/cadastro-materia-prima', color: 'bg-orange-500 hover:bg-orange-600' },
+    { title: 'Ordens de Produção', description: 'Status e itens das OPs', icon: Factory, href: '/ops', color: 'bg-indigo-500 hover:bg-indigo-600' },
+    { title: 'Nova OP', description: 'Criar OP a partir da estrutura', icon: ListChecks, href: '/ops/nova', color: 'bg-rose-500 hover:bg-rose-600' },
   ]), [])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      // O service já cuida de Authorization/refresh.
-      const [produtos, materias, pesagens] = await Promise.all([
+      // Busca tudo que precisamos
+      const [produtos, materias, pesagens, ops] = await Promise.all([
         api.getProdutos(),
         api.getMateriasPrimas(),
         api.getPesagens(),
+        api.getOPs({ ordering: '-criada_em' }),
       ])
 
-      const produtosList = Array.isArray(produtos) ? produtos : (produtos?.results ?? [])
-      const materiasList = Array.isArray(materias) ? materias : (materias?.results ?? [])
-      const pesList     = Array.isArray(pesagens) ? pesagens : (pesagens?.results ?? [])
+      const produtosList = normalize(produtos)
+      const materiasList = normalize(materias)
+      const pesList = normalize(pesagens)
+      const opsList = normalize(ops)
 
-      // Mapas id->nome para quando vierem apenas IDs
+      // Mapas id->nome (fallback caso alguns endpoints retornem só IDs)
       const prodById = new Map(produtosList.map(p => [p.id, p.nome]))
-      const mpById   = new Map(materiasList.map(m => [m.id, m.nome]))
+      const mpById = new Map(materiasList.map(m => [m.id, m.nome]))
 
-      // KPIs
-      const hoje   = pesList.filter(p => isSameDayFortaleza(p.data_hora))
+      // KPIs de pesagens
+      const hoje = pesList.filter(p => isSameDayFortaleza(p.data_hora))
       const semana = pesList.filter(p => isWithinLastDaysFortaleza(p.data_hora, 7))
+
+      // KPIs de OPs
+      const ab = opsList.filter(o => o.status === 'aberta').length
+      const em = opsList.filter(o => o.status === 'em_andamento').length
+      const pend = ab + em
 
       setStats({
         pesagensHoje: hoje.length,
         pesagensSemana: semana.length,
         produtosCadastrados: Array.isArray(produtos) ? produtos.length : (produtos?.count ?? produtosList.length),
         materiasPrimas: Array.isArray(materias) ? materias.length : (materias?.count ?? materiasList.length),
+        opsPendentes: pend,
+        opsAndamento: em,
       })
 
-      // Últimas 10 pesagens
+      // Últimas 10 pesagens (compatível com novo serializer: produto_nome / materia_prima_nome)
       const sorted = [...pesList].sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
       const top10 = sorted.slice(0, 10).map(p => {
         const produtoNome =
+          p.produto_nome ||
           (p.produto && typeof p.produto === 'object' && p.produto.nome) ||
           (typeof p.produto === 'number' && prodById.get(p.produto)) || '-'
 
         const mpNome =
+          p.materia_prima_nome ||
           (p.materia_prima && typeof p.materia_prima === 'object' && p.materia_prima.nome) ||
           (typeof p.materia_prima === 'number' && mpById.get(p.materia_prima)) || '-'
 
@@ -109,8 +131,39 @@ const Dashboard = () => {
           pesador: p.pesador ?? '-',
         }
       })
-
       setUltimasPesagens(top10)
+
+      // OPs pendentes (top 5 mais recentes) + progresso/saldo
+      const pendentes = opsList.filter(o => ['aberta', 'em_andamento'].includes(o.status)).slice(0, 5)
+      const itensByOp = await Promise.all(
+        pendentes.map(o => api.getOPItems(o.id).then(normalize).catch(() => []))
+      )
+      const pendDetails = pendentes.map((o, idx) => {
+        const itens = itensByOp[idx]
+        const totals = itens.reduce((acc, it) => {
+          const nec = Number(it.quantidade_necessaria || 0)
+          const pes = Number(it.quantidade_pesada || 0)
+          acc.necessario += nec
+          acc.pesado += pes
+          return acc
+        }, { necessario: 0, pesado: 0 })
+        const restante = Math.max(totals.necessario - totals.pesado, 0)
+        const progresso = totals.necessario > 0 ? Math.min((totals.pesado / totals.necessario) * 100, 100) : 0
+        return {
+          id: o.id,
+          numero: o.numero,
+          lote: o.lote,
+          produto: o?.produto?.nome || '-',
+          status: o.status,
+          criada_em: o.criada_em,
+          necessario: totals.necessario,
+          pesado: totals.pesado,
+          restante,
+          progresso,
+        }
+      })
+      setPendingOps(pendDetails)
+
       setLastUpdated(new Date())
     } catch (e) {
       console.error(e)
@@ -123,30 +176,21 @@ const Dashboard = () => {
   useEffect(() => {
     let mounted = true
     fetchData()
-
-    // Auto refresh a cada 30s
-    const id = setInterval(() => {
-      if (mounted) fetchData()
-    }, 30000)
-
-    // Recarregar quando o token mudar (ex.: login em outra aba)
-    const onStorage = (e) => {
-      if (e.key === 'access') fetchData()
-    }
+    const id = setInterval(() => { if (mounted) fetchData() }, 30000)
+    const onStorage = (e) => { if (e.key === 'access') fetchData() }
     window.addEventListener('storage', onStorage)
-
-    return () => {
-      mounted = false
-      clearInterval(id)
-      window.removeEventListener('storage', onStorage)
-    }
+    return () => { mounted = false; clearInterval(id); window.removeEventListener('storage', onStorage) }
   }, [fetchData])
 
-  const statCards = [
+  const statCardsTop = [
     { title: 'Pesagens Hoje', value: stats.pesagensHoje, icon: Calendar, color: 'text-blue-600' },
     { title: 'Pesagens esta Semana', value: stats.pesagensSemana, icon: TrendingUp, color: 'text-green-600' },
     { title: 'Produtos Cadastrados', value: stats.produtosCadastrados, icon: Package, color: 'text-purple-600' },
     { title: 'Matérias-Primas', value: stats.materiasPrimas, icon: Layers, color: 'text-orange-600' },
+  ]
+  const statCardsOP = [
+    { title: 'OPs Pendentes', value: stats.opsPendentes, icon: Factory, color: 'text-indigo-600' },
+    { title: 'OPs em Andamento', value: stats.opsAndamento, icon: Hammer, color: 'text-rose-600' },
   ]
 
   return (
@@ -154,7 +198,7 @@ const Dashboard = () => {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Bem-vindo ao Sistema de Gerenciamento de Pesagem de Matéria-Prima</p>
+          <p className="text-gray-600 mt-2">Bem-vindo ao Sistema de Gerenciamento de Pesagem</p>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           {lastUpdated && (
             <p className="mt-1 text-xs text-gray-500">
@@ -167,9 +211,31 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs de pesagens/produtos/MPs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => {
+        {statCardsTop.map((stat, index) => {
+          const Icon = stat.icon
+          return (
+            <Card key={index} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {loading ? '—' : stat.value}
+                    </p>
+                  </div>
+                  <Icon className={`h-8 w-8 ${stat.color}`} />
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* KPIs de OPs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {statCardsOP.map((stat, index) => {
           const Icon = stat.icon
           return (
             <Card key={index} className="hover:shadow-lg transition-shadow">
@@ -210,6 +276,64 @@ const Dashboard = () => {
             )
           })}
         </div>
+      </div>
+
+      {/* OPs pendentes */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">OPs Pendentes</h2>
+          <Link to="/ops">
+            <Button variant="outline" size="sm">Ver OPs</Button>
+          </Link>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OP</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lote</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progresso</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criada em</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {loading && pendingOps.length === 0 && (
+                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">Carregando…</td></tr>
+                  )}
+                  {!loading && pendingOps.length === 0 && (
+                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">Nenhuma OP pendente.</td></tr>
+                  )}
+                  {pendingOps.map(op => (
+                    <tr key={op.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{op.numero}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{op.produto}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{op.lote}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="w-48">
+                          <div className="h-2 bg-gray-200 rounded">
+                            <div className="h-2 bg-blue-600 rounded" style={{ width: `${op.progresso.toFixed(0)}%` }} />
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">{op.progresso.toFixed(0)}%</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {fmtG(op.restante)} (restante)
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDateTimeISOToBR(op.criada_em)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Últimas pesagens */}
@@ -255,7 +379,7 @@ const Dashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center">
                           <Weight className="h-4 w-4 mr-1 text-gray-400" />
-                          {p.pesoLiquido == null ? '-' : `${nfKg.format(Number(p.pesoLiquido))} kg`}
+                          {p.pesoLiquido == null ? '-' : fmtG(p.pesoLiquido)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

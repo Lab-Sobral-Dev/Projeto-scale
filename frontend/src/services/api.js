@@ -62,14 +62,16 @@ class ApiService {
 
   async _asError(res) {
     let payload = {};
-    try { payload = await res.json(); } catch { }
-    const err = new Error(`HTTP ${res.status}`);
+    try { payload = await res.json(); } catch { /* corpo não-JSON */ }
+    const err = new Error(payload?.detail || `HTTP ${res.status}`);
     err.status = res.status;
     err.payload = payload;
+    // compat com telas que leem err.response.data
+    err.response = { status: res.status, data: payload };
     return err;
   }
   async _parseBody(res) {
-    try { return await res.json(); } catch { return null; }
+    try { return await res.json(); } catch { return null; } // 204/sem corpo
   }
 
   // ===== Auth (/api/usuarios/auth/...) =====
@@ -171,56 +173,6 @@ class ApiService {
     });
   }
 
-  // ===== Pesagens (/api/registro/pesagens/) =====
-  async getPesagens(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/pesagens/${qs ? `?${qs}` : ""}`);
-  }
-  async getPesagem(id) {
-    return this.request(`${this.baseRegistro}/pesagens/${id}/`);
-  }
-  async createPesagem(pesagem) {
-    return this.request(`${this.baseRegistro}/pesagens/`, {
-      method: "POST",
-      body: JSON.stringify(pesagem),
-    });
-  }
-  async updatePesagem(id, pesagem) {
-    return this.request(`${this.baseRegistro}/pesagens/${id}/`, {
-      method: "PUT",
-      body: JSON.stringify(pesagem),
-    });
-  }
-  async deletePesagem(id) {
-    return this.request(`${this.baseRegistro}/pesagens/${id}/`, {
-      method: "DELETE",
-    });
-  }
-
-  // ===== Etiqueta PDF (/api/registro/etiqueta/<id>/) =====
-  async gerarEtiquetaPDF(id) {
-    const url = `${this.baseRegistro}/etiqueta/${id}/`;
-    const token = this.access;
-
-    const res = await fetch(url, {
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    });
-
-    if (res.status === 401 && this.refresh) {
-      const ok = await this.tryRefresh();
-      if (ok) {
-        const res2 = await fetch(url, {
-          headers: { Authorization: `Bearer ${this.access}` },
-        });
-        if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
-        return res2.blob();
-      }
-    }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.blob();
-  }
-
   // ===== Balanças (/api/registro/balancas/) =====
   async getBalancas(params = {}) {
     const qs = new URLSearchParams(params).toString();
@@ -247,6 +199,150 @@ class ApiService {
     });
   }
 
+  // ===== Estruturas (BOM) (/api/registro/estruturas/) =====
+  async getEstruturas(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`${this.baseRegistro}/estruturas/${qs ? `?${qs}` : ""}`);
+  }
+  async getEstrutura(id) {
+    return this.request(`${this.baseRegistro}/estruturas/${id}/`);
+  }
+  async getItensEstrutura(estruturaId) {
+    return this.request(`${this.baseRegistro}/estruturas/${estruturaId}/itens/`);
+  }
+  // (Opcional: CRUD de itens-estrutura, caso precise)
+  async createItemEstrutura(item) {
+    return this.request(`${this.baseRegistro}/itens-estrutura/`, {
+      method: "POST",
+      body: JSON.stringify(item),
+    });
+  }
+  async updateItemEstrutura(id, item) {
+    return this.request(`${this.baseRegistro}/itens-estrutura/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify(item),
+    });
+  }
+  async deleteItemEstrutura(id) {
+    return this.request(`${this.baseRegistro}/itens-estrutura/${id}/`, {
+      method: "DELETE",
+    });
+  }
+
+  // ===== OPs (/api/registro/ops/) =====
+  async getOPs(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`${this.baseRegistro}/ops/${qs ? `?${qs}` : ""}`);
+  }
+  async getOP(id) {
+    return this.request(`${this.baseRegistro}/ops/${id}/`);
+  }
+  async createOP(payload) {
+    // { numero, produto_id, estrutura_id, lote, observacoes? }
+    return this.request(`${this.baseRegistro}/ops/`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+  async updateOP(id, payload) {
+    return this.request(`${this.baseRegistro}/ops/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+  async deleteOP(id) {
+    return this.request(`${this.baseRegistro}/ops/${id}/`, {
+      method: "DELETE",
+    });
+  }
+  async gerarItensOP(opId, forcar = false) {
+    const qs = forcar ? "?forcar=1" : "";
+    return this.request(`${this.baseRegistro}/ops/${opId}/gerar-itens/${qs}`, {
+      method: "POST",
+    });
+  }
+  async concluirSePossivelOP(opId) {
+    return this.request(`${this.baseRegistro}/ops/${opId}/concluir-se-possivel/`, {
+      method: "POST",
+    });
+  }
+  async getOPItems(opId) {
+    return this.request(`${this.baseRegistro}/ops/${opId}/itens/`);
+  }
+
+  // ===== Itens-OP (CRUD direto se precisar) (/api/registro/itens-op/) =====
+  async getItensOP(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`${this.baseRegistro}/itens-op/${qs ? `?${qs}` : ""}`);
+  }
+  async getItemOP(id) {
+    return this.request(`${this.baseRegistro}/itens-op/${id}/`);
+  }
+  async updateItemOP(id, payload) {
+    return this.request(`${this.baseRegistro}/itens-op/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ===== Pesagens (/api/registro/pesagens/) =====
+  async getPesagens(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`${this.baseRegistro}/pesagens/${qs ? `?${qs}` : ""}`);
+  }
+  async getPesagem(id) {
+    return this.request(`${this.baseRegistro}/pesagens/${id}/`);
+  }
+  async createPesagem(pesagem) {
+    // legado (se outra tela ainda enviar produto_id/materia_prima_id)
+    return this.request(`${this.baseRegistro}/pesagens/`, {
+      method: "POST",
+      body: JSON.stringify(pesagem),
+    });
+  }
+  async createPesagemOP(payload) {
+    // novo fluxo: { op_id, item_op_id, bruto, tara, volume?, balanca_id?, codigo_interno? }
+    return this.request(`${this.baseRegistro}/pesagens/`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+  async updatePesagem(id, pesagem) {
+    return this.request(`${this.baseRegistro}/pesagens/${id}/`, {
+      method: "PUT",
+      body: JSON.stringify(pesagem),
+    });
+  }
+  async deletePesagem(id) {
+    return this.request(`${this.baseRegistro}/pesagens/${id}/`, {
+      method: "DELETE",
+    });
+  }
+
+  // ===== Etiqueta PDF (/api/registro/etiqueta/<id>/) =====
+  async gerarEtiquetaPDF(id) {
+    const url = `${this.baseRegistro}/etiqueta/${id}/`;
+    const token = this.access;
+
+    const call = async (authToken) => {
+      const res = await fetch(url, {
+        headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.blob();
+    };
+
+    try {
+      return await call(token);
+    } catch (e) {
+      // tenta refresh se 401
+      if (e?.message?.includes("401") && this.refresh) {
+        const ok = await this.tryRefresh();
+        if (ok) return await call(this.access);
+      }
+      throw e;
+    }
+  }
 
   // ===== Dashboard helper (opcional no front) =====
   async getDashboardStats() {

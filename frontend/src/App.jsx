@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import NovaPesagem from './components/NovaPesagem'
+import Ops from '@/components/Ops'
+import CriarOP from '@/components/CriarOP'
 import Historico from './components/Historico'
 import CadastroProduto from './components/CadastroProduto'
 import CadastroMateriaPrima from './components/CadastroMateriaPrima'
@@ -61,13 +63,15 @@ function App() {
           element={
             <RequireAuth>
               <Layout user={user} onLogout={handleLogout} />
-              
+
             </RequireAuth>
           }
         >
           <Route path="/" element={<Dashboard />} />
-          
+
           <Route path="/nova-pesagem" element={<NovaPesagem />} />
+          <Route path="/ops" element={<Ops />} />
+          <Route path="/ops/nova" element={<CriarOP />} />
           <Route path="/pesagens/:id" element={<PesagemDetalhe />} />
           <Route path="/historico" element={<Historico />} />
           <Route path="/perfil" element={<PerfilUsuario user={user} onLogout={handleLogout} />} />
@@ -84,7 +88,7 @@ function App() {
         >
           <Route path="/cadastro-produto" element={<CadastroProduto />} />
           <Route path="/cadastro-materia-prima" element={<CadastroMateriaPrima />} />
-          <Route path="/balancas" element={<CadastroBalanca/>} />
+          <Route path="/balancas" element={<CadastroBalanca />} />
           <Route path="/cadastro-usuario" element={<UsuariosAdmin />} />
           <Route path="/pesagens/:id/editar" element={<PesagemEditar />} />
         </Route>

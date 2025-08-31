@@ -11,23 +11,33 @@ import {
   Menu,
   X,
   LogOut,
-  Weight
+  Weight,
+  Factory,
+  ListChecks,
 } from 'lucide-react'
 
 const Layout = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [logoError, setLogoError] = useState(false) // evita erro no onError do logo mobile
   const location = useLocation()
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
     { name: 'Histórico', href: '/historico', icon: History },
+    { name: 'OPs', href: '/ops', icon: Factory },            // 👈 novo
+    { name: 'Nova OP', href: '/ops/nova', icon: ListChecks },// 👈 novo
     { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
     { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
     { name: 'Balanças', href: '/balancas', icon: Weight },
   ]
 
-  const isActive = (href) => location.pathname === href || location.pathname.startsWith(href + '/')
+  // evita que '/ops' fique ativo quando estiver em '/ops/nova'
+  const isActive = (href) => {
+    const path = location.pathname
+    if (href === '/ops') return path === '/ops' || path === '/ops/'
+    return path === href || path.startsWith(href + '/')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -38,18 +48,14 @@ const Layout = ({ user, onLogout }) => {
           <div className="flex h-16 items-center justify-between px-4 border-b">
             <div className="flex items-center gap-2">
               <img
-                src="/logo2.png"
+                src={logoError ? '/logo.png' : '/logo2.png'}
                 alt="Logo"
                 className="h-12 w-auto"
                 onError={() => setLogoError(true)}
               />
               <h1 className="text-xl font-bold text-gray-900">Scale</h1>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(false)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -60,9 +66,10 @@ const Layout = ({ user, onLogout }) => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                    isActive(item.href)
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -80,11 +87,7 @@ const Layout = ({ user, onLogout }) => {
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
           <div className="flex h-16 items-center px-4 border-b">
             <div className="flex items-center gap-2">
-              <img
-                src="/logo.png"        // altere o caminho se preferir
-                alt="Logo Scale"
-                className="h-7 w-7"
-              />
+              <img src="/logo.png" alt="Logo Scale" className="h-7 w-7" />
               <h1 className="text-xl font-bold text-gray-900">Scale</h1>
             </div>
           </div>
@@ -95,9 +98,10 @@ const Layout = ({ user, onLogout }) => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                    isActive(item.href)
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -113,33 +117,19 @@ const Layout = ({ user, onLogout }) => {
       <div className="lg:pl-64">
         {/* Top bar */}
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
+          <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-            <div className="flex flex-1"></div>
+            <div className="flex flex-1" />
             <div className="flex items-center gap-x-4 lg:gap-x-6">
-              {/* User menu */}
               <div className="flex items-center gap-x-2">
-                <Link
-                  to="/perfil"
-                  className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
+                <Link to="/perfil" className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900">
                   <User className="h-5 w-5" />
                   <span className="hidden sm:block">{user?.nome || 'Usuário'}</span>
                 </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onLogout}
-                  className="text-gray-500 hover:text-gray-700"
-                >
+                <Button variant="ghost" size="sm" onClick={onLogout} className="text-gray-500 hover:text-gray-700">
                   <LogOut className="h-5 w-5" />
                 </Button>
               </div>

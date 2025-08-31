@@ -23,7 +23,7 @@ const CadastroBalanca = () => {
   const [formData, setFormData] = useState({
     nome: '',
     identificador: '',
-    tipoConexao: 'ethernet',   // 'ethernet' | 'serial' | 'usb'
+    tipoConexao: 'ethernet',
     enderecoIp: '',
     porta: '',
     portaSerial: '',
@@ -31,7 +31,7 @@ const CadastroBalanca = () => {
     capacidadeMaxima: '',
     divisao: '',
     protocolo: '',
-    ultimaCalibracao: '',      // YYYY-MM-DD
+    ultimaCalibracao: '',
     ativo: true,
   })
 
@@ -41,7 +41,6 @@ const CadastroBalanca = () => {
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   }), [token])
 
-  // helpers de mapeamento
   const apiToUi = (b) => ({
     id: b.id,
     nome: b.nome ?? '',
@@ -79,7 +78,7 @@ const CadastroBalanca = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(ENDPOINT, { headers })
+      const res = await fetch(ENDPOINT + '?page_size=500', { headers })
       if (!res.ok) throw new Error(`GET balanças: ${res.status}`)
       const json = await res.json()
       const list = normalizeList(json).map(apiToUi)
@@ -126,7 +125,6 @@ const CadastroBalanca = () => {
       const msg = validar()
       if (msg) { setError(msg); return }
 
-      // Checar duplicidade local de identificador
       const idExiste = balancas.some(b =>
         b.identificador.toLowerCase() === formData.identificador.toLowerCase() && b.id !== editingId
       )
@@ -217,6 +215,11 @@ const CadastroBalanca = () => {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
+      if (res.status === 400 || res.status === 409) {
+        const data = await res.json().catch(() => ({}))
+        setError(data?.detail || 'Esta balança não pode ser excluída, pois está vinculada a pesagens.')
+        return
+      }
       if (res.status !== 204 && res.status !== 200) throw new Error(`DELETE balança: ${res.status}`)
       setBalancas(prev => prev.filter(b => b.id !== id))
       setSuccess('Balança excluída com sucesso!')
@@ -287,23 +290,12 @@ const CadastroBalanca = () => {
 
               <div className="space-y-2">
                 <Label>Tipo de Conexão *</Label>
-                <Select
-                  value={formData.tipoConexao}
-                  onValueChange={(v) => handleChange('tipoConexao', v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
+                <Select value={formData.tipoConexao} onValueChange={(v) => handleChange('tipoConexao', v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ethernet">
-                      <span className="inline-flex items-center gap-2"><Network className="h-4 w-4" /> Ethernet</span>
-                    </SelectItem>
-                    <SelectItem value="serial">
-                      <span className="inline-flex items-center gap-2"><Cable className="h-4 w-4" /> Serial</span>
-                    </SelectItem>
-                    <SelectItem value="usb">
-                      <span className="inline-flex items-center gap-2"><Usb className="h-4 w-4" /> USB</span>
-                    </SelectItem>
+                    <SelectItem value="ethernet"><span className="inline-flex items-center gap-2"><Network className="h-4 w-4" /> Ethernet</span></SelectItem>
+                    <SelectItem value="serial"><span className="inline-flex items-center gap-2"><Cable className="h-4 w-4" /> Serial</span></SelectItem>
+                    <SelectItem value="usb"><span className="inline-flex items-center gap-2"><Usb className="h-4 w-4" /> USB</span></SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -312,22 +304,11 @@ const CadastroBalanca = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="enderecoIp">Endereço IP *</Label>
-                    <Input
-                      id="enderecoIp"
-                      value={formData.enderecoIp}
-                      onChange={(e) => handleChange('enderecoIp', e.target.value)}
-                      placeholder="Ex.: 192.168.0.10"
-                    />
+                    <Input id="enderecoIp" value={formData.enderecoIp} onChange={(e) => handleChange('enderecoIp', e.target.value)} placeholder="Ex.: 192.168.0.10" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="porta">Porta *</Label>
-                    <Input
-                      id="porta"
-                      type="number"
-                      value={formData.porta}
-                      onChange={(e) => handleChange('porta', e.target.value)}
-                      placeholder="Ex.: 502"
-                    />
+                    <Input id="porta" type="number" value={formData.porta} onChange={(e) => handleChange('porta', e.target.value)} placeholder="Ex.: 502" />
                   </div>
                 </div>
               )}
@@ -335,104 +316,52 @@ const CadastroBalanca = () => {
               {isSerialLike && (
                 <div className="space-y-2">
                   <Label htmlFor="portaSerial">Porta Serial *</Label>
-                  <Input
-                    id="portaSerial"
-                    value={formData.portaSerial}
-                    onChange={(e) => handleChange('portaSerial', e.target.value)}
-                    placeholder="Ex.: COM3 ou /dev/ttyUSB0"
-                  />
+                  <Input id="portaSerial" value={formData.portaSerial} onChange={(e) => handleChange('portaSerial', e.target.value)} placeholder="Ex.: COM3 ou /dev/ttyUSB0" />
                 </div>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="localizacao">Localização</Label>
-                  <Input
-                    id="localizacao"
-                    value={formData.localizacao}
-                    onChange={(e) => handleChange('localizacao', e.target.value)}
-                    placeholder="Ex.: Sala 02"
-                  />
+                  <Input id="localizacao" value={formData.localizacao} onChange={(e) => handleChange('localizacao', e.target.value)} placeholder="Ex.: Sala 02" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="protocolo">Protocolo</Label>
-                  <Input
-                    id="protocolo"
-                    value={formData.protocolo}
-                    onChange={(e) => handleChange('protocolo', e.target.value)}
-                    placeholder="Ex.: Toledo"
-                  />
+                  <Input id="protocolo" value={formData.protocolo} onChange={(e) => handleChange('protocolo', e.target.value)} placeholder="Ex.: Toledo" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="capacidadeMaxima">Capacidade Máx. (kg)</Label>
-                  <Input
-                    id="capacidadeMaxima"
-                    type="number"
-                    step="0.001"
-                    value={formData.capacidadeMaxima}
-                    onChange={(e) => handleChange('capacidadeMaxima', e.target.value)}
-                  />
+                  <Input id="capacidadeMaxima" type="number" step="0.001" value={formData.capacidadeMaxima} onChange={(e) => handleChange('capacidadeMaxima', e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="divisao">Divisão/Resolução (kg)</Label>
-                  <Input
-                    id="divisao"
-                    type="number"
-                    step="0.001"
-                    value={formData.divisao}
-                    onChange={(e) => handleChange('divisao', e.target.value)}
-                  />
+                  <Input id="divisao" type="number" step="0.001" value={formData.divisao} onChange={(e) => handleChange('divisao', e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ultimaCalibracao">Última Calibração</Label>
-                  <Input
-                    id="ultimaCalibracao"
-                    type="date"
-                    value={formData.ultimaCalibracao}
-                    onChange={(e) => handleChange('ultimaCalibracao', e.target.value)}
-                  />
+                  <Input id="ultimaCalibracao" type="date" value={formData.ultimaCalibracao} onChange={(e) => handleChange('ultimaCalibracao', e.target.value)} />
                 </div>
               </div>
 
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="ativo"
-                  checked={formData.ativo}
-                  onCheckedChange={(checked) => handleChange('ativo', checked)}
-                />
+                <Switch id="ativo" checked={formData.ativo} onCheckedChange={(checked) => handleChange('ativo', checked)} />
                 <Label htmlFor="ativo">Balança Ativa</Label>
               </div>
 
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {success && (
-                <Alert className="border-green-200 bg-green-50">
-                  <AlertDescription className="text-green-800">{success}</AlertDescription>
-                </Alert>
-              )}
+              {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+              {success && <Alert className="border-green-200 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
 
               <div className="flex gap-3">
                 <Button type="submit" disabled={loading} className="flex items-center gap-2">
                   <Save className="h-4 w-4" />
                   {loading ? 'Salvando...' : (editingId ? 'Atualizar' : 'Salvar')}
                 </Button>
-
                 {editingId && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleLimparFormulario()}
-                    className="flex items-center gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    Cancelar
+                  <Button type="button" variant="outline" onClick={() => handleLimparFormulario()} className="flex items-center gap-2">
+                    <X className="h-4 w-4" /> Cancelar
                   </Button>
                 )}
               </div>
@@ -440,16 +369,14 @@ const CadastroBalanca = () => {
           </CardContent>
         </Card>
 
-        {/* Lista de Balanças */}
+        {/* Lista */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
               Balanças Cadastradas ({balancas.length})
             </CardTitle>
-            <CardDescription>
-              Lista de todas as balanças cadastradas no sistema
-            </CardDescription>
+            <CardDescription>Lista de todas as balanças cadastradas no sistema</CardDescription>
             <div className="mt-4">
               <Input
                 placeholder="Buscar por nome, identificador, local, protocolo..."
@@ -479,9 +406,7 @@ const CadastroBalanca = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-medium text-gray-900">{b.nome}</h3>
-                            <Badge variant={b.ativo ? "default" : "secondary"}>
-                              {b.ativo ? 'Ativa' : 'Inativa'}
-                            </Badge>
+                            <Badge variant={b.ativo ? "default" : "secondary"}>{b.ativo ? 'Ativa' : 'Inativa'}</Badge>
                           </div>
                           <p className="text-sm text-gray-500">Identificador: {b.identificador}</p>
                           <p className="text-sm text-gray-500">
@@ -496,20 +421,10 @@ const CadastroBalanca = () => {
                           {b.protocolo && <p className="text-sm text-gray-500">Protocolo: {b.protocolo}</p>}
                         </div>
                         <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditar(b)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => handleEditar(b)} className="text-blue-600 hover:text-blue-800">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleExcluir(b.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => handleExcluir(b.id)} className="text-red-600 hover:text-red-800">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
