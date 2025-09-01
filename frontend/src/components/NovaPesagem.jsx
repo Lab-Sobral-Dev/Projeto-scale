@@ -461,18 +461,6 @@ const NovaPesagem = () => {
 
               {/* Entradas (sempre em kg): LÍQUIDO e TARA */}
               <div className="space-y-2">
-                <Label htmlFor="liquido">Peso Líquido (kg) *</Label>
-                <Input
-                  id="liquido"
-                  type="text"
-                  inputMode="decimal"
-                  value={formData.liquido}
-                  onChange={(e) => handleChange('liquido', e.target.value)}
-                  placeholder="0,000 kg"
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="tara">Tara (kg) *</Label>
                 <Input
                   id="tara"
@@ -480,6 +468,18 @@ const NovaPesagem = () => {
                   inputMode="decimal"
                   value={formData.tara}
                   onChange={(e) => handleChange('tara', e.target.value)}
+                  placeholder="0,000 kg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="liquido">Peso Líquido (kg) *</Label>
+                <Input
+                  id="liquido"
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.liquido}
+                  onChange={(e) => handleChange('liquido', e.target.value)}
                   placeholder="0,000 kg"
                 />
               </div>

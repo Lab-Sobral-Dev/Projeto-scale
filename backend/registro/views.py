@@ -10,8 +10,8 @@ from reportlab.lib.pagesizes import A7
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
-import os
 from decimal import Decimal, ROUND_HALF_UP
+import os
 
 from .models import (
     Produto, MateriaPrima, Balanca,
@@ -243,12 +243,7 @@ def gerar_etiqueta_pdf(request, pk):
         text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
         p.drawString((width - text_width) / 2, height - 20, titulo)
 
-   # ---- formatação: g sem adicionar casas; vírgula pt-BR apenas se houver decimais ----
-    from decimal import Decimal  # já importado no topo do arquivo; manter aqui se necessário
-
     # ---- formatação: 1.234,567 g (pt-BR), sempre 3 casas ----
-    from decimal import Decimal, ROUND_HALF_UP
-
     def fmt_g3_ptbr(value):
         """
         Ex.: 282000 -> 282.000,000 g
@@ -262,32 +257,76 @@ def gerar_etiqueta_pdf(request, pk):
         inteiro, frac = s.split(".")   # ('282000', '000')
         inteiro = f"{int(inteiro):,}".replace(",", ".")  # '282.000'
         return f"{inteiro},{frac} g"
+    
+    from django.utils import timezone
 
+    def dt_local_fmt(dt):
+        if not dt:
+            return ""
+        # garante consciente e converte para o fuso atual (settings.TIME_ZONE)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.get_current_timezone())
+        dt = timezone.localtime(dt)  # usa settings.TIME_ZONE
+        return dt.strftime('%d/%m/%Y %H:%M')
 
 
     # Converte kg -> g para exibição
     KG_TO_G = Decimal('1000')
-    # Converte kg -> g para exibição
-    bruto_g = Decimal(pesagem.bruto or 0) * KG_TO_G   # KG_TO_G já definido no arquivo
+    bruto_g = Decimal(pesagem.bruto or 0) * KG_TO_G
     tara_g  = Decimal(pesagem.tara or 0)  * KG_TO_G
-    liquido_g = Decimal(pesagem.liquido or 0)        # já em g no banco
+    liquido_g = Decimal(pesagem.liquido or 0)  # já em g no banco
 
     # Conteúdo
     linha = height - 50
-    p.setFont("Helvetica", 9)
+    base_font = "Helvetica"
+    base_size = 9
+    min_size = 6
+    margem_esq = 30
+    margem_dir = 10
+    max_text_width = width - margem_esq - margem_dir
+
+    p.setFont(base_font, base_size)
+
+    def pular_linha():
+        nonlocal linha
+        linha -= 14
 
     def escrever(txt):
         nonlocal linha
-        p.drawString(30, linha, txt)
-        linha -= 14
+        p.setFont(base_font, base_size)
+        p.drawString(margem_esq, linha, txt)
+        pular_linha()
+
+    def escrever_ajustado(label, valor):
+        """
+        Desenha 'Label: Valor' e reduz a fonte gradualmente (até min_size)
+        se o texto exceder a largura máxima disponível.
+        """
+        nonlocal linha
+        txt = f"{label}: {valor}" if valor else f"{label}:"
+        font_size = base_size
+        text_width = p.stringWidth(txt, base_font, font_size)
+
+        while text_width > max_text_width and font_size > min_size:
+            font_size -= 0.5
+            text_width = p.stringWidth(txt, base_font, font_size)
+
+        p.setFont(base_font, font_size)
+        p.drawString(margem_esq, linha, txt)
+        pular_linha()
+        # restaura para os próximos campos
+        p.setFont(base_font, base_size)
 
     produto_nome = pesagem.op.produto.nome if pesagem.op and pesagem.op.produto else ""
     mp_nome = pesagem.item_op.materia_prima.nome if pesagem.item_op and pesagem.item_op.materia_prima else ""
     balanca_txt = pesagem.balanca.nome if pesagem.balanca else ""
     lote_mp_txt = getattr(pesagem, "lote_mp", "") or ""
 
-    escrever(f"Produto: {produto_nome}")
-    escrever(f"Matéria-prima: {mp_nome}")
+    # Campos com ajuste dinâmico
+    escrever_ajustado("Produto", produto_nome)
+    escrever_ajustado("Matéria-prima", mp_nome)
+
+    # Demais campos com fonte padrão
     escrever(f"Cód. Interno: {pesagem.codigo_interno}")
     escrever(f"OP: {pesagem.op.numero if pesagem.op else ''}   Lote: {pesagem.op.lote if pesagem.op else ''}")
     if lote_mp_txt:
@@ -298,7 +337,7 @@ def gerar_etiqueta_pdf(request, pk):
     escrever(f"Peso Líquido: {fmt_g3_ptbr(liquido_g)}")
     escrever(f"Balança: {balanca_txt}")
     escrever(f"Pesador: {pesagem.pesador}")
-    escrever(f"Data: {pesagem.data_hora.strftime('%d/%m/%Y %H:%M')}")
+    escrever(f"Data: {dt_local_fmt(pesagem.data_hora)}")
 
     p.showPage()
     p.save()
