@@ -47,7 +47,6 @@ export default function PesagemEditar() {
     liquido: '', // <— novo campo editável
     tara: '',
     // DERIVADOS / METADADOS
-    volume: '',
     balanca_id: null,
     codigo_interno: '',
   })
@@ -106,7 +105,6 @@ export default function PesagemEditar() {
             liquido: liquidoKg != null ? String(liquidoKg) : '',   // input (kg)
             tara: taraKg != null ? String(taraKg) : '',             // input (kg)
 
-            volume: p?.volume ?? '',
             balanca_id: p?.balanca?.id ?? null,
             codigo_interno: p?.codigo_interno ?? '',
           })
@@ -142,7 +140,6 @@ export default function PesagemEditar() {
         lote: form.lote,
         liquido: form.liquido === '' ? null : Number(form.liquido), // kg — backend converte para g
         tara: form.tara === '' ? null : Number(form.tara),           // kg
-        volume: form.volume?.toString() ?? '',
         balanca_id: form.balanca_id ?? null,
         codigo_interno: form.codigo_interno,
       }
@@ -320,11 +317,7 @@ export default function PesagemEditar() {
             </div>
           </div>
 
-          {/* Volume / Balança / Código */}
-          <div className="space-y-2">
-            <Label>Volume</Label>
-            <Input value={form.volume} onChange={(e) => onChange('volume', e.target.value)} placeholder="Ex.: Balde 5L" />
-          </div>
+          {/* Balança / Código */}
 
           <div className="space-y-2">
             <Label>Balança</Label>

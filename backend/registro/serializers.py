@@ -149,7 +149,6 @@ class PesagemSerializer(serializers.ModelSerializer):
             "pesador",
             "data_hora",
             "bruto", "tara", "liquido",
-            "volume",
             "codigo_interno",
             "lote_mp",
             # extras para leitura

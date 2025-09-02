@@ -275,7 +275,7 @@ class Pesagem(models.Model):
     )
 
     # Metadados adicionais
-    volume = models.CharField(max_length=50, blank=True, default="")
+    
     balanca = models.ForeignKey(
         Balanca,
         null=True,

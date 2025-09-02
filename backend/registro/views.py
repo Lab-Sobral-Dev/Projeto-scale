@@ -331,7 +331,6 @@ def gerar_etiqueta_pdf(request, pk):
     escrever(f"OP: {pesagem.op.numero if pesagem.op else ''}   Lote: {pesagem.op.lote if pesagem.op else ''}")
     if lote_mp_txt:
         escrever(f"Lote MP: {lote_mp_txt}")
-    escrever(f"Volume: {pesagem.volume or ''}")
     escrever(f"Peso Bruto: {fmt_g3_ptbr(bruto_g)}")
     escrever(f"Tara: {fmt_g3_ptbr(tara_g)}")
     escrever(f"Peso Líquido: {fmt_g3_ptbr(liquido_g)}")

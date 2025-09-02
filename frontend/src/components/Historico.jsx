@@ -87,7 +87,6 @@ const Historico = () => {
             bruto_g: brutoG,
             tara_g: taraG,
             liquido_g: liquidoFinalG,
-            volume: toDisplay(p.volume),
             codigoInterno: toDisplay(p.codigo_interno ?? p.codigoInterno)
           }
         })

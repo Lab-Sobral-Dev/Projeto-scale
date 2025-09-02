@@ -59,7 +59,6 @@ const NovaPesagem = () => {
     // Entradas SEMPRE em kg na UI
     liquido: '',     // input do usuário (kg)
     tara: '',        // input do usuário (kg)
-    volume: '',
     balanca: '',      // sempre string p/ Select controlado
     codigoInterno: '',
     loteMP: ''         // mapeia para lote_mp
@@ -238,7 +237,6 @@ const NovaPesagem = () => {
         item_op_id: Number(formData.itemOp),
         tara: Number(taraKg.toFixed(3)),     // kg
         liquido: Number(liquidoKg.toFixed(3)),  // kg
-        volume: (formData.volume ?? '').toString(),
         balanca_id: formData.balanca ? Number(formData.balanca) : null,
         codigo_interno: formData.codigoInterno || '',
         lote_mp: loteMP
@@ -481,16 +479,6 @@ const NovaPesagem = () => {
                   value={formData.liquido}
                   onChange={(e) => handleChange('liquido', e.target.value)}
                   placeholder="0,000 kg"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="volume">Volume</Label>
-                <Input
-                  id="volume"
-                  type="text"
-                  value={formData.volume}
-                  onChange={(e) => handleChange('volume', e.target.value)}
                 />
               </div>
 

@@ -30,7 +30,6 @@ const normalize = (p) => {
     brutoG,
     taraG,
     liquidoG,
-    volume: p.volume ?? '',
     balanca: (p.balanca?.nome) ?? p.balanca_nome ?? (typeof p.balanca === 'string' ? p.balanca : ''),
     codigoInterno: p.codigo_interno ?? ''
   }
@@ -244,7 +243,6 @@ export default function GeracaoEtiqueta() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-gray-600">OP:</span><span className="font-medium">{pesagem.op}</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">Lote:</span><span className="font-medium">{pesagem.lote}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Volume:</span><span className="font-medium">{pesagem.volume}</span></div>
               </div>
             </div>
             <div className="space-y-4">
