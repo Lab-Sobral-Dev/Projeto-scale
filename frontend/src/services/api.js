@@ -4,7 +4,7 @@
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
   process.env.REACT_APP_API_URL ||
-  "http://localhost:8000/api";
+  "https://apiscale.laboratoriosobral.com.br/api";
 
 const REGISTRO_BASE = `${API_BASE_URL}/registro`;
 const USUARIOS_BASE = `${API_BASE_URL}/usuarios`;

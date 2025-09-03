@@ -29,7 +29,7 @@ const AlertDescription = ({ children, className }) => <p className={`text-sm [&_
 const Separator = ({ className }) => <div className={`shrink-0 bg-border h-[1px] w-full ${className}`} />;
 
 // ================ API (resumo) ================
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'https://apiscale.laboratoriosobral.com.br/api';
 const REGISTRO_BASE = `${API_BASE_URL}/registro`;
 const USUARIOS_BASE = `${API_BASE_URL}/usuarios`;
 

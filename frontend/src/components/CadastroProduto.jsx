@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Package, Save, X, Plus, Edit, Trash2, Search, FlaskConical } from 'lucide-react'
 
-const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api') + '/registro'
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
 
 const CadastroProduto = () => {
   const [produtos, setProdutos] = useState([])

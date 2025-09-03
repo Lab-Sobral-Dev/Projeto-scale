@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { UserPlus, Users, Save, Trash2 } from 'lucide-react'
 
-const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api')
 const USUARIOS_URL = `${API_BASE}/usuarios/usuarios/`
 const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
 const ME_URL = `${API_BASE}/usuarios/auth/me/`

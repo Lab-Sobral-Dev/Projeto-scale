@@ -1,58 +1,93 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  backend:
-    build: ./backend
-    container_name: scale_backend
-    restart: unless-stopped
-    env_file:
-      - .env
+  db:
+    image: postgres:16-alpine
+    container_name: scale_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-scale}
+      POSTGRES_USER: ${DB_USER:-scale}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-scale}
     volumes:
-      - ./backend:/app
-      - static_volume:/app/static
-      - media_volume:/app/media
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - scale_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    container_name: scale_backend
+    env_file:
+      - ./.env
+    environment:
+      # Garante que o host do banco aponte para o serviço "db" da rede
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn conf.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+    depends_on:
+      db:
+        condition: service_healthy
     expose:
       - "8000"
-    depends_on:
-      - db
-
-  frontend:
-    build: ./frontend
-    container_name: scale_frontend
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    networks:
+      - scale_net
     restart: unless-stopped
+
+  # Frontend em Vite: imagem deve gerar o build e servir com 'vite preview' (porta 4173)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: scale_frontend
+    env_file:
+      - ./.env
     expose:
-      - "80"
+      - "4173"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4173 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      - backend
+    networks:
+      - scale_net
+    restart: unless-stopped
 
   nginx:
-    image: nginx:stable-alpine
+    image: nginx:1.27-alpine
     container_name: scale_nginx
-    restart: unless-stopped
-    # Porta SOMENTE interna via loopback (sem 443)
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
     ports:
       - "127.0.0.1:8091:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./frontend/dist:/usr/share/nginx/html:ro
-      - static_volume:/app/static:ro
-      - media_volume:/app/media:ro
-    depends_on:
-      - backend
-      - frontend
-
-  db:
-    image: postgres:15
-    container_name: scale_db
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Nginx servindo estáticos e mídias direto dos volumes coletados pelo Django
+      - staticfiles:/staticfiles:ro
+      - media:/media:ro
+    networks:
+      - scale_net
     restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - db_data:/var/lib/postgresql/data
+
+networks:
+  scale_net:
 
 volumes:
-  db_data:
-  static_volume:
-  media_volume:
+  pgdata:
+  staticfiles:
+  media:
