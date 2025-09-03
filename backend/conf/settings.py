@@ -142,7 +142,7 @@ else:
     }
 
 # Usuário customizado
-AUTH_USER_MODEL = "usuarios.User"
+AUTH_USER_MODEL = "usuarios.PerfilUsuario"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
