@@ -37,7 +37,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .vite/
-#dist/
+dist/
 #build/
 
 # Reports temporários
