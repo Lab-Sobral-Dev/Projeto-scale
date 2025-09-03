@@ -14,7 +14,7 @@ __pycache__/
 *.egg-info/
 .eggs/
 build/
-dist/
+#dist/
 pip-wheel-metadata/
 .venv/
 venv/
@@ -37,7 +37,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .vite/
-dist/
+#dist/
 #build/
 
 # Reports temporários
