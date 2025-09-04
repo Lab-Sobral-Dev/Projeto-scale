@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.conf import settings
 
 class PerfilUsuario(models.Model):
     PAPEL_OPERADOR = 'operador'
@@ -12,6 +13,7 @@ class PerfilUsuario(models.Model):
     )
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
+    
     papel = models.CharField(max_length=20, choices=PAPEL_CHOICES, default=PAPEL_OPERADOR)
 
     def __str__(self):

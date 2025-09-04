@@ -140,9 +140,7 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-
-# Usuário customizado
-AUTH_USER_MODEL = "usuarios.PerfilUsuario"
+    
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
