@@ -13,25 +13,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Dependências Python
-# (garanta que requirements.txt esteja na pasta backend)
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Código do app
 COPY . .
 
-# Coleta de estáticos (se o settings estiver correto para isso)
-# Se preferir fazer no entrypoint/migrate job, pode remover esta linha.
-RUN python manage.py collectstatic --noinput || true
-
 # Porta interna
 EXPOSE 8000
 
-# Dica: troque o módulo WSGI abaixo se o seu projeto tiver outro nome
-# Você também pode definir WSGI_MODULE no .env e usar: ${WSGI_MODULE:-scale_project.wsgi:application}
-CMD ["gunicorn", "scale_project.wsgi:application", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "3", \
-     "--timeout", "60", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+# Sobe migrando, coleta estáticos e inicia Gunicorn
+# IMPORTANTE: use o módulo WSGI correto do seu projeto -> conf.wsgi:application
+CMD ["sh", "-lc", "\
+python manage.py migrate && \
+python manage.py collectstatic --noinput && \
+gunicorn conf.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120 --access-logfile - --error-logfile - \
+"]
