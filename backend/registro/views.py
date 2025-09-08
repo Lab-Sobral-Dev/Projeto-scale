@@ -228,8 +228,8 @@ def gerar_etiqueta_pdf(request, pk):
 
     if os.path.exists(logo_path):
         logo = ImageReader(logo_path)
-        logo_width = 30
-        logo_height = 30
+        logo_width = 20
+        logo_height = 20
         text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
         total_width = logo_width + 1 + text_width
         start_x = (width - total_width) / 2
