@@ -222,7 +222,7 @@ def gerar_etiqueta_pdf(request, pk):
     width, height = etiqueta_size
 
     # Cabeçalho com logo
-    logo_path = os.path.join(settings.BASE_DIR, 'registro', 'static', 'logo.png')
+    logo_path = os.path.join(settings.BASE_DIR, 'registro', 'static', 'logonova.png')
     p.setFont("Helvetica-Bold", 12)
     titulo = "THEODORO F. SOBRAL"
 
