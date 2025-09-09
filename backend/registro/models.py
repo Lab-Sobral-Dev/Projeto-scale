@@ -178,9 +178,16 @@ class OrdemProducao(models.Model):
         )
 
     def verificar_e_concluir(self):
-        pendente = self.itemop_set.filter(
-            Q(quantidade_pesada__lt=F("quantidade_necessaria"))
-        ).exists()
+        """
+        Conclui a OP somente quando TODOS os itens estiverem pelo menos no mínimo permitido.
+        (O máximo já é protegido no momento da pesagem.)
+        """
+        itens = list(self.itemop_set.select_related('materia_prima'))
+
+        pendente = any(
+            (item.quantidade_pesada or Decimal('0')) < item.quantidade_minima_permitida
+            for item in itens
+        )
 
         novo_status = StatusOP.EM_ANDAMENTO if pendente else StatusOP.CONCLUIDA
         campos = ["status"]
@@ -215,12 +222,12 @@ class ItemOP(models.Model):
     def quantidade_restante(self):
         return self.quantidade_necessaria - self.quantidade_pesada
 
-    # Adicionado: Limite inferior permitido (g) com tolerância de 5%
+    # Limite inferior permitido (g) com tolerância de 5%
     @property
     def quantidade_minima_permitida(self):
         return self.quantidade_necessaria * (Decimal('1') - TOLERANCIA_PERCENTUAL)
 
-    # Tolerância: limite superior permitido (g)
+    # Limite superior permitido (g)
     @property
     def quantidade_maxima_permitida(self):
         return self.quantidade_necessaria * (Decimal('1') + TOLERANCIA_PERCENTUAL)
@@ -239,7 +246,7 @@ class Pesagem(models.Model):
     • Entrada do operador no formulário: líquido (kg) + tara (kg)
     • Backend calcula bruto (kg) e converte líquido para g para armazenar/validar
     • Todo o controle de saldo/operação interna é feito em g
-    • >>> Respeita tolerância de +/- 5% sobre a quantidade necessária do ItemOP
+    • >>> Regra: permitir parciais (valida só o teto aqui) e fechar OP quando atingir o mínimo.
     """
     op = models.ForeignKey(
         OrdemProducao,
@@ -275,7 +282,6 @@ class Pesagem(models.Model):
     )
 
     # Metadados adicionais
-    
     balanca = models.ForeignKey(
         Balanca,
         null=True,
@@ -308,7 +314,7 @@ class Pesagem(models.Model):
 
         # Entradas devem permitir cálculo positivo
         tara_kg = self.tara or 0
-        liquido_kg_informado = self.liquido or 0  # aqui o front manda em kg
+        liquido_kg_informado = self.liquido or 0  # front manda em kg (vamos converter no save)
         if tara_kg < 0 or liquido_kg_informado <= 0:
             raise ValidationError("Informe tara (kg) ≥ 0 e líquido (kg) > 0.")
 
@@ -318,11 +324,10 @@ class Pesagem(models.Model):
         if self.lote_mp:
             self.lote_mp = self.lote_mp.strip()
 
-        # Lê entradas em kg
+        # Lê entradas em kg (front manda em kg)
         tara_kg = self.tara or 0
-        liquido_kg_informado = self.liquido or 0  # **frontend manda em kg**
-        # Converte para g para regra interna
-        liquido_g = liquido_kg_informado * KG_TO_G
+        liquido_kg_informado = self.liquido or 0
+        liquido_g = liquido_kg_informado * KG_TO_G  # guarda em g internamente
 
         if liquido_g <= 0:
             raise ValidationError("O líquido calculado deve ser positivo após a conversão para g.")
@@ -330,22 +335,17 @@ class Pesagem(models.Model):
         # Calcula o bruto (kg) no backend — não confiar no valor vindo do front
         self.bruto = tara_kg + liquido_kg_informado
 
-        # Trava o item e checa SALDO com TOLERÂNCIA (em g)
+        # Trava o item e checa apenas o TETO (máximo permitido) para permitir parciais
         item = ItemOP.objects.select_for_update().get(pk=self.item_op_id)
-        
-        # Obtém os limites inferior e superior
         limite_superior_g = item.quantidade_maxima_permitida
-        limite_inferior_g = item.quantidade_minima_permitida
-        
-        novo_total_g = (item.quantidade_pesada or 0) + liquido_g
+        total_projetado_g = (item.quantidade_pesada or 0) + liquido_g
 
-        # Verifica se o novo total está fora da faixa de tolerância
-        if not (limite_inferior_g <= novo_total_g <= limite_superior_g):
+        if total_projetado_g > limite_superior_g:
             raise ValidationError(
-                f"Quantidade excede a faixa de tolerância de +/- 5% para {item.materia_prima}. "
-                f"Faixa permitida: {limite_inferior_g:.3f} g a {limite_superior_g:.3f} g | "
+                f"Ultrapassa o limite superior (+/- 5%) para {item.materia_prima}. "
+                f"Máximo: {limite_superior_g:.3f} g | "
                 f"Já pesado: {item.quantidade_pesada:.3f} g | "
-                f"Tentativa: +{liquido_g:.3f} g (total {novo_total_g:.3f} g)."
+                f"Tentativa: +{liquido_g:.3f} g (total {total_projetado_g:.3f} g)."
             )
 
         # Persiste a pesagem guardando **líquido em g**
@@ -357,7 +357,7 @@ class Pesagem(models.Model):
             quantidade_pesada=F("quantidade_pesada") + self.liquido
         )
 
-        # Atualiza status da OP (continua igual: conclui quando pesada >= necessaria)
+        # Atualiza status da OP (fecha quando todos >= mínimo)
         self.op.refresh_from_db(fields=[])
         if self.op.status in [StatusOP.ABERTA, StatusOP.EM_ANDAMENTO]:
             self.op.verificar_e_concluir()

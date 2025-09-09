@@ -143,9 +143,18 @@ const NovaPesagem = () => {
   const pesadoG = itemSelecionado ? Number(itemSelecionado.quantidade_pesada || 0) : 0
   const restanteG = Math.max(necessarioG - pesadoG, 0)
 
-  // NOVO: Cálculo dos limites com +/- 5%
+  // Limites com +/- 5%
   const limiteMinG = necessarioG * (1 - TOLERANCIA_PERCENTUAL)
   const limiteMaxG = necessarioG * (1 + TOLERANCIA_PERCENTUAL)
+
+  // Totais projetados e indicadores
+  const novoTotalG = pesadoG + pesoLiquidoG
+  const excedeMaximo = novoTotalG > limiteMaxG
+  const abaixoDoMinimo = novoTotalG < limiteMinG // permitido em parciais
+
+  // Indicadores de UX
+  const faltaParaMinG = Math.max(limiteMinG - novoTotalG, 0)
+  const margemAteMaxG = Math.max(limiteMaxG - novoTotalG, 0)
 
   const produtoNome = useMemo(() => {
     const sel = ops.find(o => o.id.toString() === formData.op.toString())
@@ -190,12 +199,8 @@ const NovaPesagem = () => {
   // Campos obrigatórios: op, itemOp, liquido, tara
   const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido && formData.tara
 
-  // Validações client-side
-  const novoTotalG = pesadoG + pesoLiquidoG
-  const estaForaDaFaixa = novoTotalG > limiteMaxG || novoTotalG < limiteMinG
-
-  // Pode salvar se tudo ok, líquido > 0 e não está fora da faixa de tolerância
-  const canSave = !loading && hasCamposBasicos && !estaForaDaFaixa && liquidoKg > 0
+  // Pode salvar quando não excede o máximo (parciais abaixo do mínimo são ok)
+  const canSave = !loading && hasCamposBasicos && !excedeMaximo && liquidoKg > 0 && taraKg >= 0
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -220,11 +225,11 @@ const NovaPesagem = () => {
         setLoading(false)
         return
       }
-
-      if (estaForaDaFaixa) {
+      if (excedeMaximo) {
         setError(
-          `O peso total excede a faixa de tolerância (+/- 5%). Limite: ${fmtG(limiteMinG)} a ${fmtG(limiteMaxG)}. O peso total atual será ${fmtG(novoTotalG)}.`
-        );
+          `Ultrapassa o limite superior (+5%). Máximo permitido: ${fmtG(limiteMaxG)}. ` +
+          `Total projetado: ${fmtG(novoTotalG)}. Ajuste o peso.`
+        )
         setLoading(false)
         return
       }
@@ -235,7 +240,7 @@ const NovaPesagem = () => {
       const payload = {
         op_id: Number(formData.op),
         item_op_id: Number(formData.itemOp),
-        tara: Number(taraKg.toFixed(3)),     // kg
+        tara: Number(taraKg.toFixed(3)),        // kg
         liquido: Number(liquidoKg.toFixed(3)),  // kg
         balanca_id: formData.balanca ? Number(formData.balanca) : null,
         codigo_interno: formData.codigoInterno || '',
@@ -244,7 +249,7 @@ const NovaPesagem = () => {
 
       const created = await api.createPesagemOP(payload)
       setCreatedId(created?.id)
-      setSuccess('Pesagem registrada com sucesso! A OP será concluída automaticamente ao zerar todos os itens.')
+      setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
     } catch (err) {
       console.error(err)
       const msg = err?.response?.data?.detail
@@ -509,7 +514,6 @@ const NovaPesagem = () => {
                   id="codigoInterno"
                   value={formData.codigoInterno}
                   onChange={(e) => handleChange('codigoInterno', e.target.value)}
-
                 />
               </div>
             </div>
@@ -535,24 +539,28 @@ const NovaPesagem = () => {
                   Necessário: <b>{fmtG(necessarioG)}</b><br />
                   Pesado: <b>{fmtG(pesadoG)}</b><br />
                   Restante: <b>{fmtG(restanteG)}</b><br />
-                  {/* Exibindo os novos limites */}
-                  Limite (-/+ 5%): <b>{fmtG(limiteMinG)}</b> a <b>{fmtG(limiteMaxG)}</b>
+                  Limites (±5%): <b>{fmtG(limiteMinG)}</b> a <b>{fmtG(limiteMaxG)}</b>
                 </div>
-                {/* Nova lógica para as mensagens de aviso/erro */}
-                {estaForaDaFaixa && (
+
+                {/* Indicadores e mensagens */}
+                {excedeMaximo && (
                   <p className="mt-2 text-red-700 text-sm">
-                    Excede a faixa de tolerância de +/- 5%. Ajuste o peso.
+                    Ultrapassa o limite superior (+5%). Ajuste o peso para no máximo {fmtG(limiteMaxG)}.
                   </p>
                 )}
-                {!estaForaDaFaixa && (novoTotalG > necessarioG) && (
-                  <p className="mt-2 text-amber-700 text-sm">
-                    Atingiu ou ultrapassou a quantidade necessária, dentro da tolerância de +5%.
-                  </p>
-                )}
-                {!estaForaDaFaixa && (novoTotalG < necessarioG) && (
-                  <p className="mt-2 text-amber-700 text-sm">
-                    Atingiu a quantidade, mas com tolerância de -5%.
-                  </p>
+
+                {!excedeMaximo && (
+                  <div className="mt-3 space-y-1 text-sm">
+                    {abaixoDoMinimo ? (
+                      <p className="text-amber-700">
+                        Parcial abaixo do mínimo permitido para conclusão. Falta para o mínimo: <b>{fmtG(faltaParaMinG)}</b>.
+                      </p>
+                    ) : (
+                      <p className="text-green-700">
+                        Mínimo atingido para este item. Você ainda tem margem até o máximo: <b>{fmtG(margemAteMaxG)}</b>.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
