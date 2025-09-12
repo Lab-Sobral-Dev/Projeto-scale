@@ -8,7 +8,24 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Layers, Save, X, Plus, Edit, Trash2, Search } from 'lucide-react'
 
-const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
+/** Base SEMPRE em HTTPS */
+const API_BASE =
+  (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
+
+/** Força qualquer URL (inclusive relativa) para https */
+const fixToHttps = (u) => {
+  if (!u) return u
+  try {
+    const urlObj = new URL(u, API_BASE) // resolve relativo também
+    urlObj.protocol = 'https:'
+    return urlObj.toString()
+  } catch {
+    return String(u).replace(/^http:\/\//i, 'https://')
+  }
+}
+
+/** Wrapper de fetch que usa fixToHttps */
+const fetchHttps = (url, options = {}) => fetch(fixToHttps(url), options)
 
 const CadastroMateriaPrima = () => {
   const [materiasPrimas, setMateriasPrimas] = useState([])
@@ -57,14 +74,15 @@ const CadastroMateriaPrima = () => {
       const all = []
 
       while (url) {
-        const res = await fetch(url, { headers })
+        const res = await fetchHttps(url, { headers })
         if (!res.ok) throw new Error(`GET materias-primas: ${res.status}`)
-
         const json = await res.json()
+
         const pageItems = normalizeList(json).map(apiToUi)
         all.push(...pageItems)
 
-        url = json?.next || null
+        // força https no next
+        url = json?.next ? fixToHttps(json.next) : null
         if (Array.isArray(json)) break
       }
 
@@ -117,7 +135,7 @@ const CadastroMateriaPrima = () => {
       }
 
       if (editingId) {
-        const res = await fetch(`${API_BASE}/materias-primas/${editingId}/`, {
+        const res = await fetchHttps(`${API_BASE}/materias-primas/${editingId}/`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(uiToApi(formData)),
@@ -137,7 +155,7 @@ const CadastroMateriaPrima = () => {
         setEditingId(null)
         handleLimparFormulario(false)
       } else {
-        const res = await fetch(`${API_BASE}/materias-primas/`, {
+        const res = await fetchHttps(`${API_BASE}/materias-primas/`, {
           method: 'POST',
           headers,
           body: JSON.stringify(uiToApi(formData)),
@@ -188,7 +206,7 @@ const CadastroMateriaPrima = () => {
     if (!window.confirm('Tem certeza que deseja excluir esta matéria-prima?')) return
     try {
       setLoading(true)
-      const res = await fetch(`${API_BASE}/materias-primas/${id}/`, {
+      const res = await fetchHttps(`${API_BASE}/materias-primas/${id}/`, {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
@@ -387,9 +405,39 @@ const CadastroMateriaPrima = () => {
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Total</p><p className="text-2xl font-bold text-gray-900">{materiasPrimas.length}</p></div><Layers className="h-8 w-8 text-gray-400" /></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Ativas</p><p className="text-2xl font-bold text-green-600">{materiasPrimas.filter(mp => mp.ativo).length}</p></div><Layers className="h-8 w-8 text-green-400" /></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Inativas</p><p className="text-2xl font-bold text-red-600">{materiasPrimas.filter(mp => !mp.ativo).length}</p></div><Layers className="h-8 w-8 text-red-400" /></div></CardContent></Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total</p>
+                <p className="text-2xl font-bold text-gray-900">{materiasPrimas.length}</p>
+              </div>
+              <Layers className="h-8 w-8 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Ativas</p>
+                <p className="text-2xl font-bold text-green-600">{materiasPrimas.filter(mp => mp.ativo).length}</p>
+              </div>
+              <Layers className="h-8 w-8 text-green-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Inativas</p>
+                <p className="text-2xl font-bold text-red-600">{materiasPrimas.filter(mp => !mp.ativo).length}</p>
+              </div>
+              <Layers className="h-8 w-8 text-red-400" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
