@@ -8,7 +8,33 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Package, Save, X, Plus, Edit, Trash2, Search, FlaskConical } from 'lucide-react'
 
+/**
+ * Base da API — mantenha SEMPRE https por padrão.
+ * Se preferir, defina VITE_API_BASE_URL=https://apiscale.laboratoriosobral.com.br/api
+ */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
+
+/**
+ * Corrige qualquer URL para HTTPS, inclusive relativas.
+ * - Se "u" for relativo, resolvemos contra API_BASE.
+ * - Se "u" vier em http://, trocamos para https:// (evita Mixed Content).
+ */
+const fixToHttps = (u) => {
+  if (!u) return u
+  try {
+    const urlObj = new URL(u, API_BASE) // resolve relativo também
+    urlObj.protocol = 'https:'
+    return urlObj.toString()
+  } catch {
+    // fallback bruto
+    return String(u).replace(/^http:\/\//i, 'https://')
+  }
+}
+
+/**
+ * Wrapper de fetch que garante HTTPS na URL de destino.
+ */
+const fetchHttps = (url, options = {}) => fetch(fixToHttps(url), options)
 
 const CadastroProduto = () => {
   const [produtos, setProdutos] = useState([])
@@ -61,14 +87,15 @@ const CadastroProduto = () => {
       const all = []
 
       while (url) {
-        const res = await fetch(url, { headers })
+        const res = await fetchHttps(url, { headers })
         if (!res.ok) throw new Error(`GET produtos: ${res.status}`)
         const json = await res.json()
 
         const pageItems = normalizeList(json).map(apiToUi)
         all.push(...pageItems)
 
-        url = json?.next || null
+        // Força https também nos next/previous do DRF
+        url = json?.next ? fixToHttps(json.next) : null
         if (Array.isArray(json)) break
       }
 
@@ -114,7 +141,7 @@ const CadastroProduto = () => {
       }
 
       if (editingId) {
-        const res = await fetch(`${API_BASE}/produtos/${editingId}/`, {
+        const res = await fetchHttps(`${API_BASE}/produtos/${editingId}/`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(uiToApi(formData)),
@@ -134,7 +161,7 @@ const CadastroProduto = () => {
         setEditingId(null)
         handleLimparFormulario(false)
       } else {
-        const res = await fetch(`${API_BASE}/produtos/`, {
+        const res = await fetchHttps(`${API_BASE}/produtos/`, {
           method: 'POST',
           headers,
           body: JSON.stringify(uiToApi(formData)),
@@ -191,7 +218,7 @@ const CadastroProduto = () => {
     if (!window.confirm('Tem certeza que deseja excluir este produto?')) return
     try {
       setLoading(true)
-      const res = await fetch(`${API_BASE}/produtos/${id}/`, {
+      const res = await fetchHttps(`${API_BASE}/produtos/${id}/`, {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
