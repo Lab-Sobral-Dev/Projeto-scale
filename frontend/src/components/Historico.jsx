@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { History, Search, Eye, Printer, Edit, Filter, Calendar, Weight, User } from 'lucide-react'
+import { History, Search, Eye, Printer, Edit, Filter, Calendar, Weight, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import api from '@/services/api'
 
 // Helpers
@@ -38,6 +38,7 @@ const Historico = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Filtros
   const [filtros, setFiltros] = useState({
     produto: '',
     materiaPrima: '',
@@ -49,63 +50,66 @@ const Historico = () => {
     pesador: ''
   })
 
+  // Paginação
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const [pes, prods, mps] = await Promise.all([
-          api.getPesagens({ page_size: 500 }),
-          api.getProdutos({ page_size: 500 }),
-          api.getMateriasPrimas({ page_size: 500 })
-        ])
-        if (!mounted) return
+      ; (async () => {
+        setLoading(true)
+        setError('')
+        try {
+          const [pes, prods, mps] = await Promise.all([
+            api.getPesagens({ page_size: 500 }),
+            api.getProdutos({ page_size: 500 }),
+            api.getMateriasPrimas({ page_size: 500 })
+          ])
+          if (!mounted) return
 
-        const pesList = normalizeList(pes).map((p) => {
-          // backend atual: bruto (kg), tara (kg), liquido (g)
-          // compat: bruto_kg/tara_kg/liquido_g/peso_liquido
-          const brutoKg = toNum(p.bruto ?? p.bruto_kg)
-          const taraKg  = toNum(p.tara ?? p.tara_kg)
-          const liquidoG = toNum(p.liquido ?? p.liquido_g ?? p.peso_liquido)
+          const pesList = normalizeList(pes).map((p) => {
+            const brutoKg = toNum(p.bruto ?? p.bruto_kg)
+            const taraKg = toNum(p.tara ?? p.tara_kg)
+            const liquidoG = toNum(p.liquido ?? p.liquido_g ?? p.peso_liquido)
 
-          const brutoG = kgToG(brutoKg)
-          const taraG  = kgToG(taraKg)
-          const liquidoFinalG = liquidoG != null
-            ? liquidoG
-            : (brutoG != null && taraG != null ? (brutoG - taraG) : null)
+            const brutoG = kgToG(brutoKg)
+            const taraG = kgToG(taraKg)
+            const liquidoFinalG = liquidoG != null ? liquidoG : (brutoG != null && taraG != null ? (brutoG - taraG) : null)
 
-          return {
-            id: p.id,
-            dataHora: p.data_hora ?? p.dataHora,
-            produto: toDisplay(p.produto?.nome ?? p.produto_nome ?? p.produto),
-            materiaPrima: toDisplay(p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
-            op: toDisplay(p.op?.numero ?? p.op),
-            lote: toDisplay(p.op?.lote ?? p.lote),
-            loteMP: toDisplay(p.lote_mp ?? p.loteMP ?? ''),
-            pesador: toDisplay(p.pesador),
-            bruto_g: brutoG,
-            tara_g: taraG,
-            liquido_g: liquidoFinalG,
-            codigoInterno: toDisplay(p.codigo_interno ?? p.codigoInterno)
-          }
-        })
+            return {
+              id: p.id,
+              dataHora: p.data_hora ?? p.dataHora,
+              produto: toDisplay(p.produto?.nome ?? p.produto_nome ?? p.produto),
+              materiaPrima: toDisplay(p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
+              op: toDisplay(p.op?.numero ?? p.op),
+              lote: toDisplay(p.op?.lote ?? p.lote),
+              loteMP: toDisplay(p.lote_mp ?? p.loteMP ?? ''),
+              pesador: toDisplay(p.pesador),
+              bruto_g: brutoG,
+              tara_g: taraG,
+              liquido_g: liquidoFinalG,
+              codigoInterno: toDisplay(p.codigo_interno ?? p.codigoInterno)
+            }
+          })
 
-        setPesagens(pesList)
-        setProdutos(normalizeList(prods).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
-        setMateriasPrimas(normalizeList(mps).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
-      } catch (e) {
-        console.error(e)
-        setError('Não foi possível carregar os dados. Verifique sua conexão e o token.')
-      } finally {
-        setLoading(false)
-      }
-    })()
+          setPesagens(pesList)
+          setProdutos(normalizeList(prods).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
+          setMateriasPrimas(normalizeList(mps).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
+        } catch (e) {
+          console.error(e)
+          setError('Não foi possível carregar os dados. Verifique sua conexão e o token.')
+        } finally {
+          setLoading(false)
+        }
+      })()
     return () => { mounted = false }
   }, [])
 
   const handleFiltroChange = (name, value) => setFiltros(prev => ({ ...prev, [name]: value }))
-  const limparFiltros = () => setFiltros({ produto: '', materiaPrima: '', op: '', lote: '', loteMP: '', dataInicio: '', dataFim: '', pesador: '' })
+  const limparFiltros = () => {
+    setFiltros({ produto: '', materiaPrima: '', op: '', lote: '', loteMP: '', dataInicio: '', dataFim: '', pesador: '' })
+    setPage(1)
+  }
 
   const inDateRange = (isoString) => {
     if (!isoString) return false
@@ -135,6 +139,16 @@ const Historico = () => {
     return filtered
   }, [pesagens, filtros])
 
+  // reset página quando filtros mudam
+  useEffect(() => { setPage(1) }, [filtros, pesagens])
+
+  const total = filteredPesagens.length
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const clampedPage = Math.min(page, totalPages)
+  const startIndex = (clampedPage - 1) * pageSize
+  const endIndex = Math.min(startIndex + pageSize, total)
+  const pageItems = filteredPesagens.slice(startIndex, endIndex)
+
   const handleVerDetalhes = (id) => navigate(`/pesagens/${id}`)
   const handleEditar = (id) => navigate(`/pesagens/${id}/editar`)
   const handleGerarEtiqueta = async (id) => {
@@ -148,6 +162,9 @@ const Historico = () => {
       console.error('Não foi possível gerar a etiqueta.')
     }
   }
+
+  const produtoSelecionado = filtros.produto ? filtros.produto : 'Todos'
+  const mpSelecionada = filtros.materiaPrima ? filtros.materiaPrima : 'Todas'
 
   return (
     <div className="space-y-6">
@@ -171,60 +188,81 @@ const Historico = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
+            {/* min-w-0 em TODOS os wrappers impede overflow do conteúdo dentro do grid */}
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="produto">Produto</Label>
               <Select
                 value={filtros.produto || "__all__"}
                 onValueChange={(v) => handleFiltroChange('produto', v === "__all__" ? '' : v)}
               >
-                <SelectTrigger id="produto"><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger
+                  id="produto"
+                  className="w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                  title={produtoSelecionado}
+                >
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
                   <SelectItem value="__all__">Todos</SelectItem>
-                  {produtos.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
+                  {produtos.map(p => (
+                    <SelectItem key={p.id} value={p.nome}>
+                      <span className="block max-w-[340px] truncate">{p.nome}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="materiaPrima">Matéria-Prima</Label>
               <Select
                 value={filtros.materiaPrima || "__all__"}
                 onValueChange={(v) => handleFiltroChange('materiaPrima', v === "__all__" ? '' : v)}
               >
-                <SelectTrigger id="materiaPrima"><SelectValue placeholder="Todas" /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger
+                  id="materiaPrima"
+                  className="w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                  title={mpSelecionada}
+                >
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
                   <SelectItem value="__all__">Todas</SelectItem>
-                  {materiasPrimas.map(mp => <SelectItem key={mp.id} value={mp.nome}>{mp.nome}</SelectItem>)}
+                  {materiasPrimas.map(mp => (
+                    <SelectItem key={mp.id} value={mp.nome}>
+                      <span className="block max-w-[340px] truncate">{mp.nome}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="op">OP</Label>
               <Input id="op" placeholder="Buscar por OP" value={filtros.op} onChange={(e) => handleFiltroChange('op', e.target.value)} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="lote">Lote (OP)</Label>
               <Input id="lote" placeholder="Buscar por lote da OP" value={filtros.lote} onChange={(e) => handleFiltroChange('lote', e.target.value)} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="loteMP">Lote MP</Label>
               <Input id="loteMP" placeholder="Buscar por lote de MP" value={filtros.loteMP} onChange={(e) => handleFiltroChange('loteMP', e.target.value)} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="pesador">Pesador</Label>
               <Input id="pesador" placeholder="Buscar por pesador" value={filtros.pesador} onChange={(e) => handleFiltroChange('pesador', e.target.value)} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="dataInicio">Data Início</Label>
               <Input id="dataInicio" type="date" value={filtros.dataInicio} onChange={(e) => handleFiltroChange('dataInicio', e.target.value)} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="dataFim">Data Fim</Label>
               <Input id="dataFim" type="date" value={filtros.dataFim} onChange={(e) => handleFiltroChange('dataFim', e.target.value)} />
             </div>
@@ -237,16 +275,46 @@ const Historico = () => {
         </CardContent>
       </Card>
 
-      {/* Tabela */}
+      {/* Tabela + Paginação */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
-              {loading ? 'Carregando…' : `Resultados (${filteredPesagens.length})`}
+              {loading ? 'Carregando…' : `Resultados (${total})`}
             </CardTitle>
+
+            <div className="hidden md:flex items-center gap-3">
+              <span className="text-sm text-gray-600">
+                Mostrando <strong>{total === 0 ? 0 : startIndex + 1}</strong>–<strong>{endIndex}</strong> de <strong>{total}</strong>
+              </span>
+
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Itens/página" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 25, 50, 100].map(n => (
+                    <SelectItem key={n} value={String(n)}>{n} por página</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={clampedPage <= 1}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-700">
+                  Página <strong>{clampedPage}</strong> / {totalPages}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={clampedPage >= totalPages}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </CardHeader>
+
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -263,31 +331,40 @@ const Historico = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
+
               <tbody className="bg-white divide-y divide-gray-200">
-                {!loading && filteredPesagens.length > 0 && filteredPesagens.map((pesagem) => (
+                {/* AQUI — usa pageItems (paginado) */}
+                {!loading && pageItems.length > 0 && pageItems.map((pesagem) => (
                   <tr key={pesagem.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-gray-900">
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-1 text-gray-400" />
                         {formatDateTime(pesagem.dataHora)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{pesagem.produto}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <Badge variant="outline">{pesagem.materiaPrima}</Badge>
+
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <span className="block max-w-[260px] truncate" title={pesagem.produto}>{pesagem.produto}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{pesagem.op}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{pesagem.lote}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {pesagem.loteMP || '—'}
+
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <Badge variant="outline" className="max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap" title={pesagem.materiaPrima}>
+                        {pesagem.materiaPrima}
+                      </Badge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+
+                    <td className="px-6 py-4 text-sm text-gray-500">{pesagem.op}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{pesagem.lote}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{pesagem.loteMP || '—'}</td>
+
+                    <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="flex items-center">
                         <User className="h-4 w-4 mr-1 text-gray-400" />
-                        {pesagem.pesador}
+                        <span className="block max-w-[200px] truncate" title={pesagem.pesador}>{pesagem.pesador}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+
+                    <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="space-y-1">
                         <div className="flex items-center" title="Bruto (convertido de kg para g)">
                           <Weight className="h-3 w-3 mr-1 text-gray-400" />
@@ -303,7 +380,8 @@ const Historico = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+
+                    <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="flex space-x-2">
                         <Button variant="ghost" size="sm" onClick={() => handleVerDetalhes(pesagem.id)} className="text-blue-600 hover:text-blue-800">
                           <Eye className="h-4 w-4" />
@@ -327,6 +405,40 @@ const Historico = () => {
               <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma pesagem encontrada</h3>
               <p className="text-gray-500">Tente ajustar os filtros ou registre uma nova pesagem.</p>
+            </div>
+          )}
+
+          {/* Paginação (rodapé) */}
+          {!loading && total > 0 && (
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-4 border-t">
+              <span className="text-sm text-gray-600">
+                Mostrando <strong>{total === 0 ? 0 : startIndex + 1}</strong>–<strong>{endIndex}</strong> de <strong>{total}</strong>
+              </span>
+
+              <div className="flex items-center gap-3">
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Itens por página" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 25, 50, 100].map(n => (
+                      <SelectItem key={n} value={String(n)}>{n} por página</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={clampedPage <= 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-gray-700">
+                    Página <strong>{clampedPage}</strong> / {totalPages}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={clampedPage >= totalPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
