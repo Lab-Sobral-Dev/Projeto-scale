@@ -465,98 +465,112 @@ const CadastroEstruturaProduto = () => {
     )
 
     return (
-        <div className="h-[calc(100vh-120px)] grid grid-rows-[auto,1fr] gap-4">
+        // Container Principal: h-full para se ajustar ao pai e melhor margem interna.
+        <div className="h-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
+
             {/* Título global */}
-            <header className="flex items-center gap-3">
-                <Boxes className="h-8 w-8 text-emerald-600 shrink-0" />
+            <header className="flex items-center gap-4 border-b pb-4">
+                <Boxes className="h-9 w-9 text-emerald-600 shrink-0" />
                 <div className="min-w-0">
-                    <h1 className="text-2xl font-bold truncate">Estruturas de Produtos</h1>
+                    <h1 className="text-3xl font-extrabold tracking-tight truncate">Estruturas de Produtos</h1>
                     <p className="text-sm text-muted-foreground truncate">
-                        Encontre, edite e detalhe a composição das estruturas.
+                        Gerencie a composição e o detalhamento das estruturas do produto.
                     </p>
                 </div>
             </header>
 
-            {/* 3 painéis */}
-            <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(420px,1fr)_460px] gap-4">
-                {/* Painel 1 — Catálogo */}
-                <Card className="flex flex-col overflow-hidden">
-                    <CardHeader className="border-b sticky top-0 bg-card z-10">
-                        <CardTitle className="text-base">Estruturas</CardTitle>
+            {/* Grade de Conteúdo: Master (Catálogo), Detail (Form), Subdetail (Itens) */}
+            {/* Padrão: 1 coluna (móvel) -> 2 colunas (tablet/desktop pequeno) -> 3 colunas (desktop grande) */}
+            <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] xl:grid-cols-[360px_minmax(400px,1fr)_480px] gap-6 h-[calc(100vh-200px)]">
+
+                {/* 1. Catálogo de Estruturas (Master) */}
+                <Card className="flex flex-col overflow-hidden shadow-lg border-emerald-200/50">
+                    {/* Header fixo e com sombra para destacar */}
+                    <CardHeader className="border-b sticky top-0 bg-card z-20 p-4 shadow-sm">
+                        <CardTitle className="text-lg font-semibold">Catálogo de Estruturas</CardTitle>
                         <CardDescription>Procure por produto, código ou descrição.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-3">
-                        <div className="mb-3 flex gap-2 items-center">
+
+                        <div className="mt-3 flex gap-2 items-center">
                             <Input
                                 placeholder="Buscar estruturas..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="max-w-full"
+                                className="w-full h-9"
                             />
-                            <Button type="button" variant="outline" onClick={carregarEstruturas} className="gap-2 shrink-0">
-                                <RefreshCw className="h-4 w-4" /> Atualizar
+                            <Button type="button" variant="outline" onClick={carregarEstruturas} className="gap-2 shrink-0 h-9">
+                                <RefreshCw className="h-4 w-4" />
                             </Button>
                         </div>
-                    </CardContent>
-                    <div className="flex-1 overflow-y-auto">
+                    </CardHeader>
+
+                    {/* Lista com scroll */}
+                    <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                        {/* Exibir loading/vazio */}
                         {loading ? (
                             <div className="p-4 space-y-3">
-                                {[...Array(8)].map((_, i) => (
-                                    <div key={i} className="h-10 bg-gray-100 animate-pulse rounded" />
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
                                 ))}
                             </div>
                         ) : estruturasFiltradas.length === 0 ? (
-                            <div className="text-center py-8">
-                                <Boxes className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            <div className="text-center py-12 px-4">
+                                <Boxes className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold text-gray-700 mb-2">
                                     {q ? 'Nenhuma estrutura encontrada' : 'Nenhuma estrutura cadastrada'}
                                 </h3>
-                                <p className="text-gray-500">
-                                    {q ? 'Tente ajustar o termo de busca' : 'Crie a primeira estrutura no painel central'}
+                                <p className="text-sm text-gray-500">
+                                    {q ? 'Tente ajustar o termo de busca' : 'Use o painel central para criar.'}
                                 </p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-gray-200">
+                            // Lista de Itens (Mais clean)
+                            <div className="divide-y divide-gray-100">
                                 {estruturasFiltradas.map((e) => (
                                     <div
                                         key={e.id}
-                                        className={`p-4 hover:bg-gray-50 cursor-pointer ${estruturaSelecionada?.id === e.id ? 'bg-emerald-50/60' : ''}`}
+                                        className={`relative p-4 cursor-pointer transition-colors hover:bg-emerald-50/30 
+                                        ${estruturaSelecionada?.id === e.id
+                                                ? 'bg-emerald-50 border-l-4 border-emerald-600' // Borda esquerda para seleção sofisticada
+                                                : 'border-l-4 border-transparent'
+                                            }`}
                                         onClick={() => setEstruturaSelecionada(e)}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1 min-w-0">
-                                                    <h3 className="font-medium text-gray-900 truncate">
+                                                    <h3 className="font-semibold text-gray-900 truncate">
                                                         {e.produto?.nome}
                                                     </h3>
-                                                    <Badge variant={e.ativo ? 'default' : 'secondary'} className="shrink-0">
+                                                    <Badge
+                                                        variant={e.ativo ? 'default' : 'secondary'}
+                                                        className={`shrink-0 text-xs font-medium ${e.ativo ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'}`}
+                                                    >
                                                         {e.ativo ? 'Ativa' : 'Inativa'}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-sm text-gray-500">
-                                                    Produto: <span className="font-mono">{e.produto?.codigo_interno}</span>
+                                                <p className="text-xs text-gray-500">
+                                                    Cód. Produto: <span className="font-mono text-gray-700">{e.produto?.codigo_interno}</span>
                                                 </p>
                                                 {e.descricao && (
-                                                    <p className="text-sm text-gray-500 truncate">Descrição: {e.descricao}</p>
+                                                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                                                        Descrição: {e.descricao}
+                                                    </p>
                                                 )}
                                             </div>
-                                            <div className="flex gap-2 shrink-0">
+                                            {/* Ações (Reduzidas a um menu de contexto ou botões menores, mas mantive a sua versão) */}
+                                            <div className="flex gap-1 shrink-0 mt-1">
                                                 <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
+                                                    type="button" variant="ghost" size="icon"
                                                     onClick={(ev) => { ev.stopPropagation(); handleEditarEstrutura(e) }}
-                                                    className="text-blue-600 hover:text-blue-800"
+                                                    className="text-blue-600 hover:bg-blue-50 h-7 w-7"
                                                     aria-label={`Editar estrutura de ${e.produto?.nome}`}
                                                 >
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                                 <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
+                                                    type="button" variant="ghost" size="icon"
                                                     onClick={(ev) => { ev.stopPropagation(); handleExcluirEstrutura(e.id) }}
-                                                    className="text-red-600 hover:text-red-800"
+                                                    className="text-red-600 hover:bg-red-50 h-7 w-7"
                                                     aria-label={`Excluir estrutura de ${e.produto?.nome}`}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -568,248 +582,257 @@ const CadastroEstruturaProduto = () => {
                             </div>
                         )}
                     </div>
-                    <div className="p-3 border-t text-xs text-muted-foreground">
-                        {estruturasFiltradas.length} resultado(s)
+                    {/* Footer com contagem */}
+                    <div className="p-4 border-t text-sm font-medium text-gray-600 bg-gray-50">
+                        {estruturasFiltradas.length} {estruturasFiltradas.length === 1 ? 'estrutura' : 'estruturas'} encontrada(s)
                     </div>
                 </Card>
 
-                {/* Painel 2 — Estrutura (form) */}
-                <Card className="flex flex-col overflow-hidden">
-                    <CardHeader className="border-b sticky top-0 bg-card z-10 flex flex-row items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <CardTitle className="text-base truncate">
-                                {editingId ? 'Editar Estrutura' : 'Nova Estrutura'}
-                            </CardTitle>
-                            <CardDescription className="truncate">
-                                Descrição única por produto. Ative quando estiver pronta.
-                            </CardDescription>
-                        </div>
-                        <div className="shrink-0 flex gap-2">
-                            {editingId && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={limparFormularioEstrutura}
-                                    className="gap-2"
-                                >
-                                    <X className="h-4 w-4" />
-                                    Cancelar
-                                </Button>
-                            )}
-                            <Button type="submit" form="form-estrutura" className="gap-2">
-                                <Save className="h-4 w-4" />
-                                {editingId ? 'Atualizar' : 'Salvar'}
-                            </Button>
-                        </div>
-                    </CardHeader>
+                {/* Agrupamento do Detail e Subdetail para melhor responsividade em telas 'lg' */}
+                <div className="lg:col-span-1 lg:grid lg:grid-cols-1 xl:grid-cols-2 gap-6">
 
-                    <div className="flex-1 overflow-y-auto p-4">
-                        <form id="form-estrutura" onSubmit={handleSubmitEstrutura} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>Produto *</Label>
-                                <Select
-                                    value={formEstrutura.produtoId}
-                                    onValueChange={(v) => handleChangeEstrutura('produtoId', v)}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Selecione o produto..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-64">
-                                        {produtos.map(p => (
-                                            <SelectItem key={p.id} value={String(p.id)}>
-                                                <span className="inline-flex gap-2 items-baseline">
-                                                    <span className="truncate max-w-[260px]">{p.nome}</span>
-                                                    <span className="text-xs text-gray-500 shrink-0">({p.codigo_interno})</span>
-                                                </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="descricao">Descrição (opcional)</Label>
-                                <Input
-                                    id="descricao"
-                                    value={formEstrutura.descricao}
-                                    onChange={(e) => handleChangeEstrutura('descricao', e.target.value)}
-                                    placeholder="Ex.: Fórmula padrão, Versão 2, etc."
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Switch
-                                    id="ativo"
-                                    checked={formEstrutura.ativo}
-                                    onCheckedChange={(checked) => handleChangeEstrutura('ativo', checked)}
-                                />
-                                <Label htmlFor="ativo">Estrutura Ativa</Label>
-                            </div>
-
-                            {error && (
-                                <Alert variant="destructive">
-                                    <AlertDescription>{error}</AlertDescription>
-                                </Alert>
-                            )}
-
-                            {success && (
-                                <Alert className="border-green-200 bg-green-50">
-                                    <AlertDescription className="text-green-800">{success}</AlertDescription>
-                                </Alert>
-                            )}
-                        </form>
-                    </div>
-                </Card>
-
-                {/* Painel 3 — Itens da estrutura */}
-                <Card className="flex flex-col overflow-hidden">
-                    <CardHeader className="border-b sticky top-0 bg-card z-10">
-                        <div className="flex items-center justify-between gap-3">
+                    {/* 2. Formulário da Estrutura (Detail) */}
+                    <Card className="flex flex-col overflow-hidden shadow-lg">
+                        <CardHeader className="border-b sticky top-0 bg-card z-10 flex flex-row items-center justify-between gap-3 p-4 shadow-sm">
                             <div className="min-w-0">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <Beaker className="h-5 w-5 text-emerald-600 shrink-0" />
-                                    <span className="truncate">Itens da Estrutura</span>
+                                <CardTitle className="text-lg font-semibold truncate">
+                                    {editingId ? 'Editar Estrutura' : 'Nova Estrutura'}
                                 </CardTitle>
                                 <CardDescription className="truncate">
-                                    {estruturaSelecionada
-                                        ? `${estruturaSelecionada?.produto?.nome || ''}${estruturaSelecionada?.descricao ? ' — ' + estruturaSelecionada.descricao : ''}`
-                                        : 'Selecione uma estrutura para gerenciar os itens'}
+                                    Vínculo obrigatório com o produto e status.
                                 </CardDescription>
                             </div>
-                            <div className="shrink-0 text-right">
-                                <span className="block text-xs text-muted-foreground">Total (g)</span>
-                                <div className="font-mono">{totalLote.toLocaleString('pt-BR')}</div>
-                            </div>
-                        </div>
-                    </CardHeader>
-
-                    {/* Form de item */}
-                    <div className="p-4 border-b">
-                        <form onSubmit={handleSubmitItem} className="grid md:grid-cols-[1fr_180px_auto] gap-3">
-                            <div className="space-y-2">
-                                <Label>Matéria-prima *</Label>
-                                <Select
-                                    value={formItem.materiaPrimaId}
-                                    onValueChange={(v) => handleChangeItem('materiaPrimaId', v)}
-                                    disabled={!estruturaSelecionada}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Selecione a MP..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-64">
-                                        {materiasPrimas.map(mp => (
-                                            <SelectItem key={mp.id} value={String(mp.id)}>
-                                                <span className="inline-flex gap-2 items-baseline">
-                                                    <span className="truncate max-w-[260px]">{mp.nome}</span>
-                                                    <span className="text-xs text-gray-500 shrink-0">({mp.codigo_interno})</span>
-                                                </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="qtd">Qtd por lote (g) *</Label>
-                                <Input
-                                    id="qtd"
-                                    inputMode="decimal"
-                                    value={formItem.quantidadePorLote}
-                                    onChange={(e) => handleChangeItem('quantidadePorLote', e.target.value)}
-                                    placeholder="Ex.: 12500"
-                                    disabled={!estruturaSelecionada}
-                                />
-                            </div>
-
-                            <div className="flex items-end gap-3">
-                                <Button type="submit" disabled={loadingItens || !estruturaSelecionada} className="flex items-center gap-2">
-                                    <Save className="h-4 w-4" />
-                                    {editingItemId ? 'Atualizar item' : 'Adicionar item'}
-                                </Button>
-                                {editingItemId && (
+                            <div className="shrink-0 flex gap-2">
+                                {editingId && (
                                     <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => {
-                                            setEditingItemId(null)
-                                            setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
-                                        }}
+                                        type="button" variant="outline" size="sm"
+                                        onClick={limparFormularioEstrutura}
+                                        className="gap-2"
                                     >
+                                        <X className="h-4 w-4" />
                                         Cancelar
                                     </Button>
                                 )}
+                                <Button type="submit" form="form-estrutura" size="sm" className="gap-2">
+                                    <Save className="h-4 w-4" />
+                                    {editingId ? 'Atualizar' : 'Salvar'}
+                                </Button>
                             </div>
-                        </form>
-                    </div>
+                        </CardHeader>
 
-                    {/* Lista de itens */}
-                    <div className="flex-1 overflow-y-auto">
-                        {!estruturaSelecionada ? (
-                            <div className="text-center py-10 text-sm text-muted-foreground">
-                                Selecione uma estrutura no painel esquerdo para visualizar os itens.
-                            </div>
-                        ) : (
-                            <div className="divide-y">
-                                {loadingItens ? (
-                                    <div className="p-4 space-y-3">
-                                        {[...Array(6)].map((_, i) => (
-                                            <div key={i} className="h-10 bg-gray-100 animate-pulse rounded" />
-                                        ))}
-                                    </div>
-                                ) : itens.length === 0 ? (
-                                    <div className="text-center py-8 text-sm text-muted-foreground">
-                                        Nenhum item adicionado.
-                                    </div>
-                                ) : (
-                                    itens.map(i => (
-                                        <div key={i.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium truncate max-w-[460px]">
-                                                        {i.materiaPrima?.nome}
+                        {/* Conteúdo do formulário com scroll próprio */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            <form id="form-estrutura" onSubmit={handleSubmitEstrutura} className="space-y-6">
+                                {/* Campos do formulário... (Estrutura mantida, apenas espaçamento ajustado) */}
+
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Produto *</Label>
+                                    <Select
+                                        value={formEstrutura.produtoId}
+                                        onValueChange={(v) => handleChangeEstrutura('produtoId', v)}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Selecione o produto..." />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-64">
+                                            {produtos.map(p => (
+                                                <SelectItem key={p.id} value={String(p.id)}>
+                                                    <span className="inline-flex gap-2 items-baseline">
+                                                        <span className="truncate max-w-[260px]">{p.nome}</span>
+                                                        <span className="text-xs text-muted-foreground shrink-0">({p.codigo_interno})</span>
                                                     </span>
-                                                    <Badge variant="secondary" className="shrink-0">{i.materiaPrima?.codigo_interno}</Badge>
-                                                </div>
-                                                <div className="text-sm text-gray-600">
-                                                    Quantidade: <span className="font-mono">{i.quantidadePorLote}</span> g
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    aria-label={`Editar item ${i.materiaPrima?.nome || ''}`}
-                                                    onClick={() => handleEditarItem(i)}
-                                                    className="text-blue-600 hover:text-blue-800"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    aria-label={`Excluir item ${i.materiaPrima?.nome || ''}`}
-                                                    onClick={() => handleExcluirItem(i.id)}
-                                                    className="text-red-600 hover:text-red-800"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
-                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                    <div className="p-3 border-t text-xs text-muted-foreground flex items-center justify-between">
-                        <span className="inline-flex items-center gap-2">
-                            <Link2 className="h-4 w-4" /> Itens vinculados {estruturaSelecionada ? `(${itens.length})` : ''}
-                        </span>
-                        {estruturaSelecionada && <span>Total: <span className="font-mono">{totalLote.toLocaleString('pt-BR')} g</span></span>}
-                    </div>
-                </Card>
+                                <div className="space-y-2">
+                                    <Label htmlFor="descricao" className="text-sm font-medium">Descrição (opcional)</Label>
+                                    <Input
+                                        id="descricao"
+                                        value={formEstrutura.descricao}
+                                        onChange={(e) => handleChangeEstrutura('descricao', e.target.value)}
+                                        placeholder="Ex.: Fórmula padrão, Versão 2, etc."
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-3 pt-2">
+                                    <Switch
+                                        id="ativo"
+                                        checked={formEstrutura.ativo}
+                                        onCheckedChange={(checked) => handleChangeEstrutura('ativo', checked)}
+                                    />
+                                    <Label htmlFor="ativo" className="text-sm font-medium">Estrutura Ativa</Label>
+                                </div>
+
+                                {error && (
+                                    <Alert variant="destructive">
+                                        <AlertDescription>{error}</AlertDescription>
+                                    </Alert>
+                                )}
+
+                                {success && (
+                                    <Alert className="border-green-300 bg-green-50">
+                                        <AlertDescription className="text-green-800">{success}</AlertDescription>
+                                    </Alert>
+                                )}
+                            </form>
+                        </div>
+                    </Card>
+
+                    {/* 3. Itens da Estrutura (Subdetail) */}
+                    <Card className="flex flex-col overflow-hidden shadow-lg lg:mt-6 xl:mt-0"> {/* Adicionado mt-6 para quebrar a coluna no LG, mas alinha no XL */}
+                        <CardHeader className="border-b sticky top-0 bg-card z-10 p-4 shadow-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                                        <Beaker className="h-5 w-5 text-emerald-600 shrink-0" />
+                                        <span className="truncate">Composição da Estrutura</span>
+                                    </CardTitle>
+                                    <CardDescription className="truncate mt-0.5">
+                                        {estruturaSelecionada
+                                            ? `Estrutura vinculada: ${estruturaSelecionada?.produto?.nome || ''}${estruturaSelecionada?.descricao ? ' — ' + estruturaSelecionada.descricao : ''}`
+                                            : 'Selecione uma estrutura para gerenciar os itens.'}
+                                    </CardDescription>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                    <span className="block text-xs text-muted-foreground">Lote Total (g)</span>
+                                    <div className="font-mono text-lg font-bold text-gray-800">{totalLote.toLocaleString('pt-BR')}</div>
+                                </div>
+                            </div>
+                        </CardHeader>
+
+                        {/* Form de item - Melhor layout em grid */}
+                        <div className="p-4 border-b bg-gray-50">
+                            <form onSubmit={handleSubmitItem} className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3">
+                                <div className="space-y-2 sm:col-span-2 md:col-span-1 xl:col-span-1">
+                                    <Label className="text-sm font-medium">Matéria-prima *</Label>
+                                    {/* O Select para MP é o mais importante e deve ter mais espaço */}
+                                    <Select
+                                        value={formItem.materiaPrimaId}
+                                        onValueChange={(v) => handleChangeItem('materiaPrimaId', v)}
+                                        disabled={!estruturaSelecionada || loadingItens}
+                                    >
+                                        {/* ... SelectContent (mantido) */}
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Selecione a MP..." />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-64">
+                                            {materiasPrimas.map(mp => (
+                                                <SelectItem key={mp.id} value={String(mp.id)}>
+                                                    <span className="inline-flex gap-2 items-baseline">
+                                                        <span className="truncate max-w-[200px]">{mp.nome}</span>
+                                                        <span className="text-xs text-gray-500 shrink-0">({mp.codigo_interno})</span>
+                                                    </span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="qtd" className="text-sm font-medium">Qtd p/ lote (g) *</Label>
+                                    <Input
+                                        id="qtd"
+                                        inputMode="decimal"
+                                        value={formItem.quantidadePorLote}
+                                        onChange={(e) => handleChangeItem('quantidadePorLote', e.target.value)}
+                                        placeholder="Ex.: 12500"
+                                        disabled={!estruturaSelecionada || loadingItens}
+                                    />
+                                </div>
+
+                                <div className="flex items-end gap-2 pt-1">
+                                    <Button
+                                        type="submit"
+                                        disabled={!estruturaSelecionada || loadingItens}
+                                        className="flex items-center gap-2 h-9"
+                                    >
+                                        <Save className="h-4 w-4" />
+                                        {editingItemId ? 'Atualizar' : 'Adicionar'}
+                                    </Button>
+                                    {editingItemId && (
+                                        <Button
+                                            type="button" variant="outline" size="sm"
+                                            onClick={() => {
+                                                setEditingItemId(null)
+                                                setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
+                                            }}
+                                            className="h-9"
+                                        >
+                                            Cancelar
+                                        </Button>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Lista de itens com scroll */}
+                        <div className="flex-1 overflow-y-auto">
+                            {!estruturaSelecionada ? (
+                                <div className="text-center py-12 text-base text-gray-400">
+                                    👈 Selecione uma estrutura.
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-100">
+                                    {loadingItens ? (
+                                        <div className="p-4 space-y-3">
+                                            {[...Array(6)].map((_, i) => (
+                                                <div key={i} className="h-12 bg-gray-100 animate-pulse rounded" />
+                                            ))}
+                                        </div>
+                                    ) : itens.length === 0 ? (
+                                        <div className="text-center py-12 text-base text-gray-500">
+                                            Nenhum item adicionado à estrutura.
+                                        </div>
+                                    ) : (
+                                        itens.map(i => (
+                                            <div key={i.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="font-medium text-gray-800 truncate max-w-[280px]">
+                                                            {i.materiaPrima?.nome}
+                                                        </span>
+                                                        <Badge variant="secondary" className="text-xs shrink-0">{i.materiaPrima?.codigo_interno}</Badge>
+                                                    </div>
+                                                    <div className="text-sm text-gray-600">
+                                                        Quantidade: <span className="font-mono font-semibold text-gray-900">{i.quantidadePorLote}</span> g
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    <Button
+                                                        type="button" variant="ghost" size="icon"
+                                                        aria-label={`Editar item ${i.materiaPrima?.nome || ''}`}
+                                                        onClick={() => handleEditarItem(i)}
+                                                        className="text-blue-600 hover:bg-blue-50 h-7 w-7"
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        type="button" variant="ghost" size="icon"
+                                                        aria-label={`Excluir item ${i.materiaPrima?.nome || ''}`}
+                                                        onClick={() => handleExcluirItem(i.id)}
+                                                        className="text-red-600 hover:bg-red-50 h-7 w-7"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t text-sm text-gray-600 font-medium bg-gray-50 flex items-center justify-between">
+                            <span className="inline-flex items-center gap-2">
+                                <Link2 className="h-4 w-4 text-emerald-600" /> Itens vinculados {estruturaSelecionada ? `(${itens.length})` : ''}
+                            </span>
+                            {estruturaSelecionada && <span>Total: <span className="font-mono font-bold text-gray-900">{totalLote.toLocaleString('pt-BR')} g</span></span>}
+                        </div>
+                    </Card>
+                </div>
             </div>
         </div>
     )
