@@ -284,34 +284,41 @@ const Historico = () => {
               {loading ? 'Carregando…' : `Resultados (${total})`}
             </CardTitle>
 
-            <div className="hidden md:flex items-center gap-3">
-              <span className="text-sm text-gray-600">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-4 border-t">
+              <span className="text-sm text-gray-600 min-w-0 truncate">
                 Mostrando <strong>{total === 0 ? 0 : startIndex + 1}</strong>–<strong>{endIndex}</strong> de <strong>{total}</strong>
               </span>
 
-              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Itens/página" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[10, 25, 50, 100].map(n => (
-                    <SelectItem key={n} value={String(n)}>{n} por página</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-3">
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Itens por página" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 25, 50, 100].map(n => (
+                      <SelectItem key={n} value={String(n)}>{n} por página</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={clampedPage <= 1}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-gray-700">
-                  Página <strong>{clampedPage}</strong> / {totalPages}
-                </span>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={clampedPage >= totalPages}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                {/* não encolher */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={clampedPage <= 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  <span className="text-sm text-gray-700 whitespace-nowrap">
+                    Página <strong>{clampedPage}</strong> / {totalPages}
+                  </span>
+
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={clampedPage >= totalPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
+
+
           </div>
         </CardHeader>
 
