@@ -111,7 +111,7 @@ const CadastroEstruturaProduto = () => {
 
     const itemApiToUi = (i) => ({
         id: i.id,
-        estruturaId: i.estrutura_id || i.estrutura?.id,
+        estruturaId: i.estrutura_id || i.estrutura?.id, // por segurança
         materiaPrima: i.materia_prima || null,
         materiaPrimaId: i.materia_prima?.id ?? '',
         quantidadePorLote: i.quantidade_por_lote,
@@ -122,7 +122,7 @@ const CadastroEstruturaProduto = () => {
         estrutura_id: estruturaSelecionada?.id,
         materia_prima_id: i.materiaPrimaId,
         quantidade_por_lote: i.quantidadePorLote,
-        unidade: 'g',
+        unidade: 'g', // regra do projeto
     })
 
     // ========== Carregamentos ==========
@@ -458,35 +458,153 @@ const CadastroEstruturaProduto = () => {
         })
     }, [estruturas, q])
 
+    // Total do lote (g)
+    const totalLote = useMemo(
+        () => itens.reduce((acc, it) => acc + (Number(it.quantidadePorLote) || 0), 0),
+        [itens]
+    )
+
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3">
+        <div className="h-[calc(100vh-120px)] grid grid-rows-[auto,1fr] gap-4">
+            {/* Título global */}
+            <header className="flex items-center gap-3">
                 <Boxes className="h-8 w-8 text-emerald-600 shrink-0" />
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Estrutura de Produtos (BOM/Receita)</h1>
-                    <p className="text-gray-600">
-                        Cadastre a composição (itens e quantidades por lote, em gramas) para cada produto.
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-bold truncate">Estruturas de Produtos</h1>
+                    <p className="text-sm text-muted-foreground truncate">
+                        Encontre, edite e detalhe a composição das estruturas.
                     </p>
                 </div>
-            </div>
+            </header>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {/* Form Estrutura + Itens */}
-                <Card className="overflow-hidden">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            {editingId ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                            <span className="truncate">{editingId ? 'Editar Estrutura' : 'Nova Estrutura'}</span>
-                        </CardTitle>
-                        <CardDescription>
-                            Vincule um produto, descreva (opcional) e marque ativo. A descrição é única por produto.
-                        </CardDescription>
+            {/* 3 painéis */}
+            <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(420px,1fr)_460px] gap-4">
+                {/* Painel 1 — Catálogo */}
+                <Card className="flex flex-col overflow-hidden">
+                    <CardHeader className="border-b sticky top-0 bg-card z-10">
+                        <CardTitle className="text-base">Estruturas</CardTitle>
+                        <CardDescription>Procure por produto, código ou descrição.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-3">
+                        <div className="mb-3 flex gap-2 items-center">
+                            <Input
+                                placeholder="Buscar estruturas..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="max-w-full"
+                            />
+                            <Button type="button" variant="outline" onClick={carregarEstruturas} className="gap-2 shrink-0">
+                                <RefreshCw className="h-4 w-4" /> Atualizar
+                            </Button>
+                        </div>
+                    </CardContent>
+                    <div className="flex-1 overflow-y-auto">
+                        {loading ? (
+                            <div className="p-4 space-y-3">
+                                {[...Array(8)].map((_, i) => (
+                                    <div key={i} className="h-10 bg-gray-100 animate-pulse rounded" />
+                                ))}
+                            </div>
+                        ) : estruturasFiltradas.length === 0 ? (
+                            <div className="text-center py-8">
+                                <Boxes className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                    {q ? 'Nenhuma estrutura encontrada' : 'Nenhuma estrutura cadastrada'}
+                                </h3>
+                                <p className="text-gray-500">
+                                    {q ? 'Tente ajustar o termo de busca' : 'Crie a primeira estrutura no painel central'}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-200">
+                                {estruturasFiltradas.map((e) => (
+                                    <div
+                                        key={e.id}
+                                        className={`p-4 hover:bg-gray-50 cursor-pointer ${estruturaSelecionada?.id === e.id ? 'bg-emerald-50/60' : ''}`}
+                                        onClick={() => setEstruturaSelecionada(e)}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1 min-w-0">
+                                                    <h3 className="font-medium text-gray-900 truncate">
+                                                        {e.produto?.nome}
+                                                    </h3>
+                                                    <Badge variant={e.ativo ? 'default' : 'secondary'} className="shrink-0">
+                                                        {e.ativo ? 'Ativa' : 'Inativa'}
+                                                    </Badge>
+                                                </div>
+                                                <p className="text-sm text-gray-500">
+                                                    Produto: <span className="font-mono">{e.produto?.codigo_interno}</span>
+                                                </p>
+                                                {e.descricao && (
+                                                    <p className="text-sm text-gray-500 truncate">Descrição: {e.descricao}</p>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2 shrink-0">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={(ev) => { ev.stopPropagation(); handleEditarEstrutura(e) }}
+                                                    className="text-blue-600 hover:text-blue-800"
+                                                    aria-label={`Editar estrutura de ${e.produto?.nome}`}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={(ev) => { ev.stopPropagation(); handleExcluirEstrutura(e.id) }}
+                                                    className="text-red-600 hover:text-red-800"
+                                                    aria-label={`Excluir estrutura de ${e.produto?.nome}`}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="p-3 border-t text-xs text-muted-foreground">
+                        {estruturasFiltradas.length} resultado(s)
+                    </div>
+                </Card>
+
+                {/* Painel 2 — Estrutura (form) */}
+                <Card className="flex flex-col overflow-hidden">
+                    <CardHeader className="border-b sticky top-0 bg-card z-10 flex flex-row items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <CardTitle className="text-base truncate">
+                                {editingId ? 'Editar Estrutura' : 'Nova Estrutura'}
+                            </CardTitle>
+                            <CardDescription className="truncate">
+                                Descrição única por produto. Ative quando estiver pronta.
+                            </CardDescription>
+                        </div>
+                        <div className="shrink-0 flex gap-2">
+                            {editingId && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={limparFormularioEstrutura}
+                                    className="gap-2"
+                                >
+                                    <X className="h-4 w-4" />
+                                    Cancelar
+                                </Button>
+                            )}
+                            <Button type="submit" form="form-estrutura" className="gap-2">
+                                <Save className="h-4 w-4" />
+                                {editingId ? 'Atualizar' : 'Salvar'}
+                            </Button>
+                        </div>
                     </CardHeader>
 
-                    <CardContent className="space-y-6">
-                        {/* --- Formulário da Estrutura --- */}
-                        <form onSubmit={handleSubmitEstrutura} className="space-y-4">
+                    <div className="flex-1 overflow-y-auto p-4">
+                        <form id="form-estrutura" onSubmit={handleSubmitEstrutura} className="space-y-4">
                             <div className="space-y-2">
                                 <Label>Produto *</Label>
                                 <Select
@@ -496,7 +614,6 @@ const CadastroEstruturaProduto = () => {
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Selecione o produto..." />
                                     </SelectTrigger>
-                                    {/* FIX: limitar altura para não empurrar layout */}
                                     <SelectContent className="max-h-64">
                                         {produtos.map(p => (
                                             <SelectItem key={p.id} value={String(p.id)}>
@@ -540,265 +657,158 @@ const CadastroEstruturaProduto = () => {
                                     <AlertDescription className="text-green-800">{success}</AlertDescription>
                                 </Alert>
                             )}
+                        </form>
+                    </div>
+                </Card>
 
-                            <div className="flex gap-3">
-                                <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                {/* Painel 3 — Itens da estrutura */}
+                <Card className="flex flex-col overflow-hidden">
+                    <CardHeader className="border-b sticky top-0 bg-card z-10">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Beaker className="h-5 w-5 text-emerald-600 shrink-0" />
+                                    <span className="truncate">Itens da Estrutura</span>
+                                </CardTitle>
+                                <CardDescription className="truncate">
+                                    {estruturaSelecionada
+                                        ? `${estruturaSelecionada?.produto?.nome || ''}${estruturaSelecionada?.descricao ? ' — ' + estruturaSelecionada.descricao : ''}`
+                                        : 'Selecione uma estrutura para gerenciar os itens'}
+                                </CardDescription>
+                            </div>
+                            <div className="shrink-0 text-right">
+                                <span className="block text-xs text-muted-foreground">Total (g)</span>
+                                <div className="font-mono">{totalLote.toLocaleString('pt-BR')}</div>
+                            </div>
+                        </div>
+                    </CardHeader>
+
+                    {/* Form de item */}
+                    <div className="p-4 border-b">
+                        <form onSubmit={handleSubmitItem} className="grid md:grid-cols-[1fr_180px_auto] gap-3">
+                            <div className="space-y-2">
+                                <Label>Matéria-prima *</Label>
+                                <Select
+                                    value={formItem.materiaPrimaId}
+                                    onValueChange={(v) => handleChangeItem('materiaPrimaId', v)}
+                                    disabled={!estruturaSelecionada}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Selecione a MP..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-64">
+                                        {materiasPrimas.map(mp => (
+                                            <SelectItem key={mp.id} value={String(mp.id)}>
+                                                <span className="inline-flex gap-2 items-baseline">
+                                                    <span className="truncate max-w-[260px]">{mp.nome}</span>
+                                                    <span className="text-xs text-gray-500 shrink-0">({mp.codigo_interno})</span>
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="qtd">Qtd por lote (g) *</Label>
+                                <Input
+                                    id="qtd"
+                                    inputMode="decimal"
+                                    value={formItem.quantidadePorLote}
+                                    onChange={(e) => handleChangeItem('quantidadePorLote', e.target.value)}
+                                    placeholder="Ex.: 12500"
+                                    disabled={!estruturaSelecionada}
+                                />
+                            </div>
+
+                            <div className="flex items-end gap-3">
+                                <Button type="submit" disabled={loadingItens || !estruturaSelecionada} className="flex items-center gap-2">
                                     <Save className="h-4 w-4" />
-                                    {loading ? 'Salvando...' : (editingId ? 'Atualizar' : 'Salvar')}
+                                    {editingItemId ? 'Atualizar item' : 'Adicionar item'}
                                 </Button>
-
-                                {editingId && (
+                                {editingItemId && (
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={limparFormularioEstrutura}
-                                        className="flex items-center gap-2"
+                                        onClick={() => {
+                                            setEditingItemId(null)
+                                            setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
+                                        }}
                                     >
-                                        <X className="h-4 w-4" />
                                         Cancelar
                                     </Button>
                                 )}
                             </div>
                         </form>
+                    </div>
 
-                        {/* --- Painel de Itens (só aparece com estrutura selecionada) --- */}
-                        {estruturaSelecionada && (
-                            <section className="space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <Beaker className="h-5 w-5 text-emerald-600 shrink-0" />
-                                    <h3 className="text-lg font-semibold truncate">
-                                        <span className="truncate">
-                                            Itens da Estrutura — {estruturaSelecionada.produto?.nome}
-                                            {estruturaSelecionada.descricao ? ` — ${estruturaSelecionada.descricao}` : ''}
-                                        </span>
-                                    </h3>
-                                </div>
-
-                                {/* Form de itens */}
-                                <form onSubmit={handleSubmitItem} className="grid md:grid-cols-3 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Matéria-prima *</Label>
-                                        <Select
-                                            value={formItem.materiaPrimaId}
-                                            onValueChange={(v) => handleChangeItem('materiaPrimaId', v)}
-                                        >
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Selecione a MP..." />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-64">
-                                                {materiasPrimas.map(mp => (
-                                                    <SelectItem key={mp.id} value={String(mp.id)}>
-                                                        <span className="inline-flex gap-2 items-baseline">
-                                                            <span className="truncate max-w-[260px]">{mp.nome}</span>
-                                                            <span className="text-xs text-gray-500 shrink-0">({mp.codigo_interno})</span>
-                                                        </span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                    {/* Lista de itens */}
+                    <div className="flex-1 overflow-y-auto">
+                        {!estruturaSelecionada ? (
+                            <div className="text-center py-10 text-sm text-muted-foreground">
+                                Selecione uma estrutura no painel esquerdo para visualizar os itens.
+                            </div>
+                        ) : (
+                            <div className="divide-y">
+                                {loadingItens ? (
+                                    <div className="p-4 space-y-3">
+                                        {[...Array(6)].map((_, i) => (
+                                            <div key={i} className="h-10 bg-gray-100 animate-pulse rounded" />
+                                        ))}
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="qtd">Qtd por lote (g) *</Label>
-                                        <Input
-                                            id="qtd"
-                                            inputMode="decimal"
-                                            value={formItem.quantidadePorLote}
-                                            onChange={(e) => handleChangeItem('quantidadePorLote', e.target.value)}
-                                            placeholder="Ex.: 12500 (g)"
-                                        />
-                                        <p className="text-xs text-gray-500">Regra do projeto: usar <strong>g</strong> para MPs.</p>
+                                ) : itens.length === 0 ? (
+                                    <div className="text-center py-8 text-sm text-muted-foreground">
+                                        Nenhum item adicionado.
                                     </div>
-
-                                    <div className="flex items-end gap-3">
-                                        <Button type="submit" disabled={loadingItens} className="flex items-center gap-2">
-                                            <Save className="h-4 w-4" />
-                                            {editingItemId ? 'Atualizar item' : 'Adicionar item'}
-                                        </Button>
-                                        {editingItemId && (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setEditingItemId(null)
-                                                    setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
-                                                }}
-                                            >
-                                                Cancelar
-                                            </Button>
-                                        )}
-                                    </div>
-                                </form>
-
-                                {/* Lista de itens */}
-                                <Card className="border-dashed">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-base flex items-center gap-2">
-                                            <Link2 className="h-4 w-4 shrink-0" />
-                                            <span>Itens vinculados ({itens.length})</span>
-                                        </CardTitle>
-                                        <CardDescription>Quantidades por lote em gramas (g)</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="p-0">
-                                        {/* FIX: contêiner de rolagem dedicado, altura previsível */}
-                                        <div className="max-h-72 overflow-y-auto divide-y">
-                                            {loadingItens ? (
-                                                <div className="p-4 space-y-3">
-                                                    {[...Array(6)].map((_, i) => (
-                                                        <div key={i} className="h-10 bg-gray-100 animate-pulse rounded" />
-                                                    ))}
+                                ) : (
+                                    itens.map(i => (
+                                        <div key={i.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium truncate max-w-[460px]">
+                                                        {i.materiaPrima?.nome}
+                                                    </span>
+                                                    <Badge variant="secondary" className="shrink-0">{i.materiaPrima?.codigo_interno}</Badge>
                                                 </div>
-                                            ) : itens.length === 0 ? (
-                                                <div className="text-center py-6 text-sm text-gray-500">Nenhum item adicionado.</div>
-                                            ) : (
-                                                itens.map(i => (
-                                                    <div key={i.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                                                        <div className="min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-medium truncate max-w-[460px]">
-                                                                    {i.materiaPrima?.nome}
-                                                                </span>
-                                                                <Badge variant="secondary" className="shrink-0">{i.materiaPrima?.codigo_interno}</Badge>
-                                                            </div>
-                                                            <div className="text-sm text-gray-600">
-                                                                Quantidade: <span className="font-mono">{i.quantidadePorLote}</span> g
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                aria-label={`Editar item ${i.materiaPrima?.nome || ''}`}
-                                                                onClick={() => handleEditarItem(i)}
-                                                                className="text-blue-600 hover:text-blue-800"
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                aria-label={`Excluir item ${i.materiaPrima?.nome || ''}`}
-                                                                onClick={() => handleExcluirItem(i.id)}
-                                                                className="text-red-600 hover:text-red-800"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </section>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Lista Estruturas */}
-                <Card className="overflow-hidden">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Search className="h-5 w-5" />
-                            <span>Estruturas Cadastradas ({estruturas.length})</span>
-                        </CardTitle>
-                        <CardDescription>
-                            Pesquise por produto, código interno ou descrição {estruturas.length > 450 && '— considere refinar a busca'}
-                        </CardDescription>
-                    </CardHeader>
-
-                    {/* FIX: mover barra de busca para o Content e isolar rolagem da lista */}
-                    <CardContent className="pt-0">
-                        <div className="mt-2 mb-4 flex gap-3 items-center">
-                            <Input
-                                placeholder="Buscar estruturas..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="max-w-sm"
-                            />
-                            <Button type="button" variant="outline" onClick={carregarEstruturas} className="gap-2 shrink-0">
-                                <RefreshCw className="h-4 w-4" /> Atualizar
-                            </Button>
-                        </div>
-
-                        <div className="max-h-96 overflow-y-auto rounded-md border border-gray-100">
-                            {loading ? (
-                                <div className="p-4 space-y-3">
-                                    {[...Array(8)].map((_, i) => (
-                                        <div key={i} className="h-10 bg-gray-100 animate-pulse rounded" />
-                                    ))}
-                                </div>
-                            ) : estruturasFiltradas.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <Boxes className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                        {q ? 'Nenhuma estrutura encontrada' : 'Nenhuma estrutura cadastrada'}
-                                    </h3>
-                                    <p className="text-gray-500">
-                                        {q ? 'Tente ajustar o termo de busca' : 'Crie a primeira estrutura usando o formulário ao lado'}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="divide-y divide-gray-200">
-                                    {estruturasFiltradas.map((e) => (
-                                        <div
-                                            key={e.id}
-                                            className={`p-4 hover:bg-gray-50 cursor-pointer ${estruturaSelecionada?.id === e.id ? 'bg-emerald-50/60' : ''}`}
-                                            onClick={() => setEstruturaSelecionada(e)}
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                {/* bloco de texto precisa permitir truncamento */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1 min-w-0">
-                                                        <h3 className="font-medium text-gray-900 truncate">
-                                                            {e.produto?.nome}
-                                                        </h3>
-                                                        <Badge variant={e.ativo ? 'default' : 'secondary'} className="shrink-0">
-                                                            {e.ativo ? 'Ativa' : 'Inativa'}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-sm text-gray-500">
-                                                        Produto: <span className="font-mono">{e.produto?.codigo_interno}</span>
-                                                    </p>
-                                                    {e.descricao && (
-                                                        <p className="text-sm text-gray-500 truncate">
-                                                            Descrição: {e.descricao}
-                                                        </p>
-                                                    )}
-                                                </div>
-
-                                                {/* ações nunca devem quebrar linha */}
-                                                <div className="flex gap-2 shrink-0">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(ev) => { ev.stopPropagation(); handleEditarEstrutura(e) }}
-                                                        className="text-blue-600 hover:text-blue-800"
-                                                        aria-label={`Editar estrutura de ${e.produto?.nome}`}
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(ev) => { ev.stopPropagation(); handleExcluirEstrutura(e.id) }}
-                                                        className="text-red-600 hover:text-red-800"
-                                                        aria-label={`Excluir estrutura de ${e.produto?.nome}`}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                <div className="text-sm text-gray-600">
+                                                    Quantidade: <span className="font-mono">{i.quantidadePorLote}</span> g
                                                 </div>
                                             </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    aria-label={`Editar item ${i.materiaPrima?.nome || ''}`}
+                                                    onClick={() => handleEditarItem(i)}
+                                                    className="text-blue-600 hover:text-blue-800"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    aria-label={`Excluir item ${i.materiaPrima?.nome || ''}`}
+                                                    onClick={() => handleExcluirItem(i.id)}
+                                                    className="text-red-600 hover:text-red-800"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-3 border-t text-xs text-muted-foreground flex items-center justify-between">
+                        <span className="inline-flex items-center gap-2">
+                            <Link2 className="h-4 w-4" /> Itens vinculados {estruturaSelecionada ? `(${itens.length})` : ''}
+                        </span>
+                        {estruturaSelecionada && <span>Total: <span className="font-mono">{totalLote.toLocaleString('pt-BR')} g</span></span>}
+                    </div>
                 </Card>
             </div>
         </div>
