@@ -14,6 +14,7 @@ import {
   Weight,
   Factory,
   ListChecks,
+  Boxes, // 👈 novo: ícone para Estrutura de Produtos
 } from 'lucide-react'
 
 const Layout = ({ user, onLogout }) => {
@@ -25,17 +26,19 @@ const Layout = ({ user, onLogout }) => {
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
     { name: 'Histórico', href: '/historico', icon: History },
-    { name: 'OPs', href: '/ops', icon: Factory },            // 👈 novo
-    { name: 'Nova OP', href: '/ops/nova', icon: ListChecks },// 👈 novo
+    { name: 'OPs', href: '/ops', icon: Factory },
+    { name: 'Nova OP', href: '/ops/nova', icon: ListChecks },
     { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
     { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
+    { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes }, // 👈 novo item de menu
     { name: 'Balanças', href: '/balancas', icon: Weight },
   ]
 
-  // evita que '/ops' fique ativo quando estiver em '/ops/nova'
+  // evita que '/ops' e '/estruturas' fiquem ativos quando estiver em subrotas (ex.: '/ops/nova', '/estruturas/nova')
   const isActive = (href) => {
     const path = location.pathname
     if (href === '/ops') return path === '/ops' || path === '/ops/'
+    if (href === '/estruturas') return path === '/estruturas' || path === '/estruturas/'
     return path === href || path.startsWith(href + '/')
   }
 
@@ -43,7 +46,10 @@ const Layout = ({ user, onLogout }) => {
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75"
+          onClick={() => setSidebarOpen(false)}
+        />
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
           <div className="flex h-16 items-center justify-between px-4 border-b">
             <div className="flex items-center gap-2">
@@ -66,11 +72,10 @@ const Layout = ({ user, onLogout }) => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
-                    isActive(item.href)
+                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+                    }`}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -98,11 +103,10 @@ const Layout = ({ user, onLogout }) => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
-                    isActive(item.href)
+                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
                   {item.name}
@@ -117,7 +121,12 @@ const Layout = ({ user, onLogout }) => {
       <div className="lg:pl-64">
         {/* Top bar */}
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-          <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
             <Menu className="h-5 w-5" />
           </Button>
 
@@ -125,11 +134,19 @@ const Layout = ({ user, onLogout }) => {
             <div className="flex flex-1" />
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               <div className="flex items-center gap-x-2">
-                <Link to="/perfil" className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900">
+                <Link
+                  to="/perfil"
+                  className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                >
                   <User className="h-5 w-5" />
                   <span className="hidden sm:block">{user?.nome || 'Usuário'}</span>
                 </Link>
-                <Button variant="ghost" size="sm" onClick={onLogout} className="text-gray-500 hover:text-gray-700">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onLogout}
+                  className="text-gray-500 hover:text-gray-700"
+                >
                   <LogOut className="h-5 w-5" />
                 </Button>
               </div>

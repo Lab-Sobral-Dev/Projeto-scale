@@ -84,7 +84,7 @@ const Login = ({ onLogin }) => {
             )}
           </div>
 
-          <CardTitle className="text-2xl font-bold">Scale - sistema de Pesagem</CardTitle>
+          <CardTitle className="text-2xl font-bold">Scale - Sistema de Pesagem</CardTitle>
           <CardDescription>Entre com suas credenciais para acessar o sistema</CardDescription>
         </CardHeader>
         <CardContent>

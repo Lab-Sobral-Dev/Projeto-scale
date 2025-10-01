@@ -1,6 +1,6 @@
 // NovaPesagem.jsx
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,16 +52,19 @@ const NovaPesagem = () => {
   const [openItem, setOpenItem] = useState(false)
   const [searchItem, setSearchItem] = useState('')
 
+  // refs opcionais para focar de volta no campo de líquido após limpar
+  const liquidoRef = useRef(null)
+
   const getInitialFormData = (user = null) => ({
     op: '',          // sempre string p/ Select controlado
-    itemOp: '',       // sempre string p/ Select/Popover controlado
+    itemOp: '',      // sempre string p/ Select/Popover controlado
     pesador: user?.nome || '',
     // Entradas SEMPRE em kg na UI
     liquido: '',     // input do usuário (kg)
     tara: '',        // input do usuário (kg)
-    balanca: '',      // sempre string p/ Select controlado
+    balanca: '',     // sempre string p/ Select controlado
     codigoInterno: '',
-    loteMP: ''         // mapeia para lote_mp
+    loteMP: ''       // mapeia para lote_mp
   })
 
   const [formData, setFormData] = useState(getInitialFormData())
@@ -119,7 +122,6 @@ const NovaPesagem = () => {
   }, [])
 
   // ---- Unidades: UI em kg; comparação/saldo em g ----
-  // Entradas do usuário (kg)
   const liquidoKg = useMemo(() => toNumber(formData.liquido), [formData.liquido])
   const taraKg = useMemo(() => toNumber(formData.tara), [formData.tara])
 
@@ -138,7 +140,7 @@ const NovaPesagem = () => {
     return itensOP.find(i => i.id.toString() === formData.itemOp.toString()) || null
   }, [formData.itemOp, itensOP])
 
-  // Quantidades do item (em g, vindas do backend)
+  // Quantidades do item (em g)
   const necessarioG = itemSelecionado ? Number(itemSelecionado.quantidade_necessaria || 0) : 0
   const pesadoG = itemSelecionado ? Number(itemSelecionado.quantidade_pesada || 0) : 0
   const restanteG = Math.max(necessarioG - pesadoG, 0)
@@ -171,6 +173,7 @@ const NovaPesagem = () => {
     setFormData(prev => ({ ...prev, [name]: value }))
     setError('')
     setSuccess('')
+    // manter createdId até gerar etiqueta; só limpamos ao iniciar novo envio
     setCreatedId(null)
   }
 
@@ -196,11 +199,42 @@ const NovaPesagem = () => {
     }
   }
 
-  // Campos obrigatórios: op, itemOp, liquido, tara
+  // Campos obrigatórios
   const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido && formData.tara
 
   // Pode salvar quando não excede o máximo (parciais abaixo do mínimo são ok)
   const canSave = !loading && hasCamposBasicos && !excedeMaximo && liquidoKg > 0 && taraKg >= 0
+
+  const refreshItensOP = async (opId) => {
+    try {
+      const resp = await api.getOPItems(opId)
+      const itens = normalizeList(resp).map(it => ({
+        id: it.id,
+        mpNome: it.materia_prima?.nome ?? '',
+        mpCodigo: it.materia_prima?.codigo_interno ?? '',
+        quantidade_necessaria: it.quantidade_necessaria,
+        quantidade_pesada: it.quantidade_pesada,
+        quantidade_restante: it.quantidade_restante,
+        unidade: it.unidade,
+      }))
+      setItensOP(itens)
+    } catch (err) {
+      console.error('Erro ao atualizar itens da OP', err)
+      // mantém a tela funcional mesmo se a atualização falhar
+    }
+  }
+
+  const limparLiquidoETara = () => {
+    setFormData(prev => ({
+      ...prev,
+      liquido: '',
+      tara: ''
+    }))
+    // foco volta para o campo de líquido, agilizando o fluxo de pesagens
+    setTimeout(() => {
+      if (liquidoRef.current) liquidoRef.current.focus()
+    }, 0)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -250,6 +284,15 @@ const NovaPesagem = () => {
       const created = await api.createPesagemOP(payload)
       setCreatedId(created?.id)
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
+
+      // 🔄 Atualiza apenas o saldo dos itens da OP selecionada
+      if (formData.op) {
+        await refreshItensOP(formData.op)
+      }
+
+      // 🧹 Limpa somente Líquido e Tara e foca novamente
+      limparLiquidoETara()
+
     } catch (err) {
       console.error(err)
       const msg = err?.response?.data?.detail
@@ -273,6 +316,7 @@ const NovaPesagem = () => {
     setItensOP([])
     setOpenItem(false)
     setSearchItem('')
+    setTimeout(() => liquidoRef.current?.focus(), 0)
   }
 
   const handleGerarEtiqueta = async () => {
@@ -479,6 +523,7 @@ const NovaPesagem = () => {
                 <Label htmlFor="liquido">Peso Líquido (kg) *</Label>
                 <Input
                   id="liquido"
+                  ref={liquidoRef}
                   type="text"
                   inputMode="decimal"
                   value={formData.liquido}
@@ -542,7 +587,6 @@ const NovaPesagem = () => {
                   Limites (±5%): <b>{fmtG(limiteMinG)}</b> a <b>{fmtG(limiteMaxG)}</b>
                 </div>
 
-                {/* Indicadores e mensagens */}
                 {excedeMaximo && (
                   <p className="mt-2 text-red-700 text-sm">
                     Ultrapassa o limite superior (+5%). Ajuste o peso para no máximo {fmtG(limiteMaxG)}.

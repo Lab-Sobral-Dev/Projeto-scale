@@ -47,7 +47,6 @@ const CadastroProduto = () => {
   const [formData, setFormData] = useState({
     nome: '',
     codigoInterno: '',
-    volumePadrao: '',   // 👈 novo
     ativo: true
   })
 
@@ -62,14 +61,12 @@ const CadastroProduto = () => {
     id: p.id,
     nome: p.nome ?? '',
     codigoInterno: p.codigo_interno ?? '',
-    volumePadrao: p.volume_padrao ?? '',
     ativo: !!p.ativo,
   })
 
   const uiToApi = (p) => ({
     nome: p.nome,
     codigo_interno: p.codigoInterno,
-    volume_padrao: p.volumePadrao,
     ativo: p.ativo,
   })
 
@@ -152,7 +149,7 @@ const CadastroProduto = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch {}
+          } catch { }
           throw new Error(msg)
         }
         const atualizado = apiToUi(await res.json())
@@ -172,7 +169,7 @@ const CadastroProduto = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch {}
+          } catch { }
           throw new Error(msg)
         }
         const criado = apiToUi(await res.json())
@@ -192,7 +189,6 @@ const CadastroProduto = () => {
     setFormData({
       nome: '',
       codigoInterno: '',
-      volumePadrao: '',
       ativo: true
     })
     setEditingId(null)
@@ -206,7 +202,6 @@ const CadastroProduto = () => {
     setFormData({
       nome: produto.nome,
       codigoInterno: produto.codigoInterno,
-      volumePadrao: produto.volumePadrao || '',
       ativo: produto.ativo
     })
     setEditingId(produto.id)
@@ -295,21 +290,7 @@ const CadastroProduto = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="volumePadrao" className="inline-flex items-center gap-2">
-                  <FlaskConical className="h-4 w-4 text-gray-500" />
-                  Volume padrão (opcional)
-                </Label>
-                <Input
-                  id="volumePadrao"
-                  value={formData.volumePadrao}
-                  onChange={(e) => handleChange('volumePadrao', e.target.value)}
-                  placeholder="Ex.: Balde 5L, Saco 25kg, etc."
-                />
-                <p className="text-xs text-gray-500">
-                  Usado como sugestão automática na tela de pesagem.
-                </p>
-              </div>
+
 
               <div className="flex items-center space-x-2">
                 <Switch
@@ -400,11 +381,7 @@ const CadastroProduto = () => {
                           <p className="text-sm text-gray-500">
                             Código: <span className="font-mono">{produto.codigoInterno}</span>
                           </p>
-                          {produto.volumePadrao && (
-                            <p className="text-sm text-gray-500">
-                              Volume padrão: {produto.volumePadrao}
-                            </p>
-                          )}
+
                         </div>
                         <div className="flex gap-2">
                           <Button
