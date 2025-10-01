@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import {
-    Package, Boxes, Plus, Edit, Trash2, Save, X, Search, Beaker, Link2, RefreshCw
+    Boxes, Plus, Edit, Trash2, Save, X, Search, Beaker, Link2, RefreshCw
 } from 'lucide-react'
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -15,7 +15,6 @@ import {
 
 /**
  * Base da API — mantenha SEMPRE https por padrão.
- * Se preferir, defina VITE_API_BASE_URL=https://apiscale.laboratoriosobral.com.br/api
  */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
 
@@ -112,7 +111,7 @@ const CadastroEstruturaProduto = () => {
 
     const itemApiToUi = (i) => ({
         id: i.id,
-        estruturaId: i.estrutura_id || i.estrutura?.id, // por segurança
+        estruturaId: i.estrutura_id || i.estrutura?.id,
         materiaPrima: i.materia_prima || null,
         materiaPrimaId: i.materia_prima?.id ?? '',
         quantidadePorLote: i.quantidade_por_lote,
@@ -123,7 +122,7 @@ const CadastroEstruturaProduto = () => {
         estrutura_id: estruturaSelecionada?.id,
         materia_prima_id: i.materiaPrimaId,
         quantidade_por_lote: i.quantidadePorLote,
-        unidade: 'g', // regra do projeto
+        unidade: 'g',
     })
 
     // ========== Carregamentos ==========
@@ -463,7 +462,7 @@ const CadastroEstruturaProduto = () => {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-3">
-                <Boxes className="h-8 w-8 text-emerald-600" />
+                <Boxes className="h-8 w-8 text-emerald-600 shrink-0" />
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Estrutura de Produtos (BOM/Receita)</h1>
                     <p className="text-gray-600">
@@ -473,18 +472,20 @@ const CadastroEstruturaProduto = () => {
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {/* Form Estrutura */}
-                <Card>
+                {/* Form Estrutura + Itens */}
+                <Card className="overflow-hidden">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             {editingId ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                            {editingId ? 'Editar Estrutura' : 'Nova Estrutura'}
+                            <span className="truncate">{editingId ? 'Editar Estrutura' : 'Nova Estrutura'}</span>
                         </CardTitle>
                         <CardDescription>
                             Vincule um produto, descreva (opcional) e marque ativo. A descrição é única por produto.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
+
+                    <CardContent className="space-y-6">
+                        {/* --- Formulário da Estrutura --- */}
                         <form onSubmit={handleSubmitEstrutura} className="space-y-4">
                             <div className="space-y-2">
                                 <Label>Produto *</Label>
@@ -495,10 +496,14 @@ const CadastroEstruturaProduto = () => {
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Selecione o produto..." />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    {/* FIX: limitar altura para não empurrar layout */}
+                                    <SelectContent className="max-h-64">
                                         {produtos.map(p => (
                                             <SelectItem key={p.id} value={String(p.id)}>
-                                                {p.nome} <span className="text-xs text-gray-500">({p.codigo_interno})</span>
+                                                <span className="inline-flex gap-2 items-baseline">
+                                                    <span className="truncate max-w-[260px]">{p.nome}</span>
+                                                    <span className="text-xs text-gray-500 shrink-0">({p.codigo_interno})</span>
+                                                </span>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -515,7 +520,7 @@ const CadastroEstruturaProduto = () => {
                                 />
                             </div>
 
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center gap-2">
                                 <Switch
                                     id="ativo"
                                     checked={formEstrutura.ativo}
@@ -556,17 +561,20 @@ const CadastroEstruturaProduto = () => {
                             </div>
                         </form>
 
-                        {/* Painel de Itens — aparece quando uma estrutura está selecionada */}
+                        {/* --- Painel de Itens (só aparece com estrutura selecionada) --- */}
                         {estruturaSelecionada && (
-                            <div className="mt-8 space-y-4">
+                            <section className="space-y-4">
                                 <div className="flex items-center gap-2">
-                                    <Beaker className="h-5 w-5 text-emerald-600" />
-                                    <h3 className="text-lg font-semibold">
-                                        Itens da Estrutura — {estruturaSelecionada.produto?.nome}
-                                        {estruturaSelecionada.descricao ? ` — ${estruturaSelecionada.descricao}` : ''}
+                                    <Beaker className="h-5 w-5 text-emerald-600 shrink-0" />
+                                    <h3 className="text-lg font-semibold truncate">
+                                        <span className="truncate">
+                                            Itens da Estrutura — {estruturaSelecionada.produto?.nome}
+                                            {estruturaSelecionada.descricao ? ` — ${estruturaSelecionada.descricao}` : ''}
+                                        </span>
                                     </h3>
                                 </div>
 
+                                {/* Form de itens */}
                                 <form onSubmit={handleSubmitItem} className="grid md:grid-cols-3 gap-4">
                                     <div className="space-y-2">
                                         <Label>Matéria-prima *</Label>
@@ -577,10 +585,13 @@ const CadastroEstruturaProduto = () => {
                                             <SelectTrigger className="w-full">
                                                 <SelectValue placeholder="Selecione a MP..." />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-64">
                                                 {materiasPrimas.map(mp => (
                                                     <SelectItem key={mp.id} value={String(mp.id)}>
-                                                        {mp.nome} <span className="text-xs text-gray-500">({mp.codigo_interno})</span>
+                                                        <span className="inline-flex gap-2 items-baseline">
+                                                            <span className="truncate max-w-[260px]">{mp.nome}</span>
+                                                            <span className="text-xs text-gray-500 shrink-0">({mp.codigo_interno})</span>
+                                                        </span>
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -605,25 +616,31 @@ const CadastroEstruturaProduto = () => {
                                             {editingItemId ? 'Atualizar item' : 'Adicionar item'}
                                         </Button>
                                         {editingItemId && (
-                                            <Button type="button" variant="outline" onClick={() => {
-                                                setEditingItemId(null)
-                                                setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
-                                            }}>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setEditingItemId(null)
+                                                    setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
+                                                }}
+                                            >
                                                 Cancelar
                                             </Button>
                                         )}
                                     </div>
                                 </form>
 
+                                {/* Lista de itens */}
                                 <Card className="border-dashed">
                                     <CardHeader className="pb-2">
                                         <CardTitle className="text-base flex items-center gap-2">
-                                            <Link2 className="h-4 w-4" />
-                                            Itens vinculados ({itens.length})
+                                            <Link2 className="h-4 w-4 shrink-0" />
+                                            <span>Itens vinculados ({itens.length})</span>
                                         </CardTitle>
                                         <CardDescription>Quantidades por lote em gramas (g)</CardDescription>
                                     </CardHeader>
                                     <CardContent className="p-0">
+                                        {/* FIX: contêiner de rolagem dedicado, altura previsível */}
                                         <div className="max-h-72 overflow-y-auto divide-y">
                                             {loadingItens ? (
                                                 <div className="p-4 space-y-3">
@@ -641,13 +658,13 @@ const CadastroEstruturaProduto = () => {
                                                                 <span className="font-medium truncate max-w-[460px]">
                                                                     {i.materiaPrima?.nome}
                                                                 </span>
-                                                                <Badge variant="secondary">{i.materiaPrima?.codigo_interno}</Badge>
+                                                                <Badge variant="secondary" className="shrink-0">{i.materiaPrima?.codigo_interno}</Badge>
                                                             </div>
                                                             <div className="text-sm text-gray-600">
                                                                 Quantidade: <span className="font-mono">{i.quantidadePorLote}</span> g
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-2 shrink-0">
                                                             <Button
                                                                 type="button"
                                                                 variant="ghost"
@@ -675,35 +692,38 @@ const CadastroEstruturaProduto = () => {
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </div>
+                            </section>
                         )}
                     </CardContent>
                 </Card>
 
                 {/* Lista Estruturas */}
-                <Card>
+                <Card className="overflow-hidden">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Search className="h-5 w-5" />
-                            Estruturas Cadastradas ({estruturas.length})
+                            <span>Estruturas Cadastradas ({estruturas.length})</span>
                         </CardTitle>
                         <CardDescription>
                             Pesquise por produto, código interno ou descrição {estruturas.length > 450 && '— considere refinar a busca'}
                         </CardDescription>
-                        <div className="mt-4 flex gap-3">
+                    </CardHeader>
+
+                    {/* FIX: mover barra de busca para o Content e isolar rolagem da lista */}
+                    <CardContent className="pt-0">
+                        <div className="mt-2 mb-4 flex gap-3 items-center">
                             <Input
                                 placeholder="Buscar estruturas..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="max-w-sm"
                             />
-                            <Button type="button" variant="outline" onClick={carregarEstruturas} className="gap-2">
+                            <Button type="button" variant="outline" onClick={carregarEstruturas} className="gap-2 shrink-0">
                                 <RefreshCw className="h-4 w-4" /> Atualizar
                             </Button>
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="max-h-96 overflow-y-auto">
+
+                        <div className="max-h-96 overflow-y-auto rounded-md border border-gray-100">
                             {loading ? (
                                 <div className="p-4 space-y-3">
                                     {[...Array(8)].map((_, i) => (
@@ -728,13 +748,14 @@ const CadastroEstruturaProduto = () => {
                                             className={`p-4 hover:bg-gray-50 cursor-pointer ${estruturaSelecionada?.id === e.id ? 'bg-emerald-50/60' : ''}`}
                                             onClick={() => setEstruturaSelecionada(e)}
                                         >
-                                            <div className="flex items-center justify-between">
+                                            <div className="flex items-start justify-between gap-3">
+                                                {/* bloco de texto precisa permitir truncamento */}
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="font-medium text-gray-900 truncate max-w-[420px]">
+                                                    <div className="flex items-center gap-2 mb-1 min-w-0">
+                                                        <h3 className="font-medium text-gray-900 truncate">
                                                             {e.produto?.nome}
                                                         </h3>
-                                                        <Badge variant={e.ativo ? "default" : "secondary"}>
+                                                        <Badge variant={e.ativo ? 'default' : 'secondary'} className="shrink-0">
                                                             {e.ativo ? 'Ativa' : 'Inativa'}
                                                         </Badge>
                                                     </div>
@@ -742,12 +763,14 @@ const CadastroEstruturaProduto = () => {
                                                         Produto: <span className="font-mono">{e.produto?.codigo_interno}</span>
                                                     </p>
                                                     {e.descricao && (
-                                                        <p className="text-sm text-gray-500 truncate max-w-[520px]">
+                                                        <p className="text-sm text-gray-500 truncate">
                                                             Descrição: {e.descricao}
                                                         </p>
                                                     )}
                                                 </div>
-                                                <div className="flex gap-2">
+
+                                                {/* ações nunca devem quebrar linha */}
+                                                <div className="flex gap-2 shrink-0">
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
