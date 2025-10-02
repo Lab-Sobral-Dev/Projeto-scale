@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import {
-    Boxes, Plus, Edit, Trash2, Save, X, Search, Beaker, Link2, RefreshCw
+    Boxes, Plus, Edit, Trash2, Save, X, RefreshCw, Beaker, Link2
 } from 'lucide-react'
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -465,10 +465,10 @@ const CadastroEstruturaProduto = () => {
     )
 
     return (
-        // Container Principal: mantém o espaçamento e o fundo sutil
-        <div className="h-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
+        // Container Principal — garante respiro, fundo e que as áreas internas possam rolar sem quebrar
+        <div className="h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
 
-            {/* Título global (Mantido, mas ajustado para o novo fluxo) */}
+            {/* Título global */}
             <header className="flex items-center gap-4 border-b pb-4">
                 <Boxes className="h-9 w-9 text-emerald-600 shrink-0" />
                 <div className="min-w-0">
@@ -479,56 +479,61 @@ const CadastroEstruturaProduto = () => {
                 </div>
             </header>
 
-            {/* Grade Principal: 2 Linhas, onde a Linha 2 é dividida em 2 colunas */}
-            <div className="grid grid-cols-1 gap-6 h-[calc(100vh-200px)]">
-
-                {/* LINHA 1: Formulário de Estrutura (Topo - Ocupando a largura total) */}
+            {/* Grade Principal — a altura é controlada por viewport; filhos recebem min-h-0 para scroll correto */}
+            <div className="grid grid-cols-1 gap-6 min-h-0" style={{ height: 'calc(100dvh - 170px)' }}>
+                {/* LINHA 1: Formulário (largura total) */}
                 <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-emerald-600">
-                    <CardHeader className="border-b sticky top-0 bg-card z-10 flex flex-row items-center justify-between gap-3 p-4 shadow-sm">
-                        <div className="min-w-0">
-                            <CardTitle className="text-lg font-semibold truncate">
-                                {editingId ? 'Editar Estrutura' : 'Nova Estrutura'} — Cadastro Principal
-                            </CardTitle>
-                            <CardDescription className="truncate">
-                                Vincule o produto e defina o status de ativação da estrutura.
-                            </CardDescription>
-                        </div>
-                        <div className="shrink-0 flex gap-2">
-                            {editingId && (
-                                <Button
-                                    type="button" variant="outline" size="sm"
-                                    onClick={limparFormularioEstrutura}
-                                    className="gap-2"
-                                >
-                                    <X className="h-4 w-4" />
-                                    Cancelar Edição
+                    <CardHeader className="sticky top-0 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <CardTitle className="text-lg font-semibold truncate">
+                                    {editingId ? 'Editar Estrutura' : 'Nova Estrutura'} — Cadastro Principal
+                                </CardTitle>
+                                <CardDescription className="truncate">
+                                    Vincule o produto e defina o status de ativação da estrutura.
+                                </CardDescription>
+                            </div>
+                            <div className="shrink-0 flex gap-2">
+                                {editingId && (
+                                    <Button
+                                        type="button" variant="outline" size="sm"
+                                        onClick={limparFormularioEstrutura}
+                                        className="gap-2"
+                                    >
+                                        <X className="h-4 w-4" />
+                                        Cancelar Edição
+                                    </Button>
+                                )}
+                                <Button type="submit" form="form-estrutura" size="sm" className="gap-2">
+                                    <Save className="h-4 w-4" />
+                                    {editingId ? 'Atualizar Estrutura' : 'Salvar Estrutura'}
                                 </Button>
-                            )}
-                            <Button type="submit" form="form-estrutura" size="sm" className="gap-2">
-                                <Save className="h-4 w-4" />
-                                {editingId ? 'Atualizar Estrutura' : 'Salvar Estrutura'}
-                            </Button>
+                            </div>
                         </div>
                     </CardHeader>
 
-                    {/* Conteúdo do formulário com scroll se necessário */}
-                    <div className="p-6">
-                        <form id="form-estrutura" onSubmit={handleSubmitEstrutura} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-
+                    <CardContent className="p-6">
+                        <form
+                            id="form-estrutura"
+                            onSubmit={handleSubmitEstrutura}
+                            className="grid grid-cols-1 md:grid-cols-4 gap-4"
+                        >
                             {/* Produto */}
-                            <div className="space-y-2 col-span-1 md:col-span-2">
+                            <div className="space-y-2 col-span-1 md:col-span-2 min-w-0">
                                 <Label className="text-sm font-medium">Produto *</Label>
                                 <Select
                                     value={formEstrutura.produtoId}
                                     onValueChange={(v) => handleChangeEstrutura('produtoId', v)}
                                 >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Selecione o produto..." />
+                                    <SelectTrigger className="w-full min-w-0 overflow-hidden">
+                                        <div className="w-full min-w-0 truncate text-ellipsis">
+                                            <SelectValue placeholder="Selecione o produto..." />
+                                        </div>
                                     </SelectTrigger>
                                     <SelectContent className="max-h-64">
                                         {produtos.map(p => (
                                             <SelectItem key={p.id} value={String(p.id)}>
-                                                <span className="inline-flex gap-2 items-baseline">
+                                                <span className="inline-flex gap-2 items-baseline max-w-full">
                                                     <span className="truncate max-w-[260px]">{p.nome}</span>
                                                     <span className="text-xs text-muted-foreground shrink-0">({p.codigo_interno})</span>
                                                 </span>
@@ -539,18 +544,19 @@ const CadastroEstruturaProduto = () => {
                             </div>
 
                             {/* Descrição */}
-                            <div className="space-y-2 col-span-1 md:col-span-2">
+                            <div className="space-y-2 col-span-1 md:col-span-2 min-w-0">
                                 <Label htmlFor="descricao" className="text-sm font-medium">Descrição (opcional)</Label>
                                 <Input
                                     id="descricao"
                                     value={formEstrutura.descricao}
                                     onChange={(e) => handleChangeEstrutura('descricao', e.target.value)}
                                     placeholder="Ex.: Fórmula padrão, Versão 2, etc."
+                                    className="min-w-0"
                                 />
                             </div>
 
-                            {/* Ativo (separado em sua própria linha ou movido para os botões se preferir, mas mantido aqui) */}
-                            <div className="flex items-center gap-3 pt-2 col-span-full md:col-span-1">
+                            {/* Ativo */}
+                            <div className="flex items-center gap-3 pt-2 col-span-full">
                                 <Switch
                                     id="ativo"
                                     checked={formEstrutura.ativo}
@@ -559,7 +565,6 @@ const CadastroEstruturaProduto = () => {
                                 <Label htmlFor="ativo" className="text-sm font-medium">Estrutura Ativa</Label>
                             </div>
 
-                            {/* Mensagens de erro/sucesso */}
                             {(error || success) && (
                                 <div className="col-span-full">
                                     {error && (
@@ -575,16 +580,14 @@ const CadastroEstruturaProduto = () => {
                                 </div>
                             )}
                         </form>
-                    </div>
+                    </CardContent>
                 </Card>
 
-                {/* LINHA 2: Duas Colunas (Catálogo e Composição) */}
+                {/* LINHA 2: duas colunas */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-
-                    {/* COLUNA ESQUERDA: Catálogo de Estruturas (Master List) */}
-                    <Card className="flex flex-col overflow-hidden shadow-lg">
-                        {/* Header fixo e com sombra para destacar */}
-                        <CardHeader className="border-b sticky top-0 bg-card z-20 p-4 shadow-sm">
+                    {/* ESQUERDA: Catálogo */}
+                    <Card className="flex flex-col overflow-hidden shadow-lg min-h-0">
+                        <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                             <CardTitle className="text-lg font-semibold">Catálogo de Estruturas</CardTitle>
                             <CardDescription>Procure e selecione uma estrutura para detalhamento.</CardDescription>
 
@@ -593,16 +596,22 @@ const CadastroEstruturaProduto = () => {
                                     placeholder="Buscar estruturas..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full h-9"
+                                    className="w-full h-9 min-w-0"
                                 />
-                                <Button type="button" variant="outline" onClick={carregarEstruturas} className="gap-2 shrink-0 h-9" title="Atualizar Lista">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={carregarEstruturas}
+                                    className="gap-2 shrink-0 h-9"
+                                    title="Atualizar Lista"
+                                >
                                     <RefreshCw className="h-4 w-4" />
                                 </Button>
                             </div>
                         </CardHeader>
 
-                        {/* Lista com scroll */}
-                        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                        {/* Lista com scroll controlado */}
+                        <div className="flex-1 overflow-y-auto overscroll-contain divide-y divide-gray-100 min-h-0">
                             {loading ? (
                                 <div className="p-4 space-y-3">
                                     {[...Array(6)].map((_, i) => (
@@ -625,7 +634,7 @@ const CadastroEstruturaProduto = () => {
                                         <div
                                             key={e.id}
                                             className={`relative p-4 cursor-pointer transition-colors hover:bg-emerald-50/30 
-                                            ${estruturaSelecionada?.id === e.id
+                        ${estruturaSelecionada?.id === e.id
                                                     ? 'bg-emerald-50 border-l-4 border-emerald-600'
                                                     : 'border-l-4 border-transparent'
                                                 }`}
@@ -653,7 +662,7 @@ const CadastroEstruturaProduto = () => {
                                                         </p>
                                                     )}
                                                 </div>
-                                                {/* Botões de Ação (Mantidos para funcionalidade, mas em versão compacta) */}
+                                                {/* Ações */}
                                                 <div className="flex gap-1 shrink-0 mt-1">
                                                     <Button
                                                         type="button" variant="ghost" size="icon"
@@ -684,9 +693,9 @@ const CadastroEstruturaProduto = () => {
                         </div>
                     </Card>
 
-                    {/* COLUNA DIREITA: Itens da Estrutura (Composição) */}
-                    <Card className="flex flex-col overflow-hidden shadow-lg">
-                        <CardHeader className="border-b sticky top-0 bg-card z-10 p-4 shadow-sm">
+                    {/* DIREITA: Itens */}
+                    <Card className="flex flex-col overflow-hidden shadow-lg min-h-0">
+                        <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -706,23 +715,25 @@ const CadastroEstruturaProduto = () => {
                             </div>
                         </CardHeader>
 
-                        {/* Form de item - Melhor layout em grid */}
+                        {/* Form item */}
                         <div className="p-4 border-b bg-gray-50">
                             <form onSubmit={handleSubmitItem} className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3">
-                                <div className="space-y-2 col-span-full md:col-span-2 xl:col-span-2">
+                                <div className="space-y-2 col-span-full md:col-span-2 xl:col-span-2 min-w-0">
                                     <Label className="text-sm font-medium">Matéria-prima *</Label>
                                     <Select
                                         value={formItem.materiaPrimaId}
                                         onValueChange={(v) => handleChangeItem('materiaPrimaId', v)}
                                         disabled={!estruturaSelecionada || loadingItens}
                                     >
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Selecione a MP..." />
+                                        <SelectTrigger className="w-full min-w-0 overflow-hidden">
+                                            <div className="w-full min-w-0 truncate text-ellipsis">
+                                                <SelectValue placeholder="Selecione a MP..." />
+                                            </div>
                                         </SelectTrigger>
                                         <SelectContent className="max-h-64">
                                             {materiasPrimas.map(mp => (
                                                 <SelectItem key={mp.id} value={String(mp.id)}>
-                                                    <span className="inline-flex gap-2 items-baseline">
+                                                    <span className="inline-flex gap-2 items-baseline max-w-full">
                                                         <span className="truncate max-w-[200px]">{mp.nome}</span>
                                                         <span className="text-xs text-gray-500 shrink-0">({mp.codigo_interno})</span>
                                                     </span>
@@ -741,6 +752,7 @@ const CadastroEstruturaProduto = () => {
                                         onChange={(e) => handleChangeItem('quantidadePorLote', e.target.value)}
                                         placeholder="12500"
                                         disabled={!estruturaSelecionada || loadingItens}
+                                        className="min-w-0"
                                     />
                                 </div>
 
@@ -769,8 +781,8 @@ const CadastroEstruturaProduto = () => {
                             </form>
                         </div>
 
-                        {/* Lista de itens com scroll */}
-                        <div className="flex-1 overflow-y-auto">
+                        {/* Lista de itens */}
+                        <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
                             {!estruturaSelecionada ? (
                                 <div className="text-center py-12 text-base text-gray-400">
                                     👈 Selecione uma estrutura para visualizar a lista de matérias-primas.
@@ -791,7 +803,7 @@ const CadastroEstruturaProduto = () => {
                                         itens.map(i => (
                                             <div key={i.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                                                 <div className="min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
+                                                    <div className="flex items-center gap-2 mb-1 min-w-0">
                                                         <span className="font-medium text-gray-800 truncate max-w-[280px]">
                                                             {i.materiaPrima?.nome}
                                                         </span>
