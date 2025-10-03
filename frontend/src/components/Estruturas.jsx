@@ -8,7 +8,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Boxes, Edit, Trash2, Save, X, RefreshCw, ArrowRight } from 'lucide-react'
+import {
+    Boxes, Edit, Trash2, Save, X, RefreshCw, ArrowRight,
+    ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight
+} from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 /**
@@ -83,6 +86,10 @@ const Estruturas = () => {
         ativo: true,
     })
 
+    // ===== Paginação (client-side) =====
+    const [pageSize, setPageSize] = useState(10)
+    const [page, setPage] = useState(1)
+
     // ========== Helpers UI <-> API ==========
     const estruturaApiToUi = (e) => ({
         id: e.id,
@@ -147,6 +154,11 @@ const Estruturas = () => {
         })()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    // Reset de página ao mudar filtro, dataset ou pageSize
+    useEffect(() => { setPage(1) }, [q])
+    useEffect(() => { setPage(1) }, [estruturas.length])
+    useEffect(() => { setPage(1) }, [pageSize])
 
     // ========== Handlers ==========
     const handleChangeEstrutura = (name, value) => {
@@ -264,7 +276,7 @@ const Estruturas = () => {
         setError(''); setSuccess('')
     }
 
-    // ===== Filtro de estruturas =====
+    // ===== Filtro + paginação =====
     const estruturasFiltradas = useMemo(() => {
         const termo = q.trim().toLowerCase()
         if (!termo) return estruturas
@@ -275,6 +287,21 @@ const Estruturas = () => {
             return a.includes(termo) || b.includes(termo) || c.includes(termo)
         })
     }, [estruturas, q])
+
+    const { pageItems, totalItems, totalPages, startIndex, endIndex } = useMemo(() => {
+        const totalItems = estruturasFiltradas.length
+        const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+        const safePage = Math.min(page, totalPages)
+        const startIndex = (safePage - 1) * pageSize
+        const endIndex = Math.min(startIndex + pageSize, totalItems)
+        const pageItems = estruturasFiltradas.slice(startIndex, endIndex)
+        return { pageItems, totalItems, totalPages, startIndex, endIndex }
+    }, [estruturasFiltradas, pageSize, page])
+
+    const goFirst = () => setPage(1)
+    const goPrev = () => setPage(p => Math.max(1, p - 1))
+    const goNext = () => setPage(p => Math.min(totalPages, p + 1))
+    const goLast = () => setPage(totalPages)
 
     return (
         <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
@@ -294,7 +321,7 @@ const Estruturas = () => {
             <div className="grid grid-cols-1 gap-6 auto-rows-max">
 
                 {/* Formulário */}
-                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-emerald-600">
+                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4">
                     <CardHeader className="bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
@@ -324,7 +351,7 @@ const Estruturas = () => {
                         </div>
                     </CardHeader>
 
-                    {/* menor teto para o form, liberando mais viewport ao catálogo */}
+                    {/* teto menor pro form */}
                     <CardContent className="p-6 max-h-[26vh] overflow-y-auto min-h-0">
                         <form
                             id="form-estrutura"
@@ -396,7 +423,7 @@ const Estruturas = () => {
                     </CardContent>
                 </Card>
 
-                {/* Lista de Estruturas — altura generosa para ver várias ao mesmo tempo */}
+                {/* Lista de Estruturas — agora com paginação */}
                 <Card className="flex flex-col overflow-hidden shadow-lg min-h-[56vh]">
                     <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <CardTitle className="text-lg font-semibold">Catálogo de Estruturas</CardTitle>
@@ -424,11 +451,11 @@ const Estruturas = () => {
                     <div className="flex-1 overflow-y-auto overscroll-contain divide-y divide-gray-100 min-h-0">
                         {loading ? (
                             <div className="p-4 space-y-3">
-                                {[...Array(8)].map((_, i) => (
+                                {[...Array(pageSize)].map((_, i) => (
                                     <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
                                 ))}
                             </div>
-                        ) : estruturasFiltradas.length === 0 ? (
+                        ) : totalItems === 0 ? (
                             <div className="text-center py-12 px-4 text-gray-500">
                                 <Boxes className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                                 <h3 className="text-lg font-semibold mb-2">
@@ -440,10 +467,10 @@ const Estruturas = () => {
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-100">
-                                {estruturasFiltradas.map((e) => (
+                                {pageItems.map((e) => (
                                     <div
                                         key={e.id}
-                                        className="relative p-3 transition-colors hover:bg-emerald-50/30 border-l-4 border-transparent"
+                                        className="relative p-3 transition-colors hover:bg-emerald-50/30 border-l-4 border-transparent cursor-pointer"
                                         onClick={() => navigate(`/estruturas/${e.id}`)}
                                         role="button"
                                     >
@@ -505,8 +532,48 @@ const Estruturas = () => {
                         )}
                     </div>
 
-                    <div className="p-4 border-t text-sm font-medium text-gray-600 bg-gray-50">
-                        {estruturasFiltradas.length} {estruturasFiltradas.length === 1 ? 'estrutura' : 'estruturas'} encontrada(s)
+                    {/* Footer com paginação */}
+                    <div className="p-4 border-t text-sm text-gray-700 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-center gap-2">
+                            <span>
+                                {totalItems > 0
+                                    ? <>Mostrando <span className="font-medium">{startIndex + 1}</span>–<span className="font-medium">{endIndex}</span> de <span className="font-medium">{totalItems}</span></>
+                                    : '0 resultados'}
+                            </span>
+                            <span className="hidden md:inline text-gray-400">•</span>
+                            <span>Página <span className="font-medium">{Math.min(page, totalPages)}</span> de <span className="font-medium">{totalPages}</span></span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-600">Por página:</span>
+                                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                                    <SelectTrigger className="h-8 w-[88px]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[10, 25, 50, 100].map(n => (
+                                            <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="flex items-center">
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-l-md" onClick={goFirst} disabled={page <= 1} title="Primeira página">
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goPrev} disabled={page <= 1} title="Anterior">
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goNext} disabled={page >= totalPages} title="Próxima">
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-r-md" onClick={goLast} disabled={page >= totalPages} title="Última página">
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </Card>
             </div>

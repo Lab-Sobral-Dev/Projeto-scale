@@ -7,7 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Beaker, Edit, Trash2, Save, ArrowLeft, Link2, RefreshCw } from 'lucide-react'
+import {
+    Beaker, Edit, Trash2, Save, ArrowLeft, Link2, RefreshCw,
+    ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight
+} from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 /**
@@ -59,6 +62,12 @@ const ComposicaoEstrutura = () => {
     const [success, setSuccess] = useState('')
     const [formItem, setFormItem] = useState({ materiaPrimaId: '', quantidadePorLote: '' })
     const [editingItemId, setEditingItemId] = useState(null)
+
+    // ===== Paginação (client-side) =====
+    const [pageSize, setPageSize] = useState(10)
+    const [page, setPage] = useState(1)
+    useEffect(() => { setPage(1) }, [itens.length])
+    useEffect(() => { setPage(1) }, [pageSize])
 
     // ===== Mapeamentos =====
     const estruturaApiToUi = (e) => ({
@@ -247,6 +256,22 @@ const ComposicaoEstrutura = () => {
         }
     }
 
+    // ===== Paginação calculada =====
+    const { pageItems, totalItems, totalPages, startIndex, endIndex } = useMemo(() => {
+        const totalItems = itens.length
+        const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+        const safePage = Math.min(page, totalPages)
+        const startIndex = (safePage - 1) * pageSize
+        const endIndex = Math.min(startIndex + pageSize, totalItems)
+        const pageItems = itens.slice(startIndex, endIndex)
+        return { pageItems, totalItems, totalPages, startIndex, endIndex }
+    }, [itens, pageSize, page])
+
+    const goFirst = () => setPage(1)
+    const goPrev = () => setPage(p => Math.max(1, p - 1))
+    const goNext = () => setPage(p => Math.min(totalPages, p + 1))
+    const goLast = () => setPage(totalPages)
+
     return (
         <div className="h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
             <header className="flex items-center gap-3 border-b pb-4">
@@ -263,7 +288,7 @@ const ComposicaoEstrutura = () => {
 
             <div className="grid grid-cols-1 gap-6 min-h-0 grid-rows-[auto_minmax(0,1fr)] h-[calc(100dvh-170px)]">
                 {/* Info da estrutura + formulário de item */}
-                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-emerald-600">
+                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4">
                     <CardHeader className="sticky top-0 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
@@ -375,7 +400,7 @@ const ComposicaoEstrutura = () => {
                     </CardContent>
                 </Card>
 
-                {/* Lista de Itens */}
+                {/* Lista de Itens (com paginação) */}
                 <Card className="flex flex-col overflow-hidden shadow-lg min-h-0">
                     <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <CardTitle className="text-lg font-semibold">Itens da Composição</CardTitle>
@@ -391,17 +416,17 @@ const ComposicaoEstrutura = () => {
                             </div>
                         ) : loadingItens ? (
                             <div className="p-4 space-y-3">
-                                {[...Array(6)].map((_, i) => (
+                                {[...Array(pageSize)].map((_, i) => (
                                     <div key={i} className="h-12 bg-gray-100 animate-pulse rounded" />
                                 ))}
                             </div>
-                        ) : itens.length === 0 ? (
+                        ) : totalItems === 0 ? (
                             <div className="text-center py-12 text-base text-gray-500">
                                 Nenhum item adicionado à composição.
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-100">
-                                {itens.map(i => (
+                                {pageItems.map(i => (
                                     <div key={i.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2 mb-1 min-w-0">
@@ -440,11 +465,50 @@ const ComposicaoEstrutura = () => {
                         )}
                     </div>
 
-                    <div className="p-4 border-t text-sm text-gray-600 font-medium bg-gray-50 flex items-center justify-between">
-                        <span className="inline-flex items-center gap-2">
-                            <Link2 className="h-4 w-4 text-emerald-600" /> Total de itens: ({itens.length})
-                        </span>
-                        <span>Total: <span className="font-mono font-bold text-gray-900">{totalLote.toLocaleString('pt-BR')} g</span></span>
+                    {/* Footer com paginação + total do lote */}
+                    <div className="p-4 border-t text-sm text-gray-700 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+                            <span>
+                                {totalItems > 0
+                                    ? <>Mostrando <span className="font-medium">{startIndex + 1}</span>–<span className="font-medium">{endIndex}</span> de <span className="font-medium">{totalItems}</span> itens</>
+                                    : '0 resultados'}
+                            </span>
+                            <span className="hidden md:inline text-gray-400">•</span>
+                            <span>Página <span className="font-medium">{Math.min(page, totalPages)}</span> de <span className="font-medium">{totalPages}</span></span>
+                            <span className="hidden md:inline text-gray-400">•</span>
+                            <span>Lote total: <span className="font-mono font-bold text-gray-900">{totalLote.toLocaleString('pt-BR')} g</span></span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-600">Por página:</span>
+                                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                                    <SelectTrigger className="h-8 w-[88px]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[10, 25, 50, 100].map(n => (
+                                            <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="flex items-center">
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-l-md" onClick={goFirst} disabled={page <= 1} title="Primeira página">
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goPrev} disabled={page <= 1} title="Anterior">
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goNext} disabled={page >= totalPages} title="Próxima">
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-r-md" onClick={goLast} disabled={page >= totalPages} title="Última página">
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </Card>
             </div>

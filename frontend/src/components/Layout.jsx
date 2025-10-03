@@ -24,13 +24,13 @@ const Layout = ({ user, onLogout }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
-    { name: 'Histórico', href: '/historico', icon: History },
+    { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
+    { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
+    { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes },
     { name: 'OPs', href: '/ops', icon: Factory },
     { name: 'Nova OP', href: '/ops/nova', icon: ListChecks },
-    { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
-    { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
-    { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes }, // 👈 novo item de menu
+    { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
+    { name: 'Histórico', href: '/historico', icon: History },
     { name: 'Balanças', href: '/balancas', icon: Weight },
   ]
 
