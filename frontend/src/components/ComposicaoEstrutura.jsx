@@ -273,7 +273,8 @@ const ComposicaoEstrutura = () => {
     const goLast = () => setPage(totalPages)
 
     return (
-        <div className="h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
+        // ⬇️ troquei para min-h e removi travas duras
+        <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
             <header className="flex items-center gap-3 border-b pb-4">
                 <Button variant="outline" size="sm" onClick={() => navigate('/estruturas')} className="gap-2">
                     <ArrowLeft className="h-4 w-4" /> Voltar
@@ -286,7 +287,8 @@ const ComposicaoEstrutura = () => {
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 gap-6 min-h-0 grid-rows-[auto_minmax(0,1fr)] h-[calc(100dvh-170px)]">
+            {/* ⬇️ igual à página de estruturas: linhas automáticas */}
+            <div className="grid grid-cols-1 gap-6 auto-rows-max">
                 {/* Info da estrutura + formulário de item */}
                 <Card className="flex flex-col overflow-hidden shadow-xl border-t-4">
                     <CardHeader className="sticky top-0 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
@@ -311,7 +313,8 @@ const ComposicaoEstrutura = () => {
                         </div>
                     </CardHeader>
 
-                    <CardContent className="p-4">
+                    {/* ⬇️ limitei a altura do form pra liberar viewport pra lista */}
+                    <CardContent className="p-4 max-h-[24vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-3">
                             <div className="text-sm text-gray-600 flex items-center gap-2">
                                 <Link2 className="h-4 w-4 text-emerald-600" />
@@ -400,8 +403,8 @@ const ComposicaoEstrutura = () => {
                     </CardContent>
                 </Card>
 
-                {/* Lista de Itens (com paginação) */}
-                <Card className="flex flex-col overflow-hidden shadow-lg min-h-0">
+                {/* Lista de Itens — ⬇️ altura generosa + linhas mais compactas */}
+                <Card className="flex flex-col overflow-hidden shadow-lg min-h-[56vh]">
                     <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <CardTitle className="text-lg font-semibold">Itens da Composição</CardTitle>
                         <CardDescription>
@@ -427,10 +430,10 @@ const ComposicaoEstrutura = () => {
                         ) : (
                             <div className="divide-y divide-gray-100">
                                 {pageItems.map(i => (
-                                    <div key={i.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                    <div key={i.id} className="p-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2 mb-1 min-w-0">
-                                                <span className="font-medium text-gray-800 truncate max-w-[280px]">
+                                                <span className="font-medium text-gray-800 truncate max-w-[320px]">
                                                     {i.materiaPrima?.nome}
                                                 </span>
                                                 <Badge variant="secondary" className="text-xs shrink-0">
