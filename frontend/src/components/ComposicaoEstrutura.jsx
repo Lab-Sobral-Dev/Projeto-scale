@@ -363,7 +363,6 @@ const ComposicaoEstrutura = () => {
                                     inputMode="decimal"
                                     value={formItem.quantidadePorLote}
                                     onChange={(e) => handleChangeItem('quantidadePorLote', e.target.value)}
-                                    placeholder="12500"
                                     disabled={!estrutura || loadingItens}
                                     className="min-w-0"
                                 />
