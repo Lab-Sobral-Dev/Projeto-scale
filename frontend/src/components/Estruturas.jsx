@@ -277,7 +277,7 @@ const Estruturas = () => {
     }, [estruturas, q])
 
     return (
-        <div className="h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
+        <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
 
             {/* Header */}
             <header className="flex items-center gap-4 border-b pb-4">
@@ -291,10 +291,11 @@ const Estruturas = () => {
             </header>
 
             {/* Layout vertical: formulário + lista */}
-            <div className="grid grid-cols-1 gap-6 min-h-0 grid-rows-[auto_minmax(0,1fr)] h-[calc(100dvh-170px)]">
+            <div className="grid grid-cols-1 gap-6 auto-rows-max">
+
                 {/* Formulário */}
                 <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-emerald-600">
-                    <CardHeader className="sticky top-0 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
+                    <CardHeader className="bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <CardTitle className="text-lg font-semibold truncate">
@@ -323,7 +324,8 @@ const Estruturas = () => {
                         </div>
                     </CardHeader>
 
-                    <CardContent className="p-6 max-h-[38vh] overflow-y-auto min-h-0">
+                    {/* menor teto para o form, liberando mais viewport ao catálogo */}
+                    <CardContent className="p-6 max-h-[26vh] overflow-y-auto min-h-0">
                         <form
                             id="form-estrutura"
                             onSubmit={handleSubmitEstrutura}
@@ -394,8 +396,8 @@ const Estruturas = () => {
                     </CardContent>
                 </Card>
 
-                {/* Lista de Estruturas */}
-                <Card className="flex flex-col overflow-hidden shadow-lg min-h-0">
+                {/* Lista de Estruturas — altura generosa para ver várias ao mesmo tempo */}
+                <Card className="flex flex-col overflow-hidden shadow-lg min-h-[56vh]">
                     <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <CardTitle className="text-lg font-semibold">Catálogo de Estruturas</CardTitle>
                         <CardDescription>Procure e clique para abrir a composição.</CardDescription>
@@ -422,7 +424,7 @@ const Estruturas = () => {
                     <div className="flex-1 overflow-y-auto overscroll-contain divide-y divide-gray-100 min-h-0">
                         {loading ? (
                             <div className="p-4 space-y-3">
-                                {[...Array(6)].map((_, i) => (
+                                {[...Array(8)].map((_, i) => (
                                     <div key={i} className="h-14 bg-gray-100 animate-pulse rounded" />
                                 ))}
                             </div>
@@ -441,7 +443,7 @@ const Estruturas = () => {
                                 {estruturasFiltradas.map((e) => (
                                     <div
                                         key={e.id}
-                                        className="relative p-4 transition-colors hover:bg-emerald-50/30 border-l-4 border-transparent"
+                                        className="relative p-3 transition-colors hover:bg-emerald-50/30 border-l-4 border-transparent"
                                         onClick={() => navigate(`/estruturas/${e.id}`)}
                                         role="button"
                                     >
