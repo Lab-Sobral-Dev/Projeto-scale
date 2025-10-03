@@ -8,7 +8,8 @@ import Ops from '@/components/Ops'
 import CriarOP from '@/components/CriarOP'
 import Historico from './components/Historico'
 import CadastroProduto from './components/CadastroProduto'
-import CadastroEstruturaProduto from './components/CadastroEstruturaProduto'
+import Estruturas from './components/Estruturas'
+import ComposicaoEstrutura from './components/ComposicaoEstrutura'
 import CadastroMateriaPrima from './components/CadastroMateriaPrima'
 import PerfilUsuario from './components/PerfilUsuario'
 import GeracaoEtiqueta from './components/GeracaoEtiqueta'
@@ -88,7 +89,8 @@ function App() {
           }
         >
           <Route path="/cadastro-produto" element={<CadastroProduto />} />
-          <Route path="/estruturas" element={<CadastroEstruturaProduto />} />
+          <Route path="/estruturas" element={<Estruturas />} />
+          <Route path="/estruturas/:id" element={<ComposicaoEstrutura />} />  
           <Route path="/cadastro-materia-prima" element={<CadastroMateriaPrima />} />
           <Route path="/balancas" element={<CadastroBalanca />} />
           <Route path="/cadastro-usuario" element={<UsuariosAdmin />} />
