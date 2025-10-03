@@ -1,5 +1,5 @@
-# sua_app/tests/test_models.py
-from decimal import Decimal
+# registro/tests.py
+from decimal import Decimal as D
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -11,9 +11,6 @@ from registro.models import (
     OrdemProducao, ItemOP, StatusOP,
     Pesagem, TOLERANCIA_PERCENTUAL, KG_TO_G
 )
-
-
-D = Decimal  # açucar sintático
 
 
 class BaseSetupMixin:
@@ -113,7 +110,7 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
             p2.clean()
 
     def test_coerencia_itemop_na_mesma_op(self):
-        # Cria outra OP com mesmo item de estrutura e tenta cruzar
+        # Cria outra OP e tenta cruzar com item_op da outra OP
         op2 = OrdemProducao.objects.create(
             numero="OP-0002", produto=self.prod, estrutura=self.estr, lote="L24A0002"
         )
@@ -133,7 +130,8 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.080"), liquido=D("0.120"), balanca=self.bal, lote_mp=" 24A0321 "
         )
-        p.full_clean()  # valida antes
+        # 👇 ignoramos 'bruto' porque é calculado no save()
+        p.full_clean(exclude=["bruto"])
         p.save()
 
         p.refresh_from_db()
@@ -149,7 +147,6 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         # teto para item1 (1000g) = 1050 g
         teto = self.max_allowed(D("1000"))
         # já pesar 1049 g e tentar mais 2 g → deve falhar
-        # 1ª pesagem: 1.049 kg? cuidado: entrada é kg, armazenamento em g
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.000"), liquido=(teto - D("1.000")) / KG_TO_G  # kg que viram g = teto-1
@@ -157,7 +154,6 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.item1.refresh_from_db()
         self.assertEqual(self.item1.quantidade_pesada, teto - D("1.000"))
 
-        # 2ª pesagem tentando passar 2 g
         with self.assertRaises(ValidationError) as ctx:
             Pesagem.objects.create(
                 op=self.op, item_op=self.item1, pesador="Ana",
@@ -169,7 +165,7 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         min1 = self.min_allowed(D("1000"))  # 950 g
         min2 = self.min_allowed(D("500"))   # 475 g
 
-        # Pesar parcialmente abaixo do mínimo para os dois itens → OP deve ficar EM_ANDAMENTO
+        # Parciais abaixo do mínimo → EM_ANDAMENTO
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.000"), liquido=(min1 - D("50.000")) / KG_TO_G
@@ -181,7 +177,7 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.op.refresh_from_db()
         self.assertEqual(self.op.status, StatusOP.EM_ANDAMENTO)
 
-        # Completar exatamente até o mínimo permitido em ambos
+        # Completar exatamente até o mínimo permitido
         restante1 = min1 - ItemOP.objects.get(pk=self.item1.pk).quantidade_pesada
         restante2 = min2 - ItemOP.objects.get(pk=self.item2.pk).quantidade_pesada
 
@@ -197,7 +193,6 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.op.refresh_from_db()
         self.assertEqual(self.op.status, StatusOP.CONCLUIDA)
         self.assertIsNotNone(self.op.concluida_em)
-        # concluida_em deve ser “agora-ish” (tolerância de alguns segundos)
         self.assertLess((timezone.now() - self.op.concluida_em).total_seconds(), 5.0)
 
     def test_saldo_por_mp_anota_campos(self):
@@ -206,7 +201,6 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         Pesagem.objects.create(op=self.op, item_op=self.item2, pesador="A", tara=D("0"), liquido=D("0.050"))
 
         qs = self.op.saldo_por_mp().order_by("materia_prima__id")
-        # Cada linha: necessaria, pesada, restante
         linha1, linha2 = list(qs)
         self.assertEqual(linha1["necessaria"], D("1000.000"))
         self.assertEqual(linha1["pesada"], D("100.000"))
