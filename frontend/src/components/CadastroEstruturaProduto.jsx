@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import {
-    Boxes, Plus, Edit, Trash2, Save, X, RefreshCw, Beaker, Link2
+    Boxes, Edit, Trash2, Save, X, RefreshCw, Beaker, Link2
 } from 'lucide-react'
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -111,7 +111,7 @@ const CadastroEstruturaProduto = () => {
 
     const itemApiToUi = (i) => ({
         id: i.id,
-        estruturaId: i.estrutura_id || i.estrutura?.id, // por segurança
+        estruturaId: i.estrutura_id || i.estrutura?.id,
         materiaPrima: i.materia_prima || null,
         materiaPrimaId: i.materia_prima?.id ?? '',
         quantidadePorLote: i.quantidade_por_lote,
@@ -122,7 +122,7 @@ const CadastroEstruturaProduto = () => {
         estrutura_id: estruturaSelecionada?.id,
         materia_prima_id: i.materiaPrimaId,
         quantidade_por_lote: i.quantidadePorLote,
-        unidade: 'g', // regra do projeto
+        unidade: 'g',
     })
 
     // ========== Carregamentos ==========
@@ -209,7 +209,6 @@ const CadastroEstruturaProduto = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    // Quando muda a estruturaSelecionada, traz itens
     useEffect(() => {
         carregarItensDaEstrutura(estruturaSelecionada?.id || null)
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -230,7 +229,6 @@ const CadastroEstruturaProduto = () => {
                 setError('Selecione um produto.')
                 return
             }
-            // Regra de unicidade (produto + descricao) – validação básica local
             const dup = estruturas.some(es =>
                 es.produto?.id === Number(formEstrutura.produtoId) &&
                 (es.descricao || '') === (formEstrutura.descricao || '') &&
@@ -256,7 +254,7 @@ const CadastroEstruturaProduto = () => {
                     } catch { }
                     throw new Error(msg)
                 }
-                const atualizado = estruturaApiToUi(await res.json())
+                const atualizado = await res.json().then(estruturaApiToUi)
                 setEstruturas(prev => prev.map(x => x.id === editingId ? atualizado : x))
                 setEstruturaSelecionada(atualizado)
                 setSuccess('Estrutura atualizada com sucesso.')
@@ -277,7 +275,7 @@ const CadastroEstruturaProduto = () => {
                     } catch { }
                     throw new Error(msg)
                 }
-                const criado = estruturaApiToUi(await res.json())
+                const criado = await res.json().then(estruturaApiToUi)
                 setEstruturas(prev => [criado, ...prev])
                 setEstruturaSelecionada(criado)
                 setSuccess('Estrutura criada com sucesso.')
@@ -375,7 +373,7 @@ const CadastroEstruturaProduto = () => {
                     } catch { }
                     throw new Error(msg)
                 }
-                const atualizado = itemApiToUi(await res.json())
+                const atualizado = await res.json().then(itemApiToUi)
                 setItens(prev => prev.map(i => i.id === editingItemId ? atualizado : i))
                 setEditingItemId(null)
                 setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
@@ -397,7 +395,7 @@ const CadastroEstruturaProduto = () => {
                     } catch { }
                     throw new Error(msg)
                 }
-                const criado = itemApiToUi(await res.json())
+                const criado = await res.json().then(itemApiToUi)
                 setItens(prev => [criado, ...prev])
                 setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
                 setSuccess('Item adicionado à estrutura.')
@@ -446,7 +444,7 @@ const CadastroEstruturaProduto = () => {
         }
     }
 
-    // ===== Filtro de estruturas (busca por produto/descrição) =====
+    // ===== Filtro de estruturas =====
     const estruturasFiltradas = useMemo(() => {
         const termo = q.trim().toLowerCase()
         if (!termo) return estruturas
@@ -465,10 +463,10 @@ const CadastroEstruturaProduto = () => {
     )
 
     return (
-        // Container Principal — garante respiro, fundo e que as áreas internas possam rolar sem quebrar
+        // Container principal
         <div className="h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
 
-            {/* Título global */}
+            {/* Header da página */}
             <header className="flex items-center gap-4 border-b pb-4">
                 <Boxes className="h-9 w-9 text-emerald-600 shrink-0" />
                 <div className="min-w-0">
@@ -479,9 +477,11 @@ const CadastroEstruturaProduto = () => {
                 </div>
             </header>
 
-            {/* Grade Principal — a altura é controlada por viewport; filhos recebem min-h-0 para scroll correto */}
-            <div className="grid grid-cols-1 gap-6 min-h-0" style={{ height: 'calc(100dvh - 170px)' }}>
-                {/* LINHA 1: Formulário (largura total) */}
+            {/* Grade principal: 2 linhas (topo auto, conteúdo 1fr) */}
+            <div
+                className="grid grid-cols-1 gap-6 min-h-0 grid-rows-[auto_minmax(0,1fr)] h-[calc(100dvh-170px)]"
+            >
+                {/* LINHA 1 — Formulário */}
                 <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-emerald-600">
                     <CardHeader className="sticky top-0 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
@@ -512,7 +512,8 @@ const CadastroEstruturaProduto = () => {
                         </div>
                     </CardHeader>
 
-                    <CardContent className="p-6">
+                    {/* Limite de altura + scroll interno para não "engolir" a linha 2 */}
+                    <CardContent className="p-6 max-h-[38vh] overflow-y-auto min-h-0">
                         <form
                             id="form-estrutura"
                             onSubmit={handleSubmitEstrutura}
@@ -583,7 +584,7 @@ const CadastroEstruturaProduto = () => {
                     </CardContent>
                 </Card>
 
-                {/* LINHA 2: duas colunas */}
+                {/* LINHA 2 — duas colunas, cada card com min-h-0 e listas roláveis */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
                     {/* ESQUERDA: Catálogo */}
                     <Card className="flex flex-col overflow-hidden shadow-lg min-h-0">
@@ -610,7 +611,6 @@ const CadastroEstruturaProduto = () => {
                             </div>
                         </CardHeader>
 
-                        {/* Lista com scroll controlado */}
                         <div className="flex-1 overflow-y-auto overscroll-contain divide-y divide-gray-100 min-h-0">
                             {loading ? (
                                 <div className="p-4 space-y-3">
@@ -662,7 +662,6 @@ const CadastroEstruturaProduto = () => {
                                                         </p>
                                                     )}
                                                 </div>
-                                                {/* Ações */}
                                                 <div className="flex gap-1 shrink-0 mt-1">
                                                     <Button
                                                         type="button" variant="ghost" size="icon"
@@ -715,7 +714,6 @@ const CadastroEstruturaProduto = () => {
                             </div>
                         </CardHeader>
 
-                        {/* Form item */}
                         <div className="p-4 border-b bg-gray-50">
                             <form onSubmit={handleSubmitItem} className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3">
                                 <div className="space-y-2 col-span-full md:col-span-2 xl:col-span-2 min-w-0">
@@ -781,7 +779,6 @@ const CadastroEstruturaProduto = () => {
                             </form>
                         </div>
 
-                        {/* Lista de itens */}
                         <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
                             {!estruturaSelecionada ? (
                                 <div className="text-center py-12 text-base text-gray-400">
