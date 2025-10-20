@@ -130,36 +130,33 @@ const Layout = ({ user, onLogout }) => {
             <Menu className="h-5 w-5" />
           </Button>
 
-          <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-            {/* 🔹 Adicione este bloco para mostrar o texto centralizado */}
-            <div className="absolute left-1/2 transform -translate-x-1/2">
-              <span className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900">
-                Homologação
-              </span>
-            </div>
+          <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end items-center">
+            {/* 🔹 Texto de ambiente (Homologação) */}
+            <span className="hidden sm:inline-block text-sm font-semibold text-blue-700 tracking-wide uppercase mr-4">
+              Homologação
+            </span>
 
-            <div className="flex flex-1" />
-            <div className="flex items-center gap-x-4 lg:gap-x-6">
-              <div className="flex items-center gap-x-2">
-                <Link
-                  to="/perfil"
-                  className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
-                  <User className="h-5 w-5" />
-                  <span className="hidden sm:block">{user?.nome || 'Usuário'}</span>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onLogout}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </div>
+            {/* 🔹 Nome do usuário e botão de logout */}
+            <div className="flex items-center gap-x-2">
+              <Link
+                to="/perfil"
+                className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                <User className="h-5 w-5" />
+                <span className="hidden sm:block">{user?.nome || 'Usuário'}</span>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onLogout}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
           </div>
         </div>
+
 
 
         {/* Page content */}
