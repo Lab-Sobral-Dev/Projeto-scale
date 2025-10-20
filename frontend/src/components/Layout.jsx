@@ -59,7 +59,7 @@ const Layout = ({ user, onLogout }) => {
                 className="h-12 w-auto"
                 onError={() => setLogoError(true)}
               />
-              <h1 className="text-xl font-bold text-gray-900">Scale</h1>
+              <h1 className="text-xl font-bold text-gray-900">Scale 1.0</h1>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5" />
@@ -73,8 +73,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -104,8 +104,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -131,6 +131,13 @@ const Layout = ({ user, onLogout }) => {
           </Button>
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+            {/* 🔹 Adicione este bloco para mostrar o texto centralizado */}
+            <div className="absolute left-1/2 transform -translate-x-1/2">
+              <span className="text-sm font-semibold text-blue-700 tracking-wide uppercase">
+                Homologação
+              </span>
+            </div>
+
             <div className="flex flex-1" />
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               <div className="flex items-center gap-x-2">
@@ -153,6 +160,7 @@ const Layout = ({ user, onLogout }) => {
             </div>
           </div>
         </div>
+
 
         {/* Page content */}
         <main className="py-6">
