@@ -120,7 +120,7 @@ const Layout = ({ user, onLogout }) => {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8 relative">
           <Button
             variant="ghost"
             size="sm"
@@ -130,13 +130,15 @@ const Layout = ({ user, onLogout }) => {
             <Menu className="h-5 w-5" />
           </Button>
 
-          <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end items-center">
-            {/* 🔹 Texto de ambiente (Homologação) */}
-            <span className="hidden sm:inline-block text-sm font-semibold text-blue-700 tracking-wide uppercase mr-4">
+          {/* 🔹 Texto centralizado “Homologação” */}
+          <div className="absolute inset-x-0 flex justify-center items-center pointer-events-none">
+            <span className="text-sm font-semibold text-gray-700 tracking-wide uppercase">
               Homologação
             </span>
+          </div>
 
-            {/* 🔹 Nome do usuário e botão de logout */}
+          {/* 🔹 Conteúdo alinhado à direita */}
+          <div className="flex flex-1 justify-end items-center gap-x-4 lg:gap-x-6">
             <div className="flex items-center gap-x-2">
               <Link
                 to="/perfil"
