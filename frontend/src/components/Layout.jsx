@@ -59,7 +59,7 @@ const Layout = ({ user, onLogout }) => {
                 className="h-12 w-auto"
                 onError={() => setLogoError(true)}
               />
-              <h1 className="text-xl font-bold text-gray-900">Scale 1.0</h1>
+              <h1 className="text-xl font-bold text-gray-800">Scale v1.0</h1>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5" />

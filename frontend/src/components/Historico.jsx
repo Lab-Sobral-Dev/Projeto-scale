@@ -317,96 +317,140 @@ const Historico = () => {
                 </div>
               </div>
             </div>
-
-
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MP</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OP</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lote (OP)</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lote MP</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pesador</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pesos (g)</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                </tr>
-              </thead>
+          {/* TABELA DESKTOP/TABLET */}
+          <div className="relative hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="min-w-[980px] w-full">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    {/* esquerda sticky */}
+                    <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2 text-left tracking-wider w-[180px]">
+                      Data/Hora
+                    </th>
 
-              <tbody className="bg-white divide-y divide-gray-200">
-                {/* AQUI — usa pageItems (paginado) */}
-                {!loading && pageItems.length > 0 && pageItems.map((pesagem) => (
-                  <tr key={pesagem.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                        {formatDateTime(pesagem.dataHora)}
-                      </div>
-                    </td>
+                    <th className="px-4 py-2 text-left tracking-wider">Produto</th>
+                    <th className="px-4 py-2 text-left tracking-wider hidden lg:table-cell">MP</th>
+                    <th className="px-4 py-2 text-left tracking-wider">OP</th>
+                    <th className="px-4 py-2 text-left tracking-wider hidden md:table-cell">Lote (OP)</th>
+                    <th className="px-4 py-2 text-left tracking-wider hidden xl:table-cell">Lote MP</th>
+                    <th className="px-4 py-2 text-left tracking-wider hidden md:table-cell">Pesador</th>
+                    <th className="px-4 py-2 text-left tracking-wider hidden lg:table-cell">Pesos (g)</th>
 
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      <span className="block max-w-[260px] truncate" title={pesagem.produto}>{pesagem.produto}</span>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <Badge variant="outline" className="max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap" title={pesagem.materiaPrima}>
-                        {pesagem.materiaPrima}
-                      </Badge>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-gray-500">{pesagem.op}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{pesagem.lote}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{pesagem.loteMP || '—'}</td>
-
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-1 text-gray-400" />
-                        <span className="block max-w-[200px] truncate" title={pesagem.pesador}>{pesagem.pesador}</span>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="space-y-1">
-                        <div className="flex items-center" title="Bruto (convertido de kg para g)">
-                          <Weight className="h-3 w-3 mr-1 text-gray-400" />
-                          <span className="text-xs">B: {pesagem.bruto_g == null ? '-' : nf.format(pesagem.bruto_g)}</span>
-                        </div>
-                        <div className="flex items-center" title="Tara (convertido de kg para g)">
-                          <Weight className="h-3 w-3 mr-1 text-gray-400" />
-                          <span className="text-xs">T: {pesagem.tara_g == null ? '-' : nf.format(pesagem.tara_g)}</span>
-                        </div>
-                        <div className="flex items-center" title="Líquido (g do backend)">
-                          <Weight className="h-3 w-3 mr-1 text-green-600" />
-                          <span className="text-xs font-semibold text-green-600">L: {pesagem.liquido_g == null ? '-' : nf.format(pesagem.liquido_g)}</span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleVerDetalhes(pesagem.id)} className="text-blue-600 hover:text-blue-800">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleGerarEtiqueta(pesagem.id)} className="text-green-600 hover:text-green-800">
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleEditar(pesagem.id)} className="text-orange-600 hover:text-orange-800">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+                    {/* direita sticky */}
+                    <th className="sticky right-0 z-20 bg-gray-50 px-4 py-2 text-left tracking-wider w-[120px]">
+                      Ações
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {!loading && pageItems.length > 0 && pageItems.map((pesagem) => (
+                    <tr
+                      key={pesagem.id}
+                      className="hover:bg-gray-50"
+                      onDoubleClick={() => handleVerDetalhes(pesagem.id)}
+                    >
+                      {/* esquerda sticky */}
+                      <td className="sticky left-0 z-10 bg-white px-4 py-3 text-sm text-gray-900 w-[180px]">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+                          {formatDateTime(pesagem.dataHora)}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        <span className="block max-w-[260px] truncate" title={pesagem.produto}>{pesagem.produto}</span>
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-500 hidden lg:table-cell">
+                        <Badge variant="outline" className="max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap" title={pesagem.materiaPrima}>
+                          {pesagem.materiaPrima}
+                        </Badge>
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-500">{pesagem.op}</td>
+
+                      <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">{pesagem.lote}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 hidden xl:table-cell">{pesagem.loteMP || '—'}</td>
+
+                      <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-1 text-gray-400" />
+                          <span className="block max-w-[200px] truncate" title={pesagem.pesador}>{pesagem.pesador}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-500 hidden lg:table-cell">
+                        <div className="space-y-1">
+                          <div className="flex items-center" title="Bruto (g)">
+                            <Weight className="h-3 w-3 mr-1 text-gray-400" />
+                            <span className="text-xs">B: {pesagem.bruto_g == null ? '-' : nf.format(pesagem.bruto_g)}</span>
+                          </div>
+                          <div className="flex items-center" title="Tara (g)">
+                            <Weight className="h-3 w-3 mr-1 text-gray-400" />
+                            <span className="text-xs">T: {pesagem.tara_g == null ? '-' : nf.format(pesagem.tara_g)}</span>
+                          </div>
+                          <div className="flex items-center" title="Líquido (g)">
+                            <Weight className="h-3 w-3 mr-1 text-green-600" />
+                            <span className="text-xs font-semibold text-green-600">L: {pesagem.liquido_g == null ? '-' : nf.format(pesagem.liquido_g)}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* direita sticky */}
+                      <td className="sticky right-0 z-10 bg-white px-4 py-3">
+                        <div className="flex space-x-1 justify-end">
+                          <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(pesagem.id)} className="text-blue-600 hover:text-blue-800">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleGerarEtiqueta(pesagem.id)} className="text-green-600 hover:text-green-800">
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleEditar(pesagem.id)} className="text-orange-600 hover:text-orange-800">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Sombras/gradientes nas bordas para indicar que há conteúdo fora da tela */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white to-transparent" />
           </div>
 
+          {/* LISTA EM CARDS (MOBILE) */}
+          <div className="md:hidden divide-y">
+            {!loading && pageItems.map(p => (
+              <div key={p.id} className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700">{formatDateTime(p.dataHora)}</div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(p.id)}><Eye className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleGerarEtiqueta(p.id)}><Printer className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleEditar(p.id)}><Edit className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+                <div className="mt-1 text-sm font-medium text-gray-900 truncate">{p.produto}</div>
+                <div className="mt-0.5 text-xs text-gray-500 truncate">{p.materiaPrima}</div>
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
+                  <span>OP: <b>{p.op || '—'}</b></span>
+                  <span>Lote: <b>{p.lote || '—'}</b></span>
+                  <span>Lote MP: <b>{p.loteMP || '—'}</b></span>
+                  <span>Liq: <b className="text-green-700">{p.liquido_g == null ? '-' : nf.format(p.liquido_g)} g</b></span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* vazio */}
           {!loading && filteredPesagens.length === 0 && (
             <div className="text-center py-12">
               <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
