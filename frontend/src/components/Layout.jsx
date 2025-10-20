@@ -23,7 +23,7 @@ const Layout = ({ user, onLogout }) => {
   const location = useLocation()
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Home', href: '/', icon: Home },
     { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
     { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
     { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes },
@@ -93,7 +93,7 @@ const Layout = ({ user, onLogout }) => {
           <div className="flex h-16 items-center px-4 border-b">
             <div className="flex items-center gap-2">
               <img src="/logo.png" alt="Logo Scale" className="h-7 w-7" />
-              <h1 className="text-xl font-bold text-gray-900">Scale</h1>
+              <h1 className="text-xl font-bold text-gray-900">Scale 1.0</h1>
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">

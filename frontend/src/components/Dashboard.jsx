@@ -197,7 +197,6 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-2">Bem-vindo ao Sistema de Gerenciamento de Pesagem</p>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           {lastUpdated && (
