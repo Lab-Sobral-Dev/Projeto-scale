@@ -133,7 +133,7 @@ const Layout = ({ user, onLogout }) => {
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             {/* 🔹 Adicione este bloco para mostrar o texto centralizado */}
             <div className="absolute left-1/2 transform -translate-x-1/2">
-              <span className="text-sm font-semibold text-blue-700 tracking-wide uppercase">
+              <span className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900">
                 Homologação
               </span>
             </div>
