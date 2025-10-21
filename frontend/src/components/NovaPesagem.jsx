@@ -477,7 +477,6 @@ const NovaPesagem = () => {
               <div className="space-y-2">
                 <Label>Produto</Label>
                 <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
-                  <Package className="h-4 w-4 opacity-70" />
                   <span className="truncate">{produtoNome || '—'}</span>
                 </div>
               </div>
@@ -494,7 +493,6 @@ const NovaPesagem = () => {
               <div className="space-y-2">
                 <Label htmlFor="loteMP">Lote MP</Label>
                 <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 opacity-70" />
                   <Input
                     id="loteMP"
                     type="text"
