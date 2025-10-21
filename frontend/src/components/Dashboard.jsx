@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
   Scale, History, Package, Layers, TrendingUp,
-  Calendar, Clock, Weight, RefreshCw, Factory, Hammer, ListChecks
+  Calendar, Clock, Weight, RefreshCw, Factory, CalendarFold, CalendarClock, ListChecks
 } from 'lucide-react'
 import api from '@/services/api'
 
@@ -189,8 +189,8 @@ const Dashboard = () => {
     { title: 'Matérias-Primas', value: stats.materiasPrimas, icon: Layers, color: 'text-orange-600' },
   ]
   const statCardsOP = [
-    { title: 'OPs Pendentes', value: stats.opsPendentes, icon: Factory, color: 'text-indigo-600' },
-    { title: 'OPs em Andamento', value: stats.opsAndamento, icon: Hammer, color: 'text-rose-600' },
+    { title: 'OPs Pendentes', value: stats.opsPendentes, icon: CalendarClock, color: 'text-indigo-600' },
+    { title: 'OPs em Andamento', value: stats.opsAndamento, icon: CalendarFold, color: 'text-rose-600' },
   ]
 
   return (
