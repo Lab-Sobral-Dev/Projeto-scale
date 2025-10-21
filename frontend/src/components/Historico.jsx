@@ -11,7 +11,8 @@ import api from '@/services/api'
 
 // Helpers
 const tz = 'America/Fortaleza'
-const nf = new Intl.NumberFormat('pt-BR')
+const nfInt = new Intl.NumberFormat('pt-BR')
+const nfG = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }) // g com separador de mil
 const normalizeList = (data) => (Array.isArray(data) ? data : (data?.results ?? []))
 const formatDateTime = (iso) => {
   if (!iso) return '-'
@@ -29,6 +30,9 @@ const toDisplay = (v) => {
 const KG_IN_G = 1000
 const toNum = (x) => (x == null ? null : Number(x))
 const kgToG = (kg) => (kg == null ? null : kg * KG_IN_G)
+
+// formatador de gramas
+const fmtG = (v) => (v == null ? '-' : nfG.format(v))
 
 const Historico = () => {
   const navigate = useNavigate()
@@ -82,6 +86,7 @@ const Historico = () => {
               produto: toDisplay(p.produto?.nome ?? p.produto_nome ?? p.produto),
               materiaPrima: toDisplay(p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
               op: toDisplay(p.op?.numero ?? p.op),
+              // Lote/LoteMP continuam no objeto (visíveis só no detalhe)
               lote: toDisplay(p.op?.lote ?? p.lote),
               loteMP: toDisplay(p.lote_mp ?? p.loteMP ?? ''),
               pesador: toDisplay(p.pesador),
@@ -276,16 +281,16 @@ const Historico = () => {
           {/* Tabela */}
           <div className="relative hidden md:block">
             <div className="overflow-x-auto">
-              <table className="min-w-[800px] w-full">
+              <table className="min-w-[880px] w-full">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
-                    <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2 text-left tracking-wider w-[180px]">Data/Hora</th>
-                    <th className="px-4 py-2 text-left tracking-wider">Produto</th>
-                    <th className="px-4 py-2 text-left tracking-wider hidden lg:table-cell">MP</th>
-                    <th className="px-4 py-2 text-left tracking-wider">OP</th>
-                    <th className="px-4 py-2 text-left tracking-wider hidden md:table-cell">Pesador</th>
-                    <th className="px-4 py-2 text-left tracking-wider hidden lg:table-cell">Pesos (g)</th>
-                    <th className="sticky right-0 z-20 bg-gray-50 px-4 py-2 text-left tracking-wider w-[120px]">Ações</th>
+                    <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2 text-center tracking-wider w-[180px]">Data/Hora</th>
+                    <th className="px-4 py-2 text-center tracking-wider">Produto</th>
+                    <th className="px-4 py-2 text-center tracking-wider hidden lg:table-cell">MP</th>
+                    <th className="px-4 py-2 text-center tracking-wider">OP</th>
+                    <th className="px-4 py-2 text-center tracking-wider hidden md:table-cell">Pesador</th>
+                    <th className="px-4 py-2 text-center tracking-wider hidden lg:table-cell">Pesos (g)</th>
+                    <th className="sticky right-0 z-20 bg-gray-50 px-4 py-2 text-center tracking-wider w-[120px]">Ações</th>
                   </tr>
                 </thead>
 
@@ -309,28 +314,38 @@ const Historico = () => {
                         </Badge>
                       </td>
 
-                      <td className="px-4 py-3 text-sm text-gray-500">{p.op}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 text-center">{p.op}</td>
 
                       <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
-                        <div className="flex items-center">
+                        <div className="flex items-center justify-center">
                           <User className="h-4 w-4 mr-1 text-gray-400" />
                           <span className="block max-w-[200px] truncate" title={p.pesador}>{p.pesador}</span>
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-sm text-gray-500 hidden lg:table-cell">
-                        <div className="space-y-1">
-                          <div className="flex items-center" title="Bruto (g)">
-                            <Weight className="h-3 w-3 mr-1 text-gray-400" />
-                            <span className="text-xs">B: {p.bruto_g == null ? '-' : nf.format(p.bruto_g)}</span>
+                      {/* PESOS (g) — alinhamento consistente */}
+                      <td className="px-4 py-3 text-sm text-gray-700 hidden lg:table-cell">
+                        <div className="grid gap-0.5">
+                          <div className="flex items-center justify-between" title="Bruto (g)">
+                            <span className="flex items-center text-gray-500">
+                              <Weight className="h-3 w-3 mr-1 text-gray-400" />
+                              <span className="text-xs">B:</span>
+                            </span>
+                            <span className="text-xs tabular-nums">{fmtG(p.bruto_g)}</span>
                           </div>
-                          <div className="flex items-center" title="Tara (g)">
-                            <Weight className="h-3 w-3 mr-1 text-gray-400" />
-                            <span className="text-xs">T: {p.tara_g == null ? '-' : nf.format(p.tara_g)}</span>
+                          <div className="flex items-center justify-between" title="Tara (g)">
+                            <span className="flex items-center text-gray-500">
+                              <Weight className="h-3 w-3 mr-1 text-gray-400" />
+                              <span className="text-xs">T:</span>
+                            </span>
+                            <span className="text-xs tabular-nums">{fmtG(p.tara_g)}</span>
                           </div>
-                          <div className="flex items-center" title="Líquido (g)">
-                            <Weight className="h-3 w-3 mr-1 text-green-600" />
-                            <span className="text-xs font-semibold text-green-600">L: {p.liquido_g == null ? '-' : nf.format(p.liquido_g)}</span>
+                          <div className="flex items-center justify-between" title="Líquido (g)">
+                            <span className="flex items-center text-green-700">
+                              <Weight className="h-3 w-3 mr-1 text-green-600" />
+                              <span className="text-xs font-semibold">L:</span>
+                            </span>
+                            <span className="text-xs font-semibold text-green-700 tabular-nums">{fmtG(p.liquido_g)}</span>
                           </div>
                         </div>
                       </td>
@@ -348,6 +363,7 @@ const Historico = () => {
               </table>
             </div>
 
+            {/* gradientes laterais */}
             <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white to-transparent" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white to-transparent" />
           </div>
@@ -366,10 +382,12 @@ const Historico = () => {
                 </div>
                 <div className="mt-1 text-sm font-medium text-gray-900 truncate">{p.produto}</div>
                 <div className="mt-0.5 text-xs text-gray-500 truncate">{p.materiaPrima}</div>
-                <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
                   <span>OP: <b>{p.op || '—'}</b></span>
                   <span>Pesador: <b>{p.pesador || '—'}</b></span>
-                  <span>Liq: <b className="text-green-700">{p.liquido_g == null ? '-' : nf.format(p.liquido_g)} g</b></span>
+                  <span>B: <b className="tabular-nums">{fmtG(p.bruto_g)} g</b></span>
+                  <span>T: <b className="tabular-nums">{fmtG(p.tara_g)} g</b></span>
+                  <span className="col-span-2">L: <b className="text-green-700 tabular-nums">{fmtG(p.liquido_g)} g</b></span>
                 </div>
               </div>
             ))}
