@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList
 } from '@/components/ui/command'
-import { Scale, Save, Printer, RotateCcw, Calculator, ChevronsUpDown, Check, Package, Tag } from 'lucide-react'
+import { Scale, Save, Printer, RotateCcw, Calculator, ChevronsUpDown, Check } from 'lucide-react'
 import api from '@/services/api'
 import { cn } from '@/lib/utils'
 
@@ -180,6 +180,8 @@ const NovaPesagem = () => {
   const handleOPChange = async (opId) => {
     handleChange('op', opId)
     handleChange('itemOp', '')
+    handleChange('codigoInterno', '')
+    handleChange('loteMP', '')
     setItensOP([])
     try {
       const resp = await api.getOPItems(opId)
@@ -198,6 +200,16 @@ const NovaPesagem = () => {
       setError('Falha ao carregar itens da OP.')
     }
   }
+
+  // Preencher automaticamente o código interno da MP quando o item é selecionado
+  useEffect(() => {
+    if (itemSelecionado) {
+      setFormData(prev => ({
+        ...prev,
+        codigoInterno: itemSelecionado.mpCodigo || ''
+      }))
+    }
+  }, [itemSelecionado])
 
   // Campos obrigatórios
   const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido && formData.tara
@@ -365,15 +377,19 @@ const NovaPesagem = () => {
       <Card>
         <CardHeader>
           <CardTitle>Dados da Pesagem</CardTitle>
-          <CardDescription>Data/Hora: {currentDateTime}</CardDescription>
+          <CardDescription>
+            Data/Hora: {currentDateTime}
+            {localUser?.displayName ? (
+              <span className="block">Operador: {localUser.displayName}</span>
+            ) : null}
+          </CardDescription>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Ordem dos inputs:
+                OP, Produto, OP/Lote, Item da OP, Código Interno, Lote MP, Balança, Tara, Peso Líquido */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="pesador">Pesador</Label>
-                <Input id="pesador" value={formData.pesador} readOnly />
-              </div>
 
               {/* OP — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
@@ -405,6 +421,22 @@ const NovaPesagem = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Produto (somente leitura) */}
+              <div className="space-y-2">
+                <Label>Produto</Label>
+                <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
+                  <span className="truncate">{produtoNome || '—'}</span>
+                </div>
+              </div>
+
+              {/* OP / Lote (somente leitura) */}
+              <div className="space-y-2">
+                <Label>OP / Lote</Label>
+                <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
+                  <span className="truncate">{opNumeroLote || '—'}</span>
+                </div>
               </div>
 
               {/* Item da OP */}
@@ -473,20 +505,15 @@ const NovaPesagem = () => {
                 </Popover>
               </div>
 
-              {/* Produto (somente leitura) */}
+              {/* Código Interno (auto a partir do item) */}
               <div className="space-y-2">
-                <Label>Produto</Label>
-                <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
-                  <span className="truncate">{produtoNome || '—'}</span>
-                </div>
-              </div>
-
-              {/* OP / Lote (somente leitura) */}
-              <div className="space-y-2">
-                <Label>OP / Lote</Label>
-                <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
-                  <span className="truncate">{opNumeroLote || '—'}</span>
-                </div>
+                <Label htmlFor="codigoInterno">Código Interno (MP)</Label>
+                <Input
+                  id="codigoInterno"
+                  value={formData.codigoInterno}
+                  readOnly
+                  title="Preenchido automaticamente a partir do item da OP"
+                />
               </div>
 
               {/* Lote MP */}
@@ -502,32 +529,6 @@ const NovaPesagem = () => {
                     className="flex-1"
                   />
                 </div>
-              </div>
-
-              {/* Entradas (sempre em kg): LÍQUIDO e TARA */}
-              <div className="space-y-2">
-                <Label htmlFor="tara">Tara (kg) *</Label>
-                <Input
-                  id="tara"
-                  type="text"
-                  inputMode="decimal"
-                  value={formData.tara}
-                  onChange={(e) => handleChange('tara', e.target.value)}
-                  placeholder="0,000 kg"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="liquido">Peso Líquido (kg) *</Label>
-                <Input
-                  id="liquido"
-                  ref={liquidoRef}
-                  type="text"
-                  inputMode="decimal"
-                  value={formData.liquido}
-                  onChange={(e) => handleChange('liquido', e.target.value)}
-                  placeholder="0,000 kg"
-                />
               </div>
 
               {/* Balança — Select controlado (sempre string) */}
@@ -551,12 +552,29 @@ const NovaPesagem = () => {
                 </Select>
               </div>
 
+              {/* Entradas (sempre em kg): TARA e LÍQUIDO */}
               <div className="space-y-2">
-                <Label htmlFor="codigoInterno">Código Interno(MP)</Label>
+                <Label htmlFor="tara">Tara (kg) *</Label>
                 <Input
-                  id="codigoInterno"
-                  value={formData.codigoInterno}
-                  onChange={(e) => handleChange('codigoInterno', e.target.value)}
+                  id="tara"
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.tara}
+                  onChange={(e) => handleChange('tara', e.target.value)}
+                  placeholder="0,000 kg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="liquido">Peso Líquido (kg) *</Label>
+                <Input
+                  id="liquido"
+                  ref={liquidoRef}
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.liquido}
+                  onChange={(e) => handleChange('liquido', e.target.value)}
+                  placeholder="0,000 kg"
                 />
               </div>
             </div>
