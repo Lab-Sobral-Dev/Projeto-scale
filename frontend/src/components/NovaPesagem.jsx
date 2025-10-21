@@ -532,14 +532,14 @@ const NovaPesagem = () => {
               </div>
 
               {/* Balança — Select controlado (sempre string) */}
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label htmlFor="balanca">Balança</Label>
                 <Select
                   value={String(formData.balanca || '')}
                   onValueChange={(value) => handleChange('balanca', value)}
                   disabled={loading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a balança'} />
                   </SelectTrigger>
                   <SelectContent>
