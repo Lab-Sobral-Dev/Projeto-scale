@@ -190,19 +190,33 @@ const Sobre = () => {
                 <CardHeader>
                     <CardTitle className="text-gray-900">Desenvolvedores</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0 text-gray-700 space-y-3">
+                <CardContent className="pt-0 text-gray-700 space-y-4">
                     <div>
                         <p className="font-semibold text-gray-900">Daniel de Sousa Barbosa</p>
                         <p className="text-sm">Analista e Desenvolvedor de Sistemas</p>
                         <p className="text-sm">Especialista em Segurança da Informação</p>
+                        <a
+                            href="mailto:daniel.barbosa@laboratoriosobral.com.br"
+                            className="text-sm text-blue-600 hover:underline"
+                        >
+                            daniel.barbosa@laboratoriosobral.com.br
+                        </a>
                     </div>
+
                     <div>
                         <p className="font-semibold text-gray-900">Hian Claudio de Sousa Costa</p>
                         <p className="text-sm">Analista e Desenvolvedor de Sistemas</p>
                         <p className="text-sm">Especialista em Projetos de Cloud Computing</p>
+                        <a
+                            href="mailto:hian.claudio@laboratoriosobral.com.br"
+                            className="text-sm text-blue-600 hover:underline"
+                        >
+                            hian.claudio@laboratoriosobral.com.br
+                        </a>
                     </div>
                 </CardContent>
             </Card>
+
         </div>
     )
 }
