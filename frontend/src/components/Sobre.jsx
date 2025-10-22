@@ -175,41 +175,8 @@ const Sobre = () => {
         </div>
       </div>
 
-      {/* Stack/tecnologias */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Tecnologias e Arquitetura</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6">
-          {stack.map((s, i) => {
-            const Icon = s.icon
-            return (
-              <Card key={i} className="hover:shadow-lg transition-all">
-                <CardContent className="p-6 text-center">
-                  <Icon className="h-7 w-7 mx-auto text-gray-700 mb-2" />
-                  <h3 className="font-semibold text-gray-900">{s.title}</h3>
-                  <p className="text-xs text-gray-600 mt-1">{s.desc}</p>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Fluxo do usuário */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-gray-900">Fluxo Operacional</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 text-gray-700">
-            <ol className="list-decimal list-inside space-y-1">
-              <li>Selecionar Produto e Matéria-Prima</li>
-              <li>Informar OP/Lote, Bruto e Tara</li>
-              <li>Conferir cálculo do Peso Líquido</li>
-              <li>Salvar registro e gerar etiqueta</li>
-              <li>Consultar no Histórico e na OP</li>
-            </ol>
-          </CardContent>
-        </Card>
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
@@ -226,29 +193,6 @@ const Sobre = () => {
         </Card>
       </div>
 
-      {/* Ações rápidas (coerentes com o resto do app) */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Acessos Rápidos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {acoesRapidas.map((a, i) => {
-            const Icon = a.icon
-            return (
-              <Link key={i} to={a.to}>
-                <Card className="hover:shadow-lg transition-all duration-200 hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                  <CardContent className="p-6 text-center">
-                    <div className={`inline-flex p-3 rounded-full text-white mb-4 ${a.color}`}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <h3 className="font-semibold text-gray-900 mb-1">{a.title}</h3>
-                    <p className="text-sm text-gray-600">Abrir seção</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Contato / suporte interno */}
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader>
@@ -258,23 +202,6 @@ const Sobre = () => {
           <p className="mb-3">
             Para dúvidas, melhorias e relatos de bugs, utilize o canal interno da TI/Qualidade ou abra um ticket.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Link to="/historico">
-              <Button variant="outline" size="sm">
-                Consultar Logs / Histórico
-              </Button>
-            </Link>
-            <Link to="/ops">
-              <Button variant="outline" size="sm">
-                Acompanhar OPs
-              </Button>
-            </Link>
-            <Link to="/nova-pesagem">
-              <Button size="sm">
-                Iniciar Nova Pesagem
-              </Button>
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>
