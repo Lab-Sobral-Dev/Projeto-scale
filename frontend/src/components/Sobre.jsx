@@ -31,7 +31,7 @@ const Sobre = () => {
     const pilares = useMemo(() => ([
         {
             title: 'Registro de Pesagens',
-            desc: 'Interface rápida para lançar bruto, tara e cálculo automático do líquido com regras de validação.',
+            desc: 'Interface rápida para lançar o peso bruto, tara e cálculo automático do líquido com regras de validação.',
             icon: Scale,
             color: 'text-blue-600',
         },
@@ -116,7 +116,6 @@ const Sobre = () => {
 
             {/* Funcionalidades-chave */}
             <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Funcionalidades-chave</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {pilares.map((p, i) => {
                         const Icon = p.icon
@@ -180,7 +179,7 @@ const Sobre = () => {
                 </CardHeader>
                 <CardContent className="pt-0 text-gray-700">
                     <p className="mb-3">
-                        Para dúvidas, melhorias e relatos de bugs, entre em contato com a equipe de TI.
+                        Para dúvidas, melhorias e relatos de bugs, entre em contato com a equipe de desenvolvimento.
                     </p>
                 </CardContent>
             </Card>
