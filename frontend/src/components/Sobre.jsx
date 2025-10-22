@@ -169,10 +169,6 @@ const Sobre = () => {
                             <p className="text-xs text-gray-500">Versão</p>
                             <p className="font-semibold text-gray-900">{versao}</p>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-500">Build</p>
-                            <p className="text-gray-800">{buildDate}</p>
-                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -180,12 +176,31 @@ const Sobre = () => {
             {/* Equipe & Suporte */}
             <Card className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                    <CardTitle className="text-gray-900">Equipe & Suporte</CardTitle>
+                    <CardTitle className="text-gray-900">Suporte</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0 text-gray-700">
                     <p className="mb-3">
-                        Para dúvidas, melhorias e relatos de bugs, utilize o canal interno da TI/Qualidade ou abra um ticket.
+                        Para dúvidas, melhorias e relatos de bugs, entre em contato com a equipe de TI.
                     </p>
+                </CardContent>
+            </Card>
+
+            {/* Desenvolvedores */}
+            <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                    <CardTitle className="text-gray-900">Desenvolvedores</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 text-gray-700 space-y-3">
+                    <div>
+                        <p className="font-semibold text-gray-900">Daniel de Sousa Barbosa</p>
+                        <p className="text-sm">Analista e Desenvolvedor de Sistemas</p>
+                        <p className="text-sm">Especialista em Segurança da Informação</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-gray-900">Hian Claudio de Sousa Costa</p>
+                        <p className="text-sm">Analista e Desenvolvedor de Sistemas</p>
+                        <p className="text-sm">Especialista em Projetos de Cloud Computing</p>
+                    </div>
                 </CardContent>
             </Card>
         </div>
