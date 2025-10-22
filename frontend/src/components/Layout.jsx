@@ -12,6 +12,7 @@ import {
   X,
   LogOut,
   Weight,
+  ScrollText,
   Factory,
   ListChecks,
   Boxes, // 👈 novo: ícone para Estrutura de Produtos
@@ -32,6 +33,7 @@ const Layout = ({ user, onLogout }) => {
     { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
     { name: 'Histórico', href: '/historico', icon: History },
     { name: 'Balanças', href: '/balancas', icon: Weight },
+    { name: 'Sobre', href: '/sobre', icon: ScrollText},
   ]
 
   // evita que '/ops' e '/estruturas' fiquem ativos quando estiver em subrotas (ex.: '/ops/nova', '/estruturas/nova')

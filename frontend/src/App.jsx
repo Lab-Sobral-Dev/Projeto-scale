@@ -20,6 +20,7 @@ import PesagemEditar from '@/components/PesagemEditar'
 import CadastroBalanca from './components/CadastroBalanca'
 import RequireAuth from '@/components/auth/RequireAuth'
 import RequireAdmin from '@/components/auth/RequireAdmin'
+import Sobre from './components/Sobre'
 
 
 import './App.css'
@@ -78,6 +79,7 @@ function App() {
           <Route path="/historico" element={<Historico />} />
           <Route path="/perfil" element={<PerfilUsuario user={user} onLogout={handleLogout} />} />
           <Route path="/etiqueta/:id" element={<GeracaoEtiqueta />} />
+          <Route path='/sobre' element={<Sobre />} />
         </Route>
 
         {/* Rotas exclusivas para admin */}
