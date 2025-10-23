@@ -12,7 +12,7 @@ from reportlab.lib.utils import ImageReader
 from decimal import Decimal, ROUND_HALF_UP
 import os
 from django_filters.rest_framework import DjangoFilterBackend
-from .audit.audit import AuditLog
+from registro.audit_models import AuditLog
 from .serializers import AuditLogSerializer
 
 

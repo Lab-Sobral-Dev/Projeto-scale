@@ -3,7 +3,7 @@ from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from django.forms.models import model_to_dict
 from .models import Pesagem, Produto, MateriaPrima, OrdemProducao, ItemOP, Balanca
-from .models.audit import AuditLog
+from registro.audit_models import AuditLog
 from threading import local
 
 _request_local = local()

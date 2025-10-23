@@ -1,7 +1,7 @@
 # registro/management/commands/purge_audit.py
 from django.core.management.base import BaseCommand
 from django.utils.timezone import now, timedelta
-from registro.audit.audit import AuditLog
+from registro.audit_models import AuditLog
 
 class Command(BaseCommand):
     help = "Remove logs de auditoria antigos (padrão: 90 dias)"

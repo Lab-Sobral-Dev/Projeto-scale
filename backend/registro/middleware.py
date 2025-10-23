@@ -1,6 +1,6 @@
 # registro/middleware.py
 import time
-from .models.audit import AuditLog
+from registro.audit_models import AuditLog
 from .utils.audit import client_ip
 from django.conf import settings
 
