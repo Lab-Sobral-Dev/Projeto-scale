@@ -19,13 +19,10 @@ export default function LogsAuditoria() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
 
-  const isHomolog = import.meta.env.VITE_APP_ENV === "homolog"
-
   useEffect(() => {
-    if (!isHomolog) return
-    fetchData(1) // carrega primeira página ao montar/alterar filtros
+    fetchData(1) // carrega primeira página ao montar/alterar ordenação
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.ordering]) // ordering muda menos; os demais filtros disparamos manualmente
+  }, [filters.ordering])
 
   async function fetchData(pg = 1) {
     setLoading(true)
@@ -48,20 +45,11 @@ export default function LogsAuditoria() {
     return Math.max(1, Math.ceil((data?.count || 0) / pageSize))
   }, [data?.count])
 
-  if (!isHomolog) {
-    return (
-      <Card>
-        <CardHeader><CardTitle>Logs de Auditoria</CardTitle></CardHeader>
-        <CardContent>Disponível apenas em homologação.</CardContent>
-      </Card>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle>Logs de Auditoria (HML)</CardTitle>
+          <CardTitle>Logs de Auditoria</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-6 gap-3">
