@@ -20,27 +20,27 @@ function buildParams(filters = {}, page = 1) {
   if (filters.ordering) params.ordering = filters.ordering // exemplo: "-timestamp"
 
   // Faixa de datas (se você habilitar no backend com django-filter)
-  // Opção A (mais simples): usar lookups gte/lte
   if (filters.start) params["timestamp__gte"] = new Date(filters.start).toISOString()
-  if (filters.end)   params["timestamp__lte"] = new Date(filters.end).toISOString()
+  if (filters.end) params["timestamp__lte"] = new Date(filters.end).toISOString()
 
   return params
 }
 
 export async function listarLogs({ filters, page = 1 }) {
   const params = buildParams(filters, page)
-  const { data } = await api.get("/auditoria/", { params })
+  // 👉 rota correta sob /registro
+  const data = await api.get("/registro/auditoria/", { params })
   return data // DRF: {count, next, previous, results}
 }
 
 export function exportarCsv(registros) {
   const headers = [
-    "timestamp","user","ip","method","path","status_code",
-    "action","model","object_pk","changes","extra","user_agent"
+    "timestamp", "user", "ip", "method", "path", "status_code",
+    "action", "model", "object_pk", "changes", "extra", "user_agent"
   ]
   const rows = registros.map(r => ([
     r.timestamp,
-    r.user, // pode ser id; exiba como está vindo do backend
+    r.user,
     r.ip,
     r.method,
     r.path,
@@ -54,8 +54,7 @@ export function exportarCsv(registros) {
   ]))
 
   const csv = [headers.join(","), ...rows.map(arr => arr.map(val => {
-    // aspas e vírgulas seguras
-    const v = (val ?? "").toString().replaceAll('"','""')
+    const v = (val ?? "").toString().replaceAll('"', '""')
     return `"${v}"`
   }).join(","))].join("\n")
 
@@ -63,7 +62,7 @@ export function exportarCsv(registros) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
-  a.download = `audit_logs_${new Date().toISOString().slice(0,19).replaceAll(":","-")}.csv`
+  a.download = `audit_logs_${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.csv`
   document.body.appendChild(a)
   a.click()
   a.remove()
