@@ -7,7 +7,7 @@ from .models import (
     OrdemProducao, ItemOP, Pesagem,
 )
 
-from audit.audit import AuditLog
+from registro.audit.audit import AuditLog
 
 
 # ============== Básicos ==============
