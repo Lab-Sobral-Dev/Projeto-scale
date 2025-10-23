@@ -12,7 +12,6 @@ from registro import (
     Pesagem, TOLERANCIA_PERCENTUAL, KG_TO_G
 )
 
-
 D = Decimal  # açucar sintático
 
 
@@ -53,8 +52,8 @@ class BaseSetupMixin:
         return (q * (D("1") + TOLERANCIA_PERCENTUAL)).quantize(D("0.001"))
 
 
-class EstruturaEOPTests(BaseSetupMixin, TestCase):
-    def test_gerar_itens_a_partir_da_estrutura_cria_itemop_em_g_e_status_aberta(self):
+class EstruturaOPTests(BaseSetupMixin, TestCase):
+    def test_gera_itens_em_g_e_op_aberta(self):
         self.op.gerar_itens_a_partir_da_estrutura()
         itens = ItemOP.objects.filter(op=self.op).order_by("materia_prima__id")
         self.assertEqual(itens.count(), 2)
@@ -64,12 +63,12 @@ class EstruturaEOPTests(BaseSetupMixin, TestCase):
         self.op.refresh_from_db()
         self.assertEqual(self.op.status, StatusOP.ABERTA)
 
-    def test_recriar_itens_sem_forcar_dispara_erro(self):
+    def test_recriar_sem_forcar_erro(self):
         self.op.gerar_itens_a_partir_da_estrutura()
         with self.assertRaises(ValidationError):
             self.op.gerar_itens_a_partir_da_estrutura(forcar=False)
 
-    def test_recriar_itens_com_forcar_true_limpa_e_cria_de_novo(self):
+    def test_recriar_com_forcar_substitui(self):
         self.op.gerar_itens_a_partir_da_estrutura()
         antes = ItemOP.objects.filter(op=self.op).count()
         self.assertEqual(antes, 2)
@@ -77,14 +76,14 @@ class EstruturaEOPTests(BaseSetupMixin, TestCase):
         depois = ItemOP.objects.filter(op=self.op).count()
         self.assertEqual(depois, 2)
 
-    def test_itemop_props_min_max_com_5_por_cento(self):
+    def test_limites_min_max_5pct(self):
         self.op.gerar_itens_a_partir_da_estrutura()
         it1 = ItemOP.objects.get(op=self.op, materia_prima=self.mp1)
         self.assertEqual(it1.quantidade_minima_permitida, self.min_allowed(D("1000")))
         self.assertEqual(it1.quantidade_maxima_permitida, self.max_allowed(D("1000")))
 
 
-class PesagemValidacaoTests(BaseSetupMixin, TestCase):
+class PesagemTests(BaseSetupMixin, TestCase):
     def setUp(self):
         super().setUp()
         self.op.gerar_itens_a_partir_da_estrutura()
@@ -95,7 +94,7 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
             endereco_ip="192.168.0.10", porta=1234
         )
 
-    def test_clean_rejeita_liquido_kg_nao_positivo_ou_tara_negativa(self):
+    def test_clean_rejeita_liquido_zero_ou_tara_negativa(self):
         p = Pesagem(
             op=self.op, item_op=self.item1, pesador="João",
             tara=D("-0.001"), liquido=D("0.100"),  # tara negativa
@@ -112,8 +111,7 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         with self.assertRaises(ValidationError):
             p2.clean()
 
-    def test_coerencia_itemop_na_mesma_op(self):
-        # Cria outra OP com mesmo item de estrutura e tenta cruzar
+    def test_itemop_deve_ser_da_mesma_op(self):
         op2 = OrdemProducao.objects.create(
             numero="OP-0002", produto=self.prod, estrutura=self.estr, lote="L24A0002"
         )
@@ -127,13 +125,13 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         with self.assertRaises(ValidationError):
             p.clean()
 
-    def test_save_converte_kg_para_g_calcula_bruto_e_trim_no_lote(self):
+    def test_save_converte_e_normaliza_lote(self):
         # 0.120 kg → 120 g; tara 0.080 kg; bruto = 0.200 kg
         p = Pesagem(
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.080"), liquido=D("0.120"), balanca=self.bal, lote_mp=" 24A0321 "
         )
-        p.full_clean()  # valida antes
+        p.full_clean()
         p.save()
 
         p.refresh_from_db()
@@ -141,23 +139,18 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.assertEqual(p.liquido, D("120.000"))  # armazenado em g
         self.assertEqual(p.lote_mp, "24A0321")
 
-        # ItemOP acumulado atualizado
         self.item1.refresh_from_db()
         self.assertEqual(self.item1.quantidade_pesada, D("120.000"))
 
-    def test_save_bloqueia_ultrapassar_teto(self):
-        # teto para item1 (1000g) = 1050 g
+    def test_bloqueia_ultrapassar_teto(self):
         teto = self.max_allowed(D("1000"))
-        # já pesar 1049 g e tentar mais 2 g → deve falhar
-        # 1ª pesagem: 1.049 kg? cuidado: entrada é kg, armazenamento em g
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=(teto - D("1.000")) / KG_TO_G  # kg que viram g = teto-1
+            tara=D("0.000"), liquido=(teto - D("1.000")) / KG_TO_G
         )
         self.item1.refresh_from_db()
         self.assertEqual(self.item1.quantidade_pesada, teto - D("1.000"))
 
-        # 2ª pesagem tentando passar 2 g
         with self.assertRaises(ValidationError) as ctx:
             Pesagem.objects.create(
                 op=self.op, item_op=self.item1, pesador="Ana",
@@ -165,11 +158,10 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
             )
         self.assertIn("Ultrapassa o limite superior", str(ctx.exception))
 
-    def test_permite_parciais_e_conclui_quando_todos_atingem_minimo(self):
+    def test_parciais_ok_conclui_no_minimo(self):
         min1 = self.min_allowed(D("1000"))  # 950 g
         min2 = self.min_allowed(D("500"))   # 475 g
 
-        # Pesar parcialmente abaixo do mínimo para os dois itens → OP deve ficar EM_ANDAMENTO
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.000"), liquido=(min1 - D("50.000")) / KG_TO_G
@@ -181,7 +173,6 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.op.refresh_from_db()
         self.assertEqual(self.op.status, StatusOP.EM_ANDAMENTO)
 
-        # Completar exatamente até o mínimo permitido em ambos
         restante1 = min1 - ItemOP.objects.get(pk=self.item1.pk).quantidade_pesada
         restante2 = min2 - ItemOP.objects.get(pk=self.item2.pk).quantidade_pesada
 
@@ -197,16 +188,13 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.op.refresh_from_db()
         self.assertEqual(self.op.status, StatusOP.CONCLUIDA)
         self.assertIsNotNone(self.op.concluida_em)
-        # concluida_em deve ser “agora-ish” (tolerância de alguns segundos)
         self.assertLess((timezone.now() - self.op.concluida_em).total_seconds(), 5.0)
 
-    def test_saldo_por_mp_anota_campos(self):
-        # Pesa 100 g da mp1 e 50 g da mp2
+    def test_saldo_por_mp_campos_ok(self):
         Pesagem.objects.create(op=self.op, item_op=self.item1, pesador="A", tara=D("0"), liquido=D("0.100"))
         Pesagem.objects.create(op=self.op, item_op=self.item2, pesador="A", tara=D("0"), liquido=D("0.050"))
 
         qs = self.op.saldo_por_mp().order_by("materia_prima__id")
-        # Cada linha: necessaria, pesada, restante
         linha1, linha2 = list(qs)
         self.assertEqual(linha1["necessaria"], D("1000.000"))
         self.assertEqual(linha1["pesada"], D("100.000"))
@@ -216,15 +204,13 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.assertEqual(linha2["pesada"], D("50.000"))
         self.assertEqual(linha2["restante"], D("450.000"))
 
-    def test_lote_mp_opcional_mas_quando_enviado_e_normalizado(self):
-        # Sem lote
+    def test_lote_mp_opcional_e_normalizado(self):
         p = Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.000"), liquido=D("0.100"), lote_mp=""
         )
         self.assertEqual(p.lote_mp, "")
 
-        # Com espaços
         p2 = Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.000"), liquido=D("0.100"), lote_mp="  24B0001  "

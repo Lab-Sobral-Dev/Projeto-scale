@@ -4,8 +4,11 @@ from rest_framework import serializers
 from .models import (
     Produto, MateriaPrima, Balanca,
     EstruturaProduto, ItemEstrutura,
-    OrdemProducao, ItemOP, Pesagem
+    OrdemProducao, ItemOP, Pesagem,
 )
+
+from audit.audit import AuditLog
+
 
 # ============== Básicos ==============
 
@@ -180,3 +183,9 @@ class PesagemSerializer(serializers.ModelSerializer):
         if lote is not None:
             attrs["lote_mp"] = lote.strip()
         return attrs
+    
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuditLog
+        fields = "__all__"

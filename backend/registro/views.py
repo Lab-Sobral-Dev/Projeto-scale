@@ -1,5 +1,4 @@
-from rest_framework import viewsets, filters, status
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, filters, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models.deletion import ProtectedError
@@ -12,6 +11,10 @@ from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 from decimal import Decimal, ROUND_HALF_UP
 import os
+from django_filters.rest_framework import DjangoFilterBackend
+from .audit.audit import AuditLog
+from .serializers import AuditLogSerializer
+
 
 from .models import (
     Produto, MateriaPrima, Balanca,
@@ -341,3 +344,18 @@ def gerar_etiqueta_pdf(request, pk):
     p.showPage()
     p.save()
     return response
+
+
+class IsAdminOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_staff
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = AuditLog.objects.all()
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAdminOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["action","model","status_code","user","path","method","object_pk"]
+    search_fields = ["user_agent","path","model","object_pk"]
+    ordering_fields = ["timestamp","status_code","model","action"]
+    ordering = ["-timestamp"]

@@ -21,6 +21,7 @@ import CadastroBalanca from './components/CadastroBalanca'
 import RequireAuth from '@/components/auth/RequireAuth'
 import RequireAdmin from '@/components/auth/RequireAdmin'
 import Sobre from './components/Sobre'
+import LogsAuditoria from './components/LogsAuditoria'
 
 
 import './App.css'
@@ -97,6 +98,7 @@ function App() {
           <Route path="/balancas" element={<CadastroBalanca />} />
           <Route path="/cadastro-usuario" element={<UsuariosAdmin />} />
           <Route path="/pesagens/:id/editar" element={<PesagemEditar />} />
+          <Route path="/auditoria" element={<LogsAuditoria />} />
         </Route>
 
         {/* Fallback */}

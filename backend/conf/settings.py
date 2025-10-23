@@ -7,10 +7,12 @@ from dotenv import load_dotenv
 # Paths e .env
 # =========================
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Seu .env está em scale/.env; o backend fica em scale/backend
-# Então o .env está em BASE_DIR.parent / ".env"
-ENV_PATH = BASE_DIR.parent / ".env"
-load_dotenv(dotenv_path=ENV_PATH)
+ENV_PATH = BASE_DIR.parent / ".env"  # scale/.env
+load_dotenv(dotenv_path=ENV_PATH)    # <- carregar .env primeiro
+
+# Agora, sim, ler as flags
+APP_ENV = os.getenv("APP_ENV", "prod")
+AUDIT_ENABLED = os.getenv("AUDIT_ENABLED", "false").strip().lower() == "true"
 
 # =========================
 # Helpers de env
@@ -26,28 +28,17 @@ def env_bool(key, default=False):
 
 def env_list(key, default=""):
     raw = os.getenv(key, default)
-    # Aceita vírgula ou quebra de linha
-    parts = [p.strip() for p in raw.replace("\n", ",").split(",") if p.strip()]
-    return parts
+    return [p.strip() for p in raw.replace("\n", ",").split(",") if p.strip()]
 
 # =========================
 # Base
 # =========================
 SECRET_KEY = env("SECRET_KEY", "change-me-in-prod")
-
 DEBUG = env_bool("DEBUG", True)
-
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
-# Origens CORS/CSRF (com protocolo)
-CORS_ALLOWED_ORIGINS = env_list(
-    "CORS_ALLOWED_ORIGINS",
-    "http://localhost:5173"
-)
-CSRF_TRUSTED_ORIGINS = env_list(
-    "CSRF_TRUSTED_ORIGINS",
-    "http://localhost:5173"
-)
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -60,6 +51,7 @@ INSTALLED_APPS = [
     # Terceiros
     "rest_framework",
     "corsheaders",
+    "django_filters",  # <- NECESSÁRIO para filtros no endpoint de auditoria
 
     # Apps do projeto
     "registro",
@@ -68,10 +60,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-
-    # CORS antes de CommonMiddleware
-    "corsheaders.middleware.CorsMiddleware",
-
+    "corsheaders.middleware.CorsMiddleware",  # <- antes de CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -80,6 +69,13 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# Inserir middlewares de auditoria somente se habilitado
+if AUDIT_ENABLED:
+    # inserir o RequestContext logo após o security/cors para capturar o request cedo
+    MIDDLEWARE.insert(1, "registro.middleware_requestctx.RequestContextMiddleware")
+    # e o de log de requisições bem no topo
+    MIDDLEWARE.insert(0, "registro.middleware.AuditRequestMiddleware")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -90,6 +86,11 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    "DEFAULT_FILTER_BACKENDS": (  # <- habilita filtros/search/order
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ),
 }
 
 SIMPLE_JWT = {
@@ -102,7 +103,7 @@ ROOT_URLCONF = "conf.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],  # adicione pastas de templates se necessário
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -117,7 +118,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "conf.wsgi.application"
 
 # =========================
-# Banco de Dados (PostgreSQL via .env)
+# Banco de Dados
 # =========================
 DB_ENGINE = env("DB_ENGINE", "postgres")
 if DB_ENGINE == "postgres":
@@ -127,20 +128,18 @@ if DB_ENGINE == "postgres":
             "NAME": env("DB_NAME", "scale"),
             "USER": env("DB_USER", "scale"),
             "PASSWORD": env("DB_PASSWORD", "scale"),
-            "HOST": env("DB_HOST", "db"),   # em Docker Compose, o serviço costuma ser "db"
+            "HOST": env("DB_HOST", "db"),
             "PORT": env("DB_PORT", "5432"),
             "CONN_MAX_AGE": int(env("DB_CONN_MAX_AGE", "60")),
         }
     }
 else:
-    # Fallback (útil para dev local rápido)
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-    
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -152,15 +151,34 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = env("LANGUAGE_CODE", "pt-br")
 TIME_ZONE = env("TIME_ZONE", "America/Fortaleza")
 USE_I18N = True
-USE_TZ = True  # guarda UTC no banco e converte via TIME_ZONE
+USE_TZ = True
 
 # =========================
 # Static/Media
 # =========================
 STATIC_URL  = "static/"
-STATIC_ROOT = "/app/static"      # <- casa com nginx alias /app/static
+STATIC_ROOT = "/app/static"
 MEDIA_URL   = "/media/"
-MEDIA_ROOT  = "/app/media"       # <- casa com nginx alias /app/media
-
+MEDIA_ROOT  = "/app/media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# (Opcional) LOGGING para HML — rotação de arquivo
+if AUDIT_ENABLED:
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "audit_file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": "/var/log/scale_hml/audit_app.log",
+                "maxBytes": 5_000_000,
+                "backupCount": 5,
+                "encoding": "utf-8",
+            },
+            "console": {"class": "logging.StreamHandler"},
+        },
+        "loggers": {
+            "django.request": {"handlers": ["audit_file", "console"], "level": "INFO", "propagate": True},
+        },
+    }

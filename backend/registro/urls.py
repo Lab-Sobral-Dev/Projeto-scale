@@ -5,7 +5,7 @@ from .views import (
     ProdutoViewSet, MateriaPrimaViewSet, BalancaViewSet,
     EstruturaProdutoViewSet, ItemEstruturaViewSet,
     OrdemProducaoViewSet, ItemOPViewSet,
-    PesagemViewSet, gerar_etiqueta_pdf
+    PesagemViewSet, gerar_etiqueta_pdf, AuditLogViewSet
 )
 
 router = DefaultRouter()
@@ -23,6 +23,9 @@ router.register(r'itens-op', ItemOPViewSet)
 
 # Pesagens
 router.register(r'pesagens', PesagemViewSet)
+
+#auditoria
+router.register(r"auditoria", AuditLogViewSet, basename="auditoria")
 
 urlpatterns = [
     path('', include(router.urls)),
