@@ -1,3 +1,4 @@
+// src/services/api.js
 // Serviço de API para Django DRF + SimpleJWT
 // Base paths: /api/registro/... e /api/usuarios/...
 
@@ -29,6 +30,51 @@ class ApiService {
   clearTokens() {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+  }
+
+  // ===== Helpers de URL/query (novos) =====
+  _qs(params) {
+    if (!params) return "";
+    const usp = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v === undefined || v === null) return;
+      const s = String(v).trim();
+      if (s !== "") usp.set(k, s);
+    });
+    const q = usp.toString();
+    return q ? `?${q}` : "";
+  }
+
+  _abs(path) {
+    // aceita "/auditoria/" ou já absoluto
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  }
+
+  // ===== Atalhos HTTP estilo Axios (novos) =====
+  async get(path, { params, headers } = {}) {
+    const url = this._abs(path) + this._qs(params);
+    return this.request(url, { method: "GET", headers });
+  }
+
+  async delete(path, { params, headers } = {}) {
+    const url = this._abs(path) + this._qs(params);
+    return this.request(url, { method: "DELETE", headers });
+  }
+
+  async post(path, body, { params, headers } = {}) {
+    const url = this._abs(path) + this._qs(params);
+    return this.request(url, { method: "POST", body: JSON.stringify(body), headers });
+  }
+
+  async put(path, body, { params, headers } = {}) {
+    const url = this._abs(path) + this._qs(params);
+    return this.request(url, { method: "PUT", body: JSON.stringify(body), headers });
+  }
+
+  async patch(path, body, { params, headers } = {}) {
+    const url = this._abs(path) + this._qs(params);
+    return this.request(url, { method: "PATCH", body: JSON.stringify(body), headers });
   }
 
   // ===== Request genérico com retry após refresh (401) =====
