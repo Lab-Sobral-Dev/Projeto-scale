@@ -19,11 +19,13 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Código do app
 COPY . .
 
+# Cria o diretório de logs (para o handler 'audit_file')
+RUN mkdir -p /var/log/scale_hml && chmod -R 755 /var/log/scale_hml
+
 # Porta interna
 EXPOSE 8000
 
 # Sobe migrando, coleta estáticos e inicia Gunicorn
-# IMPORTANTE: use o módulo WSGI correto do seu projeto -> conf.wsgi:application
 CMD ["sh", "-lc", "\
 python manage.py migrate && \
 python manage.py collectstatic --noinput && \
