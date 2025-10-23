@@ -10,6 +10,9 @@ import { Download, RefreshCcw, Search } from "lucide-react"
 const ACTIONS = ["request","create","update","delete","login","logout","token_refresh","label_print","error"]
 const METHODS = ["GET","POST","PUT","PATCH","DELETE"]
 
+// helper para mapear o sentinela "__ALL__" de volta para string vazia no estado
+const mapAll = (v) => (v === "__ALL__" ? "" : v)
+
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState({
     q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
@@ -20,7 +23,7 @@ export default function LogsAuditoria() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    fetchData(1) // carrega primeira página ao montar/alterar ordenação
+    fetchData(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.ordering])
 
@@ -41,7 +44,7 @@ export default function LogsAuditoria() {
   }
 
   const totalPages = useMemo(() => {
-    const pageSize = 50 // igual ao PAGE_SIZE do DRF
+    const pageSize = 50
     return Math.max(1, Math.ceil((data?.count || 0) / pageSize))
   }, [data?.count])
 
@@ -64,18 +67,24 @@ export default function LogsAuditoria() {
               </div>
             </div>
 
-            <Select value={filters.action} onValueChange={v => setFilters(f => ({ ...f, action: v }))}>
+            <Select
+              value={filters.action || undefined}
+              onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}
+            >
               <SelectTrigger><SelectValue placeholder="Ação" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">(todas)</SelectItem>
+                <SelectItem value="__ALL__">(todas)</SelectItem>
                 {ACTIONS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
 
-            <Select value={filters.method} onValueChange={v => setFilters(f => ({ ...f, method: v }))}>
+            <Select
+              value={filters.method || undefined}
+              onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}
+            >
               <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">(todos)</SelectItem>
+                <SelectItem value="__ALL__">(todos)</SelectItem>
                 {METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -119,7 +128,10 @@ export default function LogsAuditoria() {
               onChange={e => setFilters(f => ({ ...f, path: e.target.value }))}
             />
 
-            <Select value={filters.ordering} onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}>
+            <Select
+              value={filters.ordering}
+              onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}
+            >
               <SelectTrigger><SelectValue placeholder="Ordenação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="-timestamp">Mais recentes</SelectItem>
@@ -162,8 +174,8 @@ export default function LogsAuditoria() {
               </tr>
             </thead>
             <tbody>
-              {(data?.results || []).map((r) => (
-                <tr key={`${r.timestamp}-${r.model}-${r.object_pk}-${Math.random()}`} className="border-b hover:bg-muted/40">
+              {(data?.results || []).map((r, idx) => (
+                <tr key={`${r.timestamp}-${r.model}-${r.object_pk}-${idx}`} className="border-b hover:bg-muted/40">
                   <td className="px-2 py-2 whitespace-nowrap text-center">
                     {new Date(r.timestamp).toLocaleString()}
                   </td>
