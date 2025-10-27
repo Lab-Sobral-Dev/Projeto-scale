@@ -14,7 +14,7 @@ import CadastroMateriaPrima from './components/CadastroMateriaPrima'
 import PerfilUsuario from './components/PerfilUsuario'
 import GeracaoEtiqueta from './components/GeracaoEtiqueta'
 import Layout from './components/Layout'
-import UsuariosAdmin from './components/NovoUsuario'
+import UsuariosAdmin from './components/usuarios'
 import PesagemDetalhe from '@/components/PesagemDetalhe'
 import PesagemEditar from '@/components/PesagemEditar'
 import CadastroBalanca from './components/CadastroBalanca'
@@ -96,7 +96,7 @@ function App() {
           <Route path="/estruturas/:id" element={<ComposicaoEstrutura />} />  
           <Route path="/cadastro-materia-prima" element={<CadastroMateriaPrima />} />
           <Route path="/balancas" element={<CadastroBalanca />} />
-          <Route path="/cadastro-usuario" element={<UsuariosAdmin />} />
+          <Route path="/usuarios" element={<UsuariosAdmin />} />
           <Route path="/pesagens/:id/editar" element={<PesagemEditar />} />
           <Route path="/auditoria" element={<LogsAuditoria />} />
         </Route>

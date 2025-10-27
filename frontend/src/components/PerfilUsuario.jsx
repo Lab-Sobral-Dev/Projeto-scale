@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { User, LogOut, Shield, Calendar, Clock, UserPlus } from 'lucide-react'
+import { User, LogOut, Shield, Calendar, Clock, UserPlus, LayoutGrid } from 'lucide-react'
 
-/** Base da API do backend. Ex.: http://localhost:8000 + /api/usuarios */
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/usuarios'
+/** Base da API do backend. */
+const API_BASE =
+  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/usuarios'
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
@@ -40,7 +41,6 @@ const mapUserFromAPI = (data = {}) => {
     data.usuario ||
     'Usuário'
 
-  // Prioriza staff/superuser como admin. Depois usa 'tipo' se existir. Fallback operador.
   const isStaff = data.is_staff === true || data.is_staff === 'True'
   const isSuper = data.is_superuser === true || data.is_superuser === 'True'
   const tipoCanon =
@@ -56,6 +56,11 @@ const mapUserFromAPI = (data = {}) => {
       : tipoCanon.includes('superv') ? 'supervisor'
       : 'operador')
 
+  const allowedScreens =
+    Array.isArray(data.allowed_screens) ? data.allowed_screens
+    : Array.isArray(data.allowedScreens) ? data.allowedScreens
+    : []
+
   return {
     id: data.id,
     nome,
@@ -64,6 +69,7 @@ const mapUserFromAPI = (data = {}) => {
     tipo,
     is_staff: !!isStaff,
     is_superuser: !!isSuper,
+    allowedScreens,
   }
 }
 
@@ -85,7 +91,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
   // Relógio "vivo" com timezone America/Fortaleza
   const [now, setNow] = useState(new Date())
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000) // pode trocar para 60_000
+    const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
   const currentDate = now.toLocaleDateString('pt-BR', { timeZone: 'America/Fortaleza' })
@@ -106,16 +112,14 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
   useEffect(() => {
     let mounted = true
 
-    // 1) Se veio userProp, normaliza com o mesmo mapeamento do backend
     if (userProp) {
       const mapped = mapUserFromAPI(userProp)
       setUser(mapped)
-      // 2) Se após normalizar ainda não houver um tipo confiável, busca o /auth/me/
       const tipoConfiavel = ['admin', 'operador', 'supervisor'].includes(mapped.tipo)
-      if (!tipoConfiavel) {
+      if (!tipoConfiavel || mapped.allowedScreens.length === 0) {
         ;(async () => {
           try {
-            const data = await apiGet('/auth/me/') // ✅ rota correta: /api/usuarios/auth/me/
+            const data = await apiGet('/auth/me/')
             if (!mounted) return
             setUser(mapUserFromAPI(data))
           } catch (e) {
@@ -132,11 +136,10 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
       return () => { mounted = false }
     }
 
-    // 3) Sem userProp → sempre consulta /auth/me/
     ;(async () => {
       try {
         setError('')
-        const data = await apiGet('/auth/me/') // ✅ rota correta
+        const data = await apiGet('/auth/me/')
         if (!mounted) return
         setUser(mapUserFromAPI(data))
       } catch (e) {
@@ -295,8 +298,25 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Telas permitidas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LayoutGrid className="h-5 w-5" />
+            Telas permitidas
+          </CardTitle>
+          <CardDescription>Conjunto efetivo de telas habilitadas para este usuário</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {user?.allowedScreens?.length
+            ? user.allowedScreens.map(code => <Badge key={code} variant="secondary">{code}</Badge>)
+            : <span className="text-sm text-gray-500">Nenhuma tela atribuída.</span>}
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
 export default PerfilUsuario
+

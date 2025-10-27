@@ -6,12 +6,15 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { UserPlus, Users, Save, Trash2 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lucide-react'
 
-const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api')
-const USUARIOS_URL = `${API_BASE}/usuarios/usuarios/`
-const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
-const ME_URL = `${API_BASE}/usuarios/auth/me/`
+const API_ROOT = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000') + '/api/usuarios'
+const USUARIOS_URL = `${API_ROOT}/usuarios/`
+const PERFIS_URL = `${API_ROOT}/perfis/`
+const ME_URL = `${API_ROOT}/auth/me/`
+const ROLES_URL = `${API_ROOT}/roles/`
+const SCREENS_URL = `${API_ROOT}/screens/`
 
 const PAPEL_OPTIONS = [
   { value: 'operador', label: 'Operador' },
@@ -30,14 +33,16 @@ export default function UsuariosAdmin() {
   )
 
   const [loading, setLoading] = useState(false)
-  const [rowLoading, setRowLoading] = useState(null) // id do usuário em operação
+  const [rowLoading, setRowLoading] = useState(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
   // listas
-  const [users, setUsers] = useState([])   // /usuarios/
-  const [perfis, setPerfis] = useState([]) // /perfis/
-  const [me, setMe] = useState(null)       // /auth/me/ (pra bloqueio de auto-exclusão)
+  const [users, setUsers] = useState([])
+  const [perfis, setPerfis] = useState([])
+  const [me, setMe] = useState(null)
+  const [roles, setRoles] = useState([])
+  const [screens, setScreens] = useState([])
 
   // form criação
   const [form, setForm] = useState({
@@ -47,9 +52,10 @@ export default function UsuariosAdmin() {
     email: '',
     password: '',
     papel: 'operador',
+    role_ids: [],
+    extra_screen_ids: [],
   })
 
-  // Map rápido: username -> perfil
   const perfilByUsername = useMemo(() => {
     const map = new Map()
     for (const p of perfis) map.set(p.username, p)
@@ -60,29 +66,38 @@ export default function UsuariosAdmin() {
     setLoading(true)
     setError('')
     try {
-      const [uRes, pRes, meRes] = await Promise.all([
+      const [uRes, pRes, meRes, rRes, sRes] = await Promise.all([
         fetch(USUARIOS_URL, { headers: authHeaders }),
         fetch(PERFIS_URL, { headers: authHeaders }),
         fetch(ME_URL, { headers: authHeaders }),
+        fetch(ROLES_URL, { headers: authHeaders }),
+        fetch(SCREENS_URL, { headers: authHeaders }),
       ])
 
-      if (uRes.status === 401 || pRes.status === 401 || meRes.status === 401) {
+      if ([uRes, pRes, meRes, rRes, sRes].some(r => r.status === 401)) {
         setError('Sessão expirada. Faça login novamente.')
         return
       }
 
-      if (!uRes.ok || !pRes.ok || !meRes.ok) {
-        setError('Não foi possível carregar usuários/perfis.')
+      if (![uRes, pRes, meRes, rRes, sRes].every(r => r.ok)) {
+        setError('Não foi possível carregar usuários/perfis/roles/screens.')
         return
       }
 
-      const [uJson, pJson, meJson] = await Promise.all([uRes.json(), pRes.json(), meRes.json()])
+      const [uJson, pJson, meJson, rJson, sJson] = await Promise.all([
+        uRes.json(), pRes.json(), meRes.json(), rRes.json(), sRes.json()
+      ])
+
       const uList = Array.isArray(uJson) ? uJson : (uJson?.results ?? [])
       const pList = Array.isArray(pJson) ? pJson : (pJson?.results ?? [])
+      const rList = Array.isArray(rJson) ? rJson : (rJson?.results ?? [])
+      const sList = Array.isArray(sJson) ? sJson : (sJson?.results ?? [])
 
       setUsers(uList)
       setPerfis(pList)
       setMe(meJson)
+      setRoles(rList)
+      setScreens(sList)
     } catch (e) {
       console.error(e)
       setError('Falha ao carregar dados. Verifique permissões (admin) e token.')
@@ -102,6 +117,14 @@ export default function UsuariosAdmin() {
     setSuccess('')
   }
 
+  const toggleInArray = (name, id) => {
+    setForm(prev => {
+      const set = new Set(prev[name])
+      set.has(id) ? set.delete(id) : set.add(id)
+      return { ...prev, [name]: Array.from(set) }
+    })
+  }
+
   async function criarUsuario(e) {
     e.preventDefault()
     setLoading(true)
@@ -114,10 +137,21 @@ export default function UsuariosAdmin() {
         return
       }
 
+      const payload = {
+        username: form.username,
+        password: form.password,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        email: form.email,
+        papel: form.papel,
+        role_ids: form.role_ids,
+        extra_screen_ids: form.extra_screen_ids,
+      }
+
       const res = await fetch(USUARIOS_URL, {
         method: 'POST',
         headers: jsonHeaders,
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
@@ -135,6 +169,8 @@ export default function UsuariosAdmin() {
         email: '',
         password: '',
         papel: 'operador',
+        role_ids: [],
+        extra_screen_ids: [],
       })
 
       await carregar()
@@ -216,7 +252,7 @@ export default function UsuariosAdmin() {
         <Users className="h-8 w-8 text-blue-600" />
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Usuários</h1>
-          <p className="text-gray-600">Cadastre operadores (pesadores) e administradores</p>
+          <p className="text-gray-600">Cadastre operadores (pesadores) e administradores, atribua papéis e telas.</p>
         </div>
       </div>
 
@@ -228,10 +264,11 @@ export default function UsuariosAdmin() {
               <UserPlus className="h-5 w-5" />
               Novo Usuário
             </CardTitle>
-            <CardDescription>Crie o pesador/administrador</CardDescription>
+            <CardDescription>Crie o usuário e já defina seus acessos</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={criarUsuario} className="space-y-4">
+            <form onSubmit={criarUsuario} className="space-y-6">
+              {/* Campos básicos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="username">Usuário *</Label>
@@ -253,6 +290,8 @@ export default function UsuariosAdmin() {
                   <Label htmlFor="email">E-mail</Label>
                   <Input id="email" type="email" value={form.email} onChange={e => handleChange('email', e.target.value)} />
                 </div>
+
+                {/* Papel primário (operador/admin) */}
                 <div className="space-y-2">
                   <Label htmlFor="papel">Papel</Label>
                   <Select value={form.papel} onValueChange={v => handleChange('papel', v)}>
@@ -261,6 +300,57 @@ export default function UsuariosAdmin() {
                       {PAPEL_OPTIONS.map(op => <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* Papéis (roles) – múltiplos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-gray-600" />
+                    <Label>Papéis (roles)</Label>
+                  </div>
+                  {roles.length === 0 ? (
+                    <p className="text-sm text-gray-500">Nenhum papel cadastrado.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {roles.map(r => (
+                        <label key={r.id} className="flex items-center gap-2 rounded border p-2 hover:bg-gray-50">
+                          <Checkbox
+                            checked={form.role_ids.includes(r.id)}
+                            onCheckedChange={() => toggleInArray('role_ids', r.id)}
+                          />
+                          <span className="text-sm text-gray-800">{r.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Telas extras – múltiplas */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <LayoutGrid className="h-4 w-4 text-gray-600" />
+                    <Label>Telas extras</Label>
+                  </div>
+                  {screens.length === 0 ? (
+                    <p className="text-sm text-gray-500">Nenhuma tela cadastrada.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto pr-1">
+                      {screens.map(s => (
+                        <label key={s.id} className="flex items-center gap-2 rounded border p-2 hover:bg-gray-50">
+                          <Checkbox
+                            checked={form.extra_screen_ids.includes(s.id)}
+                            onCheckedChange={() => toggleInArray('extra_screen_ids', s.id)}
+                          />
+                          <span className="text-sm text-gray-800">
+                            <span className="font-medium">{s.label}</span>
+                            <span className="text-gray-500"> — {s.code}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
