@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models.signals import post_save
 from .models import PerfilUsuario, Screen, Role
 
 @admin.register(PerfilUsuario)
@@ -20,3 +21,9 @@ class RoleAdmin(admin.ModelAdmin):
     search_fields = ("name",)
     filter_horizontal = ("screens",)
     ordering = ("name",)
+
+@receiver(post_save, sender=Screen)
+def add_new_screen_to_admin(sender, instance, created, **kwargs):
+    if created:
+        admin_role, _ = Role.objects.get_or_create(name="admin")
+        admin_role.screens.add(instance)
