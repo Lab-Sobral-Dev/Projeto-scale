@@ -7,7 +7,7 @@ import { User, LogOut, Shield, Calendar, Clock, UserPlus, LayoutGrid } from 'luc
 
 /** Base da API do backend. */
 const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/usuarios'
+  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://apiscale.laboratoriosobral.com.br/') + '/api/usuarios'
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
