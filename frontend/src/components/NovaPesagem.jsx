@@ -393,7 +393,7 @@ const NovaPesagem = () => {
 
               {/* OP — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
-                <Label htmlFor="op">Ordem de Produção *</Label>
+                <Label htmlFor="op">Ordem de Produção</Label>
                 <Select
                   value={String(formData.op || '')}
                   onValueChange={handleOPChange}
@@ -441,7 +441,7 @@ const NovaPesagem = () => {
 
               {/* Item da OP */}
               <div className="space-y-2">
-                <Label>Item da OP (Matéria-prima) *</Label>
+                <Label>Item da OP (Matéria-prima)</Label>
                 <Popover
                   open={openItem}
                   onOpenChange={(v) => { setOpenItem(v); if (!v) setSearchItem('') }}
@@ -554,7 +554,7 @@ const NovaPesagem = () => {
 
               {/* Entradas (sempre em kg): TARA e LÍQUIDO */}
               <div className="space-y-2">
-                <Label htmlFor="tara">Tara (kg) *</Label>
+                <Label htmlFor="tara">Tara (kg)</Label>
                 <Input
                   id="tara"
                   type="text"

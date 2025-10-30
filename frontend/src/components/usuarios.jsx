@@ -9,7 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lucide-react'
 
-const API_ROOT = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000') + '/api/usuarios'
+/** Base deve apontar para .../api */
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
+/** Raiz do app de usuários */
+const API_ROOT = `${API_BASE}/usuarios`
+
 const USUARIOS_URL = `${API_ROOT}/usuarios/`
 const PERFIS_URL = `${API_ROOT}/perfis/`
 const ME_URL = `${API_ROOT}/auth/me/`
@@ -157,7 +161,7 @@ export default function UsuariosAdmin() {
       if (!res.ok) {
         const raw = await res.text()
         let detail = raw
-        try { detail = JSON.stringify(JSON.parse(raw)) } catch {}
+        try { detail = JSON.stringify(JSON.parse(raw)) } catch { }
         throw new Error(`Erro ao criar usuário (${res.status}) ${detail}`)
       }
 
@@ -192,7 +196,6 @@ export default function UsuariosAdmin() {
     setError('')
 
     try {
-      // PATCH para atualizar só o campo "papel"
       const res = await fetch(`${PERFIS_URL}${perfil.id}/`, {
         method: 'PATCH',
         headers: jsonHeaders,
@@ -201,7 +204,7 @@ export default function UsuariosAdmin() {
       if (!res.ok) {
         const raw = await res.text()
         let detail = raw
-        try { detail = JSON.stringify(JSON.parse(raw)) } catch {}
+        try { detail = JSON.stringify(JSON.parse(raw)) } catch { }
         throw new Error(`Erro ao atualizar papel (${res.status}) ${detail}`)
       }
       setSuccess('Papel atualizado!')
@@ -227,12 +230,12 @@ export default function UsuariosAdmin() {
     try {
       const res = await fetch(`${USUARIOS_URL}${id}/`, {
         method: 'DELETE',
-        headers: authHeaders,
+        headers: authHeaders, // objeto com Authorization
       })
       if (res.status !== 204 && res.status !== 200) {
         const raw = await res.text()
         let detail = raw
-        try { detail = JSON.stringify(JSON.parse(raw)) } catch {}
+        try { detail = JSON.stringify(JSON.parse(raw)) } catch { }
         throw new Error(`Erro ao excluir (${res.status}) ${detail}`)
       }
       setSuccess('Usuário excluído!')

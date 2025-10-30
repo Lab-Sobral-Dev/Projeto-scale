@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { User, LogOut, Shield, Calendar, Clock, UserPlus, LayoutGrid } from 'lucide-react'
 
-/** Base da API do backend. */
+/** Base da API do backend — deve apontar para .../api */
 const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://apiscale.laboratoriosobral.com.br/') + '/usuarios'
+  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api')
+
+/** Raiz do app de usuários */
+const API_ROOT = `${API_BASE}/usuarios`
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
@@ -15,7 +18,7 @@ const authHeaders = () => ({
 
 /** GET com tratamento de 401 (expiração de token) */
 const apiGet = async (path) => {
-  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() })
+  const res = await fetch(`${API_ROOT}${path}`, { headers: authHeaders() })
   if (res.status === 401) {
     const err = new Error('UNAUTHORIZED')
     err.code = 401
@@ -45,21 +48,21 @@ const mapUserFromAPI = (data = {}) => {
   const isSuper = data.is_superuser === true || data.is_superuser === 'True'
   const tipoCanon =
     isStaff || isSuper ? 'admin'
-    : data.tipo ? String(data.tipo).toLowerCase()
-    : 'operador'
+      : data.tipo ? String(data.tipo).toLowerCase()
+        : 'operador'
 
   const tipo =
     ['admin', 'operador', 'supervisor'].includes(tipoCanon) ? tipoCanon
-    : (tipoCanon.includes('admin') ? 'admin'
-      : tipoCanon.includes('super') ? 'admin'
-      : tipoCanon.includes('oper') ? 'operador'
-      : tipoCanon.includes('superv') ? 'supervisor'
-      : 'operador')
+      : (tipoCanon.includes('admin') ? 'admin'
+        : tipoCanon.includes('super') ? 'admin'
+          : tipoCanon.includes('oper') ? 'operador'
+            : tipoCanon.includes('superv') ? 'supervisor'
+              : 'operador')
 
   const allowedScreens =
     Array.isArray(data.allowed_screens) ? data.allowed_screens
-    : Array.isArray(data.allowedScreens) ? data.allowedScreens
-    : []
+      : Array.isArray(data.allowedScreens) ? data.allowedScreens
+        : []
 
   return {
     id: data.id,
@@ -117,7 +120,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
       setUser(mapped)
       const tipoConfiavel = ['admin', 'operador', 'supervisor'].includes(mapped.tipo)
       if (!tipoConfiavel || mapped.allowedScreens.length === 0) {
-        ;(async () => {
+        ; (async () => {
           try {
             const data = await apiGet('/auth/me/')
             if (!mounted) return
@@ -136,7 +139,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
       return () => { mounted = false }
     }
 
-    ;(async () => {
+    ; (async () => {
       try {
         setError('')
         const data = await apiGet('/auth/me/')
@@ -198,7 +201,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
         {user?.tipo === 'admin' && (
           <Button asChild className="flex items-center gap-2">
-            <Link to="/cadastro-usuario">
+            <Link to="/usuarios">
               <UserPlus className="h-4 w-4" />
               Cadastrar usuários
             </Link>
@@ -319,4 +322,3 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 }
 
 export default PerfilUsuario
-
