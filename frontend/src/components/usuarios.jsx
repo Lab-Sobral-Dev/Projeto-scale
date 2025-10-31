@@ -14,10 +14,10 @@ const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/a
 
 /** ENDPOINTS corretos conforme seu urls.py */
 const USERS_URL = `${API_BASE}/usuarios/`
-const PERFIS_URL = `${API_BASE}/perfis/`
-const ME_URL = `${API_BASE}/auth/me/`
-const ROLES_URL = `${API_BASE}/roles/`
-const SCREENS_URL = `${API_BASE}/screens/`
+const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
+const ME_URL = `${API_BASE}/usuarios/auth/me/`
+const ROLES_URL = `${API_BASE}/usuarios/roles/`
+const SCREENS_URL = `${API_BASE}/usuarios/screens/`
 
 const PAPEL_OPTIONS = [
   { value: 'operador', label: 'Operador' },
