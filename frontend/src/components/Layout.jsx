@@ -15,28 +15,40 @@ import {
   ScrollText,
   Factory,
   ListChecks,
-  Boxes, // 👈 novo: ícone para Estrutura de Produtos
+  Boxes,
 } from 'lucide-react'
 
 const Layout = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [logoError, setLogoError] = useState(false) // evita erro no onError do logo mobile
+  const [logoError, setLogoError] = useState(false)
   const location = useLocation()
 
+  // Telas permitidas vindas da API (/usuarios/auth/me/)
+  const allowed = new Set(Array.isArray(user?.allowedScreens) ? user.allowedScreens : [])
+  const isAdmin = user?.tipo === 'admin' || user?.is_staff || user?.is_superuser
+
+  // Mapeie cada item para o code da Screen no backend
   const navigation = [
-    { name: 'Home', href: '/', icon: Home },
-    { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
-    { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
-    { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes },
-    { name: 'OPs', href: '/ops', icon: Factory },
-    { name: 'Nova OP', href: '/ops/nova', icon: ListChecks },
-    { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
-    { name: 'Histórico', href: '/historico', icon: History },
-    { name: 'Balanças', href: '/balancas', icon: Weight },
-    { name: 'Sobre', href: '/sobre', icon: ScrollText},
+    { name: 'Home', href: '/', icon: Home, requiredScreen: 'dashboard' },
+    { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers, requiredScreen: 'cadastro_mp' },
+    { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package, requiredScreen: 'cadastro_produto' },
+    { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes, requiredScreen: 'estruturas' },
+    { name: 'OPs', href: '/ops', icon: Factory, requiredScreen: 'ops' },
+    { name: 'Nova OP', href: '/ops/nova', icon: ListChecks, requiredScreen: 'nova_op' },
+    { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale, requiredScreen: 'nova_pesagem' },
+    { name: 'Histórico', href: '/historico', icon: History, requiredScreen: 'historico_pesagens' },
+    { name: 'Balanças', href: '/balancas', icon: Weight, requiredScreen: 'balancas' },
+    { name: 'Sobre', href: '/sobre', icon: ScrollText, requiredScreen: 'sobre' },
   ]
 
-  // evita que '/ops' e '/estruturas' fiquem ativos quando estiver em subrotas (ex.: '/ops/nova', '/estruturas/nova')
+  // Permissão por item (admin vê tudo; senão precisa do code na lista)
+  const canSee = (item) => {
+    if (isAdmin) return true
+    if (!item.requiredScreen) return true
+    return allowed.has(item.requiredScreen)
+  }
+
+  // evita que '/ops' e '/estruturas' fiquem ativos em subrotas específicas
   const isActive = (href) => {
     const path = location.pathname
     if (href === '/ops') return path === '/ops' || path === '/ops/'
@@ -68,15 +80,15 @@ const Layout = ({ user, onLogout }) => {
             </Button>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => {
+            {navigation.filter(canSee).map((item) => {
               const Icon = item.icon
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -99,15 +111,15 @@ const Layout = ({ user, onLogout }) => {
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => {
+            {navigation.filter(canSee).map((item) => {
               const Icon = item.icon
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -160,8 +172,6 @@ const Layout = ({ user, onLogout }) => {
             </div>
           </div>
         </div>
-
-
 
         {/* Page content */}
         <main className="py-6">
