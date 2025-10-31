@@ -13,7 +13,7 @@ import { UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lucide-react'
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 
 /** ENDPOINTS corretos conforme seu urls.py */
-const USERS_URL = `${API_BASE}/usuarios/`
+const USERS_URL = `${API_BASE}/usuarios/usuarios/`
 const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
 const ME_URL = `${API_BASE}/usuarios/auth/me/`
 const ROLES_URL = `${API_BASE}/usuarios/roles/`
