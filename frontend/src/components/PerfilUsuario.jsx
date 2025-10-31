@@ -10,7 +10,7 @@ const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api')
 
 /** Endpoints globais (auth) */
-const AUTH_ME_URL = `${API_BASE}/auth/me/`
+const AUTH_ME_URL = `${API_BASE}/usuarios/auth/me/`
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
