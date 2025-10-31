@@ -63,7 +63,7 @@ export default function UsuariosAdmin() {
     email: '',
     password: '',
     papel: 'operador',
-    role_ids: [],
+    role_ids: [],          // manteremos array por compatibilidade com a API, porém só com 0 ou 1 item
     extra_screen_ids: [],  // só as marcadas manualmente
   })
 
@@ -139,14 +139,21 @@ export default function UsuariosAdmin() {
     setSuccess('')
   }
 
-  // sempre que role_ids mudar, recalcula telas herdadas
+  // recalcula telas herdadas sempre que role_ids (único) mudar
   useEffect(() => {
     const set = new Set()
-    for (const rid of form.role_ids) {
-      const arr = roleScreensMap[rid] || []
+    const [only] = form.role_ids
+    if (only) {
+      const arr = roleScreensMap[only] || []
       for (const sid of arr) set.add(sid)
     }
     setAutoScreenIds(set)
+
+    // ao trocar o papel, opcionalmente removemos extras que estejam contidos no novo papel
+    setForm(prev => ({
+      ...prev,
+      extra_screen_ids: prev.extra_screen_ids.filter(id => !set.has(id)),
+    }))
   }, [form.role_ids, roleScreensMap])
 
   const toggleInArray = (name, id) => {
@@ -157,10 +164,26 @@ export default function UsuariosAdmin() {
     })
   }
 
-  // toggler para extra_screen_ids que respeita telas herdadas (não permite desmarcar as via papel)
+  // toggle de tela extra respeitando herdadas
   const toggleExtraScreen = (id) => {
     if (autoScreenIds.has(id)) return // herdada por papel → não altera
     toggleInArray('extra_screen_ids', id)
+  }
+
+  // *** Seleção ÚNICA de roles ***
+  const toggleSingleRole = (roleId, checked) => {
+    setForm(prev => {
+      if (checked) {
+        // seleciona SOMENTE este role
+        return { ...prev, role_ids: [roleId] }
+      } else {
+        // se o mesmo for desmarcado, zera
+        if (prev.role_ids[0] === roleId) {
+          return { ...prev, role_ids: [] }
+        }
+        return prev
+      }
+    })
   }
 
   async function criarUsuario(e) {
@@ -182,9 +205,8 @@ export default function UsuariosAdmin() {
         last_name: form.last_name,
         email: form.email,
         papel: form.papel,
-        role_ids: form.role_ids,
-        // Só enviamos EXTRAS manuais; as herdadas vêm pelos roles
-        extra_screen_ids: form.extra_screen_ids,
+        role_ids: form.role_ids,                 // array com 0 ou 1 id
+        extra_screen_ids: form.extra_screen_ids, // apenas extras manuais
       }
 
       const res = await fetch(USERS_URL, {
@@ -352,31 +374,30 @@ export default function UsuariosAdmin() {
                 </div>
               </div>
 
-              {/* Papéis (roles) – múltiplos */}
+              {/* Papéis (roles) – agora SELEÇÃO ÚNICA */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-gray-600" />
-                    <Label>Papéis (roles)</Label>
+                    <Label>Papel (role) extra</Label>
+                    <Badge variant="outline" className="ml-2">seleção única</Badge>
                   </div>
                   {roles.length === 0 ? (
                     <p className="text-sm text-gray-500">Nenhum papel cadastrado.</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {roles.map(r => (
-                        <label key={r.id} className="flex items-center gap-2 rounded border p-2 hover:bg-gray-50">
-                          <Checkbox
-                            checked={form.role_ids.includes(r.id)}
-                            onCheckedChange={() => {
-                              // alterna papel
-                              const set = new Set(form.role_ids)
-                              set.has(r.id) ? set.delete(r.id) : set.add(r.id)
-                              setForm(prev => ({ ...prev, role_ids: Array.from(set) }))
-                            }}
-                          />
-                          <span className="text-sm text-gray-800">{r.name}</span>
-                        </label>
-                      ))}
+                      {roles.map(r => {
+                        const selected = form.role_ids[0] === r.id
+                        return (
+                          <label key={r.id} className="flex items-center gap-2 rounded border p-2 hover:bg-gray-50">
+                            <Checkbox
+                              checked={selected}
+                              onCheckedChange={(checked) => toggleSingleRole(r.id, !!checked)}
+                            />
+                            <span className="text-sm text-gray-800">{r.name}</span>
+                          </label>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
