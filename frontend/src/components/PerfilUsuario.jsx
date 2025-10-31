@@ -10,15 +10,31 @@ const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api')
 
 /** Raiz do app de usuários */
-const API_ROOT = `${API_BASE}/usuarios`
+const USUARIOS_ROOT = `${API_BASE}/usuarios`
+/** Raiz de endpoints “globais” (ex.: /auth/me) */
+const AUTH_ROOT = API_BASE
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
 })
 
-/** GET com tratamento de 401 (expiração de token) */
-const apiGet = async (path) => {
-  const res = await fetch(`${API_ROOT}${path}`, { headers: authHeaders() })
+/** GET para raízes diferentes */
+const apiGetUsuarios = async (path) => {
+  const res = await fetch(`${USUARIOS_ROOT}${path}`, { headers: authHeaders() })
+  if (res.status === 401) {
+    const err = new Error('UNAUTHORIZED')
+    err.code = 401
+    throw err
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+const apiGetAuth = async (path) => {
+  const res = await fetch(`${AUTH_ROOT}${path}`, { headers: authHeaders() })
   if (res.status === 401) {
     const err = new Error('UNAUTHORIZED')
     err.code = 401
@@ -115,34 +131,10 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
   useEffect(() => {
     let mounted = true
 
-    if (userProp) {
-      const mapped = mapUserFromAPI(userProp)
-      setUser(mapped)
-      const tipoConfiavel = ['admin', 'operador', 'supervisor'].includes(mapped.tipo)
-      if (!tipoConfiavel || mapped.allowedScreens.length === 0) {
-        ; (async () => {
-          try {
-            const data = await apiGet('/auth/me/')
-            if (!mounted) return
-            setUser(mapUserFromAPI(data))
-          } catch (e) {
-            console.error(e)
-            if (e.code === 401) return handleLogout(false)
-            setError('Não foi possível carregar os dados do usuário.')
-          } finally {
-            if (mounted) setLoading(false)
-          }
-        })()
-      } else {
-        setLoading(false)
-      }
-      return () => { mounted = false }
-    }
-
-    ; (async () => {
+    const hydrateFromAuth = async () => {
       try {
         setError('')
-        const data = await apiGet('/auth/me/')
+        const data = await apiGetAuth('/auth/me/')
         if (!mounted) return
         setUser(mapUserFromAPI(data))
       } catch (e) {
@@ -152,8 +144,21 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
       } finally {
         if (mounted) setLoading(false)
       }
-    })()
+    }
 
+    if (userProp) {
+      const mapped = mapUserFromAPI(userProp)
+      setUser(mapped)
+      const tipoConfiavel = ['admin', 'operador', 'supervisor'].includes(mapped.tipo)
+      if (!tipoConfiavel || mapped.allowedScreens.length === 0) {
+        hydrateFromAuth()
+      } else {
+        setLoading(false)
+      }
+      return () => { mounted = false }
+    }
+
+    hydrateFromAuth()
     return () => { mounted = false }
   }, [userProp])
 

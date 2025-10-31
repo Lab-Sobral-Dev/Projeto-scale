@@ -14,14 +14,16 @@ const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/a
 /** Raiz do app de usuários */
 const API_ROOT = `${API_BASE}/usuarios`
 
-const USUARIOS_URL = `${API_ROOT}/usuarios/`
+/** ENDPOINTS corretos conforme o backend enviado */
+const USERS_URL = `${API_ROOT}/users/`    // <- corrigido (era /usuarios/)
 const PERFIS_URL = `${API_ROOT}/perfis/`
-const ME_URL = `${API_ROOT}/auth/me/`
+const ME_URL = `${API_BASE}/auth/me/`  // <- corrigido (fica fora de /usuarios)
 const ROLES_URL = `${API_ROOT}/roles/`
 const SCREENS_URL = `${API_ROOT}/screens/`
 
 const PAPEL_OPTIONS = [
   { value: 'operador', label: 'Operador' },
+  { value: 'supervisor', label: 'Supervisor' }, // <- adicionado
   { value: 'admin', label: 'Administrador' },
 ]
 
@@ -71,7 +73,7 @@ export default function UsuariosAdmin() {
     setError('')
     try {
       const [uRes, pRes, meRes, rRes, sRes] = await Promise.all([
-        fetch(USUARIOS_URL, { headers: authHeaders }),
+        fetch(USERS_URL, { headers: authHeaders }),
         fetch(PERFIS_URL, { headers: authHeaders }),
         fetch(ME_URL, { headers: authHeaders }),
         fetch(ROLES_URL, { headers: authHeaders }),
@@ -152,7 +154,7 @@ export default function UsuariosAdmin() {
         extra_screen_ids: form.extra_screen_ids,
       }
 
-      const res = await fetch(USUARIOS_URL, {
+      const res = await fetch(USERS_URL, {
         method: 'POST',
         headers: jsonHeaders,
         body: JSON.stringify(payload),
@@ -228,7 +230,7 @@ export default function UsuariosAdmin() {
     setError('')
 
     try {
-      const res = await fetch(`${USUARIOS_URL}${id}/`, {
+      const res = await fetch(`${USERS_URL}${id}/`, {
         method: 'DELETE',
         headers: authHeaders, // objeto com Authorization
       })
@@ -255,7 +257,7 @@ export default function UsuariosAdmin() {
         <Users className="h-8 w-8 text-blue-600" />
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Usuários</h1>
-          <p className="text-gray-600">Cadastre operadores (pesadores) e administradores, atribua papéis e telas.</p>
+          <p className="text-gray-600">Cadastre operadores (pesadores), supervisores e administradores; atribua papéis e telas.</p>
         </div>
       </div>
 
@@ -294,7 +296,7 @@ export default function UsuariosAdmin() {
                   <Input id="email" type="email" value={form.email} onChange={e => handleChange('email', e.target.value)} />
                 </div>
 
-                {/* Papel primário (operador/admin) */}
+                {/* Papel primário */}
                 <div className="space-y-2">
                   <Label htmlFor="papel">Papel</Label>
                   <Select value={form.papel} onValueChange={v => handleChange('papel', v)}>
@@ -358,7 +360,7 @@ export default function UsuariosAdmin() {
               </div>
 
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-              {success && <Alert className="border-green-200 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
+              {success && <Alert className="border-green-2 00 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
 
               <Button type="submit" disabled={loading} className="flex items-center gap-2">
                 <Save className="h-4 w-4" />
@@ -372,7 +374,7 @@ export default function UsuariosAdmin() {
         <Card>
           <CardHeader>
             <CardTitle>Usuários Cadastrados ({users.length})</CardTitle>
-            <CardDescription>Gerencie o papel (Operador/Admin)</CardDescription>
+            <CardDescription>Gerencie o papel (Operador/Supervisor/Admin)</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-gray-200">
@@ -389,8 +391,8 @@ export default function UsuariosAdmin() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">{u.first_name} {u.last_name}</span>
-                          <Badge variant={papel === 'admin' ? 'default' : 'secondary'}>
-                            {papel === 'admin' ? 'Administrador' : 'Operador'}
+                          <Badge variant={papel === 'admin' ? 'default' : papel === 'supervisor' ? 'secondary' : 'outline'}>
+                            {papel === 'admin' ? 'Administrador' : papel === 'supervisor' ? 'Supervisor' : 'Operador'}
                           </Badge>
                           {isMe && <Badge variant="outline">você</Badge>}
                         </div>
@@ -404,7 +406,7 @@ export default function UsuariosAdmin() {
                           onValueChange={(v) => atualizarPapel(u.username, v)}
                           disabled={isRowBusy}
                         >
-                          <SelectTrigger className="w-40">
+                          <SelectTrigger className="w-44">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
