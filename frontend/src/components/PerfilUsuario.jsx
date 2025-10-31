@@ -9,8 +9,9 @@ import { User, LogOut, Shield, Calendar, Clock, UserPlus, LayoutGrid } from 'luc
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api')
 
-/** Endpoints globais (auth) */
+/** Endpoints globais (auth) e catálogo de telas */
 const AUTH_ME_URL = `${API_BASE}/usuarios/auth/me/`
+const SCREENS_URL = `${API_BASE}/usuarios/screens/`
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
@@ -91,6 +92,9 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // catálogo de telas para exibir labels
+  const [screenLabels, setScreenLabels] = useState({}) // { code: label }
+
   // Relógio "vivo" com timezone America/Fortaleza
   const [now, setNow] = useState(new Date())
   useEffect(() => {
@@ -115,9 +119,10 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
   useEffect(() => {
     let mounted = true
 
-    const hydrateFromAuth = async () => {
+    const hydrate = async () => {
       try {
         setError('')
+        // carrega usuário
         const data = await apiGetAbs(AUTH_ME_URL)
         if (!mounted) return
         setUser(mapUserFromAPI(data))
@@ -130,19 +135,35 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
       }
     }
 
+    // carrega catálogo de telas (code → label)
+    const hydrateScreens = async () => {
+      try {
+        const json = await apiGetAbs(SCREENS_URL)
+        const list = Array.isArray(json) ? json : (json?.results ?? [])
+        const map = {}
+        for (const s of list) {
+          if (s?.code) map[s.code] = s.label || s.code
+        }
+        if (mounted) setScreenLabels(map)
+      } catch (e) {
+        console.warn('Falha ao carregar screens — exibindo códigos.')
+      }
+    }
+
     if (userProp) {
       const mapped = mapUserFromAPI(userProp)
       setUser(mapped)
       const tipoConfiavel = ['admin', 'operador', 'supervisor'].includes(mapped.tipo)
       if (!tipoConfiavel || mapped.allowedScreens.length === 0) {
-        hydrateFromAuth()
+        hydrate()
       } else {
         setLoading(false)
       }
-      return () => { mounted = false }
+    } else {
+      hydrate()
     }
 
-    hydrateFromAuth()
+    hydrateScreens()
     return () => { mounted = false }
   }, [userProp])
 
@@ -291,7 +312,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
         </Card>
       </div>
 
-      {/* Telas permitidas */}
+      {/* Telas permitidas (labels ao invés de codes) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -302,7 +323,10 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {user?.allowedScreens?.length
-            ? user.allowedScreens.map(code => <Badge key={code} variant="secondary">{code}</Badge>)
+            ? user.allowedScreens.map(code => {
+              const label = screenLabels[code] || code
+              return <Badge key={code} variant="secondary">{label}</Badge>
+            })
             : <span className="text-sm text-gray-500">Nenhuma tela atribuída.</span>}
         </CardContent>
       </Card>

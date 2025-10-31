@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,12 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lucide-react'
+import { ArrowLeft, UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lucide-react'
 
 /** Base deve apontar para .../api */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 
-/** ENDPOINTS corretos conforme seu urls.py */
+/** ENDPOINTS conforme urls.py */
 const USERS_URL = `${API_BASE}/usuarios/usuarios/`
 const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
 const ME_URL = `${API_BASE}/usuarios/auth/me/`
@@ -96,6 +97,9 @@ export default function UsuariosAdmin() {
       const pList = Array.isArray(pJson) ? pJson : (pJson?.results ?? [])
       const rList = Array.isArray(rJson) ? rJson : (rJson?.results ?? [])
       const sList = Array.isArray(sJson) ? sJson : (sJson?.results ?? [])
+
+      // ordena telas por label para organizar a lista
+      sList.sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
 
       setUsers(uList)
       setPerfis(pList)
@@ -251,12 +255,22 @@ export default function UsuariosAdmin() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Users className="h-8 w-8 text-blue-600" />
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Usuários</h1>
-          <p className="text-gray-600">Cadastre operadores (pesadores), supervisores e administradores; atribua papéis e telas.</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Users className="h-8 w-8 text-blue-600" />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Usuários</h1>
+            <p className="text-gray-600">Cadastre operadores (pesadores), supervisores e administradores; atribua papéis e telas.</p>
+          </div>
         </div>
+
+        {/* Botão Voltar para Perfil */}
+        <Button asChild variant="outline" className="gap-2">
+          <Link to="/perfil">
+            <ArrowLeft className="h-4 w-4" />
+            Voltar para Perfil
+          </Link>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -330,7 +344,7 @@ export default function UsuariosAdmin() {
                   )}
                 </div>
 
-                {/* Telas extras – múltiplas */}
+                {/* Telas extras – lista única e só com o nome */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <LayoutGrid className="h-4 w-4 text-gray-600" />
@@ -339,7 +353,7 @@ export default function UsuariosAdmin() {
                   {screens.length === 0 ? (
                     <p className="text-sm text-gray-500">Nenhuma tela cadastrada.</p>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto pr-1">
+                    <div className="space-y-2 max-h-64 overflow-auto pr-1">
                       {screens.map(s => (
                         <label key={s.id} className="flex items-center gap-2 rounded border p-2 hover:bg-gray-50">
                           <Checkbox
@@ -348,7 +362,6 @@ export default function UsuariosAdmin() {
                           />
                           <span className="text-sm text-gray-800">
                             <span className="font-medium">{s.label}</span>
-                            <span className="text-gray-500"> — {s.code}</span>
                           </span>
                         </label>
                       ))}
@@ -360,10 +373,20 @@ export default function UsuariosAdmin() {
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
               {success && <Alert className="border-green-200 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
 
-              <Button type="submit" disabled={loading} className="flex items-center gap-2">
-                <Save className="h-4 w-4" />
-                {loading ? 'Salvando...' : 'Salvar Usuário'}
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  {loading ? 'Salvando...' : 'Salvar Usuário'}
+                </Button>
+
+                {/* Voltar também aqui no rodapé do form (opcional) */}
+                <Button asChild type="button" variant="outline" className="gap-2">
+                  <Link to="/perfil">
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar para Perfil
+                  </Link>
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
