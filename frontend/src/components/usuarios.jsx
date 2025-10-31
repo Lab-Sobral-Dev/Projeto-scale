@@ -13,7 +13,7 @@ import { ArrowLeft, UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lu
 /** Base deve apontar para .../api */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 
-/** ENDPOINTS conforme urls.py */
+/** ENDPOINTS conforme urls.py (mantidos) */
 const USERS_URL = `${API_BASE}/usuarios/usuarios/`
 const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
 const ME_URL = `${API_BASE}/usuarios/auth/me/`
@@ -46,8 +46,14 @@ export default function UsuariosAdmin() {
   const [users, setUsers] = useState([])
   const [perfis, setPerfis] = useState([])
   const [me, setMe] = useState(null)
-  const [roles, setRoles] = useState([])
-  const [screens, setScreens] = useState([])
+  const [roles, setRoles] = useState([])      // cada role já vem com "screens" (id, code, label)
+  const [screens, setScreens] = useState([])  // catálogo de telas (id, code, label)
+
+  // mapa roleId -> [screenIds] (derivado de roles)
+  const [roleScreensMap, setRoleScreensMap] = useState({})
+
+  // telas herdadas pelos roles selecionados (checadas e desabilitadas na UI)
+  const [autoScreenIds, setAutoScreenIds] = useState(new Set())
 
   // form criação
   const [form, setForm] = useState({
@@ -58,7 +64,7 @@ export default function UsuariosAdmin() {
     password: '',
     papel: 'operador',
     role_ids: [],
-    extra_screen_ids: [],
+    extra_screen_ids: [],  // só as marcadas manualmente
   })
 
   const perfilByUsername = useMemo(() => {
@@ -101,11 +107,19 @@ export default function UsuariosAdmin() {
       // ordena telas por label para organizar a lista
       sList.sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
 
+      // constrói roleId -> [screenIds]
+      const map = {}
+      for (const r of rList) {
+        const ids = Array.isArray(r.screens) ? r.screens.map(sc => sc.id).filter(Boolean) : []
+        map[r.id] = ids
+      }
+
       setUsers(uList)
       setPerfis(pList)
       setMe(meJson)
       setRoles(rList)
       setScreens(sList)
+      setRoleScreensMap(map)
     } catch (e) {
       console.error(e)
       setError('Falha ao carregar dados. Verifique permissões (admin) e token.')
@@ -125,12 +139,28 @@ export default function UsuariosAdmin() {
     setSuccess('')
   }
 
+  // sempre que role_ids mudar, recalcula telas herdadas
+  useEffect(() => {
+    const set = new Set()
+    for (const rid of form.role_ids) {
+      const arr = roleScreensMap[rid] || []
+      for (const sid of arr) set.add(sid)
+    }
+    setAutoScreenIds(set)
+  }, [form.role_ids, roleScreensMap])
+
   const toggleInArray = (name, id) => {
     setForm(prev => {
       const set = new Set(prev[name])
       set.has(id) ? set.delete(id) : set.add(id)
       return { ...prev, [name]: Array.from(set) }
     })
+  }
+
+  // toggler para extra_screen_ids que respeita telas herdadas (não permite desmarcar as via papel)
+  const toggleExtraScreen = (id) => {
+    if (autoScreenIds.has(id)) return // herdada por papel → não altera
+    toggleInArray('extra_screen_ids', id)
   }
 
   async function criarUsuario(e) {
@@ -153,6 +183,7 @@ export default function UsuariosAdmin() {
         email: form.email,
         papel: form.papel,
         role_ids: form.role_ids,
+        // Só enviamos EXTRAS manuais; as herdadas vêm pelos roles
         extra_screen_ids: form.extra_screen_ids,
       }
 
@@ -180,6 +211,7 @@ export default function UsuariosAdmin() {
         role_ids: [],
         extra_screen_ids: [],
       })
+      setAutoScreenIds(new Set())
 
       await carregar()
     } catch (e) {
@@ -335,7 +367,12 @@ export default function UsuariosAdmin() {
                         <label key={r.id} className="flex items-center gap-2 rounded border p-2 hover:bg-gray-50">
                           <Checkbox
                             checked={form.role_ids.includes(r.id)}
-                            onCheckedChange={() => toggleInArray('role_ids', r.id)}
+                            onCheckedChange={() => {
+                              // alterna papel
+                              const set = new Set(form.role_ids)
+                              set.has(r.id) ? set.delete(r.id) : set.add(r.id)
+                              setForm(prev => ({ ...prev, role_ids: Array.from(set) }))
+                            }}
                           />
                           <span className="text-sm text-gray-800">{r.name}</span>
                         </label>
@@ -354,17 +391,28 @@ export default function UsuariosAdmin() {
                     <p className="text-sm text-gray-500">Nenhuma tela cadastrada.</p>
                   ) : (
                     <div className="space-y-2 max-h-64 overflow-auto pr-1">
-                      {screens.map(s => (
-                        <label key={s.id} className="flex items-center gap-2 rounded border p-2 hover:bg-gray-50">
-                          <Checkbox
-                            checked={form.extra_screen_ids.includes(s.id)}
-                            onCheckedChange={() => toggleInArray('extra_screen_ids', s.id)}
-                          />
-                          <span className="text-sm text-gray-800">
-                            <span className="font-medium">{s.label}</span>
-                          </span>
-                        </label>
-                      ))}
+                      {screens.map(s => {
+                        const isAuto = autoScreenIds.has(s.id)
+                        const isManual = form.extra_screen_ids.includes(s.id)
+                        const checked = isAuto || isManual
+                        return (
+                          <label
+                            key={s.id}
+                            className={`flex items-center justify-between gap-2 rounded border p-2 hover:bg-gray-50 ${isAuto ? 'opacity-90' : ''}`}
+                            title={isAuto ? 'Acesso herdado via papel' : ''}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={checked}
+                                disabled={isAuto}
+                                onCheckedChange={() => toggleExtraScreen(s.id)}
+                              />
+                              <span className="text-sm text-gray-800 font-medium">{s.label}</span>
+                            </div>
+                            {isAuto && <Badge variant="outline">via papel</Badge>}
+                          </label>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -379,7 +427,6 @@ export default function UsuariosAdmin() {
                   {loading ? 'Salvando...' : 'Salvar Usuário'}
                 </Button>
 
-                {/* Voltar também aqui no rodapé do form (opcional) */}
                 <Button asChild type="button" variant="outline" className="gap-2">
                   <Link to="/perfil">
                     <ArrowLeft className="h-4 w-4" />
