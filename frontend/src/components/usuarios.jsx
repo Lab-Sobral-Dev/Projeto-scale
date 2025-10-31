@@ -342,15 +342,15 @@ export default function UsuariosAdmin() {
               {/* Campos básicos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="username">Usuário *</Label>
+                  <Label htmlFor="username">Usuário</Label>
                   <Input id="username" value={form.username} onChange={e => handleChange('username', e.target.value)} required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha *</Label>
+                  <Label htmlFor="password">Senha</Label>
                   <Input id="password" type="password" value={form.password} onChange={e => handleChange('password', e.target.value)} required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="first_name">Nome *</Label>
+                  <Label htmlFor="first_name">Nome</Label>
                   <Input id="first_name" value={form.first_name} onChange={e => handleChange('first_name', e.target.value)} required />
                 </div>
                 <div className="space-y-2">
@@ -406,7 +406,7 @@ export default function UsuariosAdmin() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <LayoutGrid className="h-4 w-4 text-gray-600" />
-                    <Label>Telas extras</Label>
+                    <Label>Telas permitidas</Label>
                   </div>
                   {screens.length === 0 ? (
                     <p className="text-sm text-gray-500">Nenhuma tela cadastrada.</p>
