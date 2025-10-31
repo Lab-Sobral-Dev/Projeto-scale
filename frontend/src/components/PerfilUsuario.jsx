@@ -9,32 +9,16 @@ import { User, LogOut, Shield, Calendar, Clock, UserPlus, LayoutGrid } from 'luc
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api')
 
-/** Raiz do app de usuários */
-const USUARIOS_ROOT = `${API_BASE}/usuarios`
-/** Raiz de endpoints “globais” (ex.: /auth/me) */
-const AUTH_ROOT = API_BASE
+/** Endpoints globais (auth) */
+const AUTH_ME_URL = `${API_BASE}/auth/me/`
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('access') || ''}`,
 })
 
-/** GET para raízes diferentes */
-const apiGetUsuarios = async (path) => {
-  const res = await fetch(`${USUARIOS_ROOT}${path}`, { headers: authHeaders() })
-  if (res.status === 401) {
-    const err = new Error('UNAUTHORIZED')
-    err.code = 401
-    throw err
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `HTTP ${res.status}`)
-  }
-  return res.json()
-}
-
-const apiGetAuth = async (path) => {
-  const res = await fetch(`${AUTH_ROOT}${path}`, { headers: authHeaders() })
+/** GET absoluto com tratamento de 401 */
+const apiGetAbs = async (url) => {
+  const res = await fetch(url, { headers: authHeaders() })
   if (res.status === 401) {
     const err = new Error('UNAUTHORIZED')
     err.code = 401
@@ -134,7 +118,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
     const hydrateFromAuth = async () => {
       try {
         setError('')
-        const data = await apiGetAuth('/auth/me/')
+        const data = await apiGetAbs(AUTH_ME_URL)
         if (!mounted) return
         setUser(mapUserFromAPI(data))
       } catch (e) {

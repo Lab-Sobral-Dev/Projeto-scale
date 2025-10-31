@@ -11,19 +11,17 @@ import { UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lucide-react'
 
 /** Base deve apontar para .../api */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
-/** Raiz do app de usuários */
-const API_ROOT = `${API_BASE}/usuarios`
 
-/** ENDPOINTS corretos conforme o backend enviado */
-const USERS_URL = `${API_ROOT}/users/`    // <- corrigido (era /usuarios/)
-const PERFIS_URL = `${API_ROOT}/perfis/`
-const ME_URL = `${API_BASE}/auth/me/`  // <- corrigido (fica fora de /usuarios)
-const ROLES_URL = `${API_ROOT}/roles/`
-const SCREENS_URL = `${API_ROOT}/screens/`
+/** ENDPOINTS corretos conforme seu urls.py */
+const USERS_URL = `${API_BASE}/usuarios/`
+const PERFIS_URL = `${API_BASE}/perfis/`
+const ME_URL = `${API_BASE}/auth/me/`
+const ROLES_URL = `${API_BASE}/roles/`
+const SCREENS_URL = `${API_BASE}/screens/`
 
 const PAPEL_OPTIONS = [
   { value: 'operador', label: 'Operador' },
-  { value: 'supervisor', label: 'Supervisor' }, // <- adicionado
+  { value: 'supervisor', label: 'Supervisor' },
   { value: 'admin', label: 'Administrador' },
 ]
 
@@ -360,7 +358,7 @@ export default function UsuariosAdmin() {
               </div>
 
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-              {success && <Alert className="border-green-2 00 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
+              {success && <Alert className="border-green-200 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
 
               <Button type="submit" disabled={loading} className="flex items-center gap-2">
                 <Save className="h-4 w-4" />
