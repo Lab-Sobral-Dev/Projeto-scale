@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,16 +18,78 @@ import {
   Boxes,
 } from 'lucide-react'
 
+/** Base deve apontar para .../api */
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
+const AUTH_ME_URL = `${API_BASE}/usuarios/auth/me/`
+
 const Layout = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [logoError, setLogoError] = useState(false)
+  const [me, setMe] = useState(null)
+  const [loadingMe, setLoadingMe] = useState(false)
   const location = useLocation()
 
-  // Telas permitidas vindas da API (/usuarios/auth/me/)
-  const allowed = new Set(Array.isArray(user?.allowedScreens) ? user.allowedScreens : [])
-  const isAdmin = user?.tipo === 'admin' || user?.is_staff || user?.is_superuser
+  // --- hidrata /auth/me se necessário (ex.: user sem allowedScreens) ---
+  useEffect(() => {
+    let mounted = true
+    // já temos allowed screens no prop?
+    const hasAllowedFromProp =
+      Array.isArray(user?.allowedScreens) || Array.isArray(user?.allowed_screens)
 
-  // Mapeie cada item para o code da Screen no backend
+    if (hasAllowedFromProp) {
+      setMe(null) // não precisa de fallback
+      return
+    }
+
+    const token = localStorage.getItem('access') || ''
+    if (!token) return
+
+      ; (async () => {
+        try {
+          setLoadingMe(true)
+          const res = await fetch(AUTH_ME_URL, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (!mounted) return
+          if (!res.ok) {
+            // se 401, deixa sem me (menu ficará só com Sobre para não-admins)
+            setMe(null)
+            return
+          }
+          const data = await res.json()
+          setMe(data)
+        } catch (e) {
+          console.error(e)
+        } finally {
+          if (mounted) setLoadingMe(false)
+        }
+      })()
+
+    return () => { mounted = false }
+  }, [user])
+
+  // escolhe a melhor fonte do usuário efetivo
+  const effectiveUser = useMemo(() => {
+    // prioriza prop se tiver allowed screens; senão, usa /auth/me
+    const propHasAllowed = Array.isArray(user?.allowedScreens) || Array.isArray(user?.allowed_screens)
+    if (propHasAllowed) return user
+    if (me) return me
+    return user || me
+  }, [user, me])
+
+  const allowedList =
+    (Array.isArray(effectiveUser?.allowedScreens) && effectiveUser.allowedScreens) ||
+    (Array.isArray(effectiveUser?.allowed_screens) && effectiveUser.allowed_screens) ||
+    []
+
+  const allowed = useMemo(() => new Set(allowedList), [allowedList])
+
+  const isAdmin =
+    effectiveUser?.tipo === 'admin' ||
+    effectiveUser?.is_staff === true ||
+    effectiveUser?.is_superuser === true
+
+  // Mapeie cada item para o code da Screen no backend (iguais ao seed que criamos)
   const navigation = [
     { name: 'Home', href: '/', icon: Home, requiredScreen: 'dashboard' },
     { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers, requiredScreen: 'cadastro_mp' },
@@ -41,14 +103,15 @@ const Layout = ({ user, onLogout }) => {
     { name: 'Sobre', href: '/sobre', icon: ScrollText, requiredScreen: 'sobre' },
   ]
 
-  // Permissão por item (admin vê tudo; senão precisa do code na lista)
   const canSee = (item) => {
     if (isAdmin) return true
     if (!item.requiredScreen) return true
     return allowed.has(item.requiredScreen)
   }
 
-  // evita que '/ops' e '/estruturas' fiquem ativos em subrotas específicas
+  const visibleNav = navigation.filter(canSee)
+
+  // evita que '/ops' e '/estruturas' fiquem ativos quando estiver em subrotas (ex.: '/ops/nova')
   const isActive = (href) => {
     const path = location.pathname
     if (href === '/ops') return path === '/ops' || path === '/ops/'
@@ -80,7 +143,7 @@ const Layout = ({ user, onLogout }) => {
             </Button>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.filter(canSee).map((item) => {
+            {visibleNav.map((item) => {
               const Icon = item.icon
               return (
                 <Link
@@ -97,6 +160,10 @@ const Layout = ({ user, onLogout }) => {
                 </Link>
               )
             })}
+            {/* Se ainda está carregando /auth/me e nada aparece, evita “menu vazio” para não-admin */}
+            {visibleNav.length === 0 && loadingMe && (
+              <div className="px-2 text-sm text-gray-500">Carregando permissões…</div>
+            )}
           </nav>
         </div>
       </div>
@@ -111,7 +178,7 @@ const Layout = ({ user, onLogout }) => {
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.filter(canSee).map((item) => {
+            {visibleNav.map((item) => {
               const Icon = item.icon
               return (
                 <Link
@@ -127,6 +194,9 @@ const Layout = ({ user, onLogout }) => {
                 </Link>
               )
             })}
+            {visibleNav.length === 0 && loadingMe && (
+              <div className="px-2 text-sm text-gray-500">Carregando permissões…</div>
+            )}
           </nav>
         </div>
       </div>
@@ -159,7 +229,7 @@ const Layout = ({ user, onLogout }) => {
                 className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
               >
                 <User className="h-5 w-5" />
-                <span className="hidden sm:block">{user?.nome || 'Usuário'}</span>
+                <span className="hidden sm:block">{effectiveUser?.nome || user?.nome || 'Usuário'}</span>
               </Link>
               <Button
                 variant="ghost"
@@ -176,7 +246,7 @@ const Layout = ({ user, onLogout }) => {
         {/* Page content */}
         <main className="py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <Outlet context={{ user, onLogout }} />
+            <Outlet context={{ user: effectiveUser || user, onLogout }} />
           </div>
         </main>
       </div>
