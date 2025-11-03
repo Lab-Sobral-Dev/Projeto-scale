@@ -6,7 +6,18 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Scale, Eye, EyeOff } from 'lucide-react'
-import api from '@/services/api' // mantém
+import api from '@/services/api'
+
+// util simples para ler claims do JWT sem lib extra
+function decodeJwt(token) {
+  try {
+    const payload = token.split('.')[1]
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    return JSON.parse(decodeURIComponent(escape(json)))
+  } catch {
+    return {}
+  }
+}
 
 const Login = ({ onLogin }) => {
   const navigate = useNavigate()
@@ -14,15 +25,16 @@ const Login = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [logoError, setLogoError] = useState(false) // 👈 controla fallback
+  const [logoError, setLogoError] = useState(false) // fallback da logo
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    setError('')
+    if (error) setError('')
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     setError('')
 
@@ -37,9 +49,17 @@ const Login = ({ onLogin }) => {
         return
       }
 
+      // persistir tokens
       localStorage.setItem('access', tokens.access)
       if (tokens.refresh) localStorage.setItem('refresh', tokens.refresh)
 
+      // claims úteis (allowed_screens, username, etc.)
+      const claims = decodeJwt(tokens.access)
+      if (claims?.allowed_screens) {
+        localStorage.setItem('allowed_screens', JSON.stringify(claims.allowed_screens))
+      }
+
+      // /me para dados de perfil
       const me = await api.me()
       const userData = {
         id: me?.id,
@@ -50,15 +70,20 @@ const Login = ({ onLogin }) => {
         is_staff: me?.is_staff ?? false,
       }
 
-      onLogin(userData, tokens.access)
+      onLogin?.(userData, tokens.access)
       navigate('/', { replace: true })
     } catch (err) {
-      console.error(err)
       const status = err?.status || err?.response?.status
-      if (status === 401) setError('Usuário ou senha inválidos.')
-      else setError('Erro ao fazer login. Tente novamente.')
+      if (status === 423) {
+        setError('Usuário bloqueado. Contate o administrador.')
+      } else if (status === 401) {
+        setError('Usuário ou senha inválidos.')
+      } else {
+        setError('Erro ao fazer login. Tente novamente.')
+      }
       localStorage.removeItem('access')
       localStorage.removeItem('refresh')
+      localStorage.removeItem('allowed_screens')
     } finally {
       setLoading(false)
     }
@@ -69,7 +94,6 @@ const Login = ({ onLogin }) => {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            {/* ✅ Logo no lugar do símbolo (coloque seu arquivo em /public/logo.png) */}
             {!logoError ? (
               <img
                 src="/logo.png"
@@ -87,6 +111,7 @@ const Login = ({ onLogin }) => {
           <CardTitle className="text-2xl font-bold">Scale - Sistema de Pesagem</CardTitle>
           <CardDescription>Entre com suas credenciais para acessar o sistema</CardDescription>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -101,6 +126,7 @@ const Login = ({ onLogin }) => {
                 required
                 className="w-full"
                 autoComplete="username"
+                disabled={loading}
               />
             </div>
 
@@ -117,6 +143,7 @@ const Login = ({ onLogin }) => {
                   required
                   className="w-full pr-10"
                   autoComplete="current-password"
+                  disabled={loading}
                 />
                 <Button
                   type="button"
@@ -124,6 +151,7 @@ const Login = ({ onLogin }) => {
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4 text-gray-400" />
@@ -143,6 +171,10 @@ const Login = ({ onLogin }) => {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
+
+            <p className="text-xs text-gray-500 text-center">
+              Regras de senha: mínimo 10 caracteres com letra maiúscula, minúscula, número e símbolo.
+            </p>
           </form>
         </CardContent>
       </Card>

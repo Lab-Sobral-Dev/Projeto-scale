@@ -30,9 +30,17 @@ class ApiService {
   clearTokens() {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    localStorage.removeItem("allowed_screens");
   }
 
-  // ===== Helpers de URL/query (novos) =====
+  // ===== Navegação segura para login =====
+  _redirectToLogin() {
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+  }
+
+  // ===== Helpers de URL/query =====
   _qs(params) {
     if (!params) return "";
     const usp = new URLSearchParams();
@@ -51,7 +59,7 @@ class ApiService {
     return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
   }
 
-  // ===== Atalhos HTTP estilo Axios (novos) =====
+  // ===== Atalhos HTTP estilo Axios =====
   async get(path, { params, headers } = {}) {
     const url = this._abs(path) + this._qs(params);
     return this.request(url, { method: "GET", headers });
@@ -77,7 +85,7 @@ class ApiService {
     return this.request(url, { method: "PATCH", body: JSON.stringify(body), headers });
   }
 
-  // ===== Request genérico com retry após refresh (401) =====
+  // ===== Request genérico com refresh (401) e fallback para login =====
   async request(url, options = {}, { retry = true } = {}) {
     const token = this.access;
     const headers = {
@@ -87,8 +95,19 @@ class ApiService {
     };
     const config = { ...options, headers };
 
-    const res = await fetch(url, config);
+    let res;
+    try {
+      res = await fetch(url, config);
+    } catch (networkErr) {
+      // erro de rede (offline, CORS, etc.)
+      const err = new Error("Falha de rede ao contatar o servidor.");
+      err.status = 0;
+      err.payload = null;
+      err.response = { status: 0, data: null };
+      throw err;
+    }
 
+    // tentativa de refresh para 401 (somente 401; 423 não tenta)
     if (res.status === 401 && retry && this.refresh) {
       const refreshed = await this.tryRefresh();
       if (refreshed) {
@@ -97,9 +116,22 @@ class ApiService {
           Authorization: `Bearer ${this.access}`,
         };
         const res2 = await fetch(url, { ...options, headers: retryHeaders });
-        if (!res2.ok) throw await this._asError(res2);
+        if (!res2.ok) {
+          // se ainda assim voltou 401/403, limpar e ir para login
+          if (res2.status === 401 || res2.status === 403) {
+            this.clearTokens();
+            this._redirectToLogin();
+          }
+          throw await this._asError(res2);
+        }
         return this._parseBody(res2);
       }
+    }
+
+    // 401/403 sem refresh válido -> logout + login
+    if ((res.status === 401 || res.status === 403) && retry) {
+      this.clearTokens();
+      this._redirectToLogin();
     }
 
     if (!res.ok) throw await this._asError(res);
@@ -108,7 +140,11 @@ class ApiService {
 
   async _asError(res) {
     let payload = {};
-    try { payload = await res.json(); } catch { /* corpo não-JSON */ }
+    try {
+      payload = await res.json();
+    } catch {
+      // corpo não-JSON
+    }
     const err = new Error(payload?.detail || `HTTP ${res.status}`);
     err.status = res.status;
     err.payload = payload;
@@ -116,8 +152,13 @@ class ApiService {
     err.response = { status: res.status, data: payload };
     return err;
   }
+
   async _parseBody(res) {
-    try { return await res.json(); } catch { return null; } // 204/sem corpo
+    try {
+      return await res.json();
+    } catch {
+      return null; // 204/sem corpo
+    }
   }
 
   // ===== Auth (/api/usuarios/auth/...) =====
@@ -128,7 +169,7 @@ class ApiService {
         method: "POST",
         body: JSON.stringify({ username, password }),
       },
-      { retry: false }
+      { retry: false } // não tenta refresh no login
     );
     if (data?.access) this.setTokens({ access: data.access, refresh: data.refresh });
     return data;
@@ -139,6 +180,7 @@ class ApiService {
   }
 
   async tryRefresh() {
+    if (!this.refresh) return false;
     try {
       const res = await fetch(`${this.baseUsuarios}/auth/refresh/`, {
         method: "POST",
@@ -164,6 +206,7 @@ class ApiService {
   async logout() {
     // SimpleJWT não tem logout server-side; limpamos localmente
     this.clearTokens();
+    this._redirectToLogin();
     return true;
   }
 
@@ -256,7 +299,6 @@ class ApiService {
   async getItensEstrutura(estruturaId) {
     return this.request(`${this.baseRegistro}/estruturas/${estruturaId}/itens/`);
   }
-  // (Opcional: CRUD de itens-estrutura, caso precise)
   async createItemEstrutura(item) {
     return this.request(`${this.baseRegistro}/itens-estrutura/`, {
       method: "POST",
@@ -340,14 +382,13 @@ class ApiService {
     return this.request(`${this.baseRegistro}/pesagens/${id}/`);
   }
   async createPesagem(pesagem) {
-    // legado (se outra tela ainda enviar produto_id/materia_prima_id)
     return this.request(`${this.baseRegistro}/pesagens/`, {
       method: "POST",
       body: JSON.stringify(pesagem),
     });
   }
   async createPesagemOP(payload) {
-    // novo fluxo: { op_id, item_op_id, bruto, tara, volume?, balanca_id?, codigo_interno? }
+    // { op_id, item_op_id, bruto, tara, volume?, balanca_id?, codigo_interno? }
     return this.request(`${this.baseRegistro}/pesagens/`, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -368,8 +409,6 @@ class ApiService {
   // ===== Etiqueta PDF (/api/registro/etiqueta/<id>/) =====
   async gerarEtiquetaPDF(id) {
     const url = `${this.baseRegistro}/etiqueta/${id}/`;
-    const token = this.access;
-
     const call = async (authToken) => {
       const res = await fetch(url, {
         headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
@@ -379,10 +418,10 @@ class ApiService {
     };
 
     try {
-      return await call(token);
+      return await call(this.access);
     } catch (e) {
       // tenta refresh se 401
-      if (e?.message?.includes("401") && this.refresh) {
+      if (String(e?.message || "").includes("401") && this.refresh) {
         const ok = await this.tryRefresh();
         if (ok) return await call(this.access);
       }

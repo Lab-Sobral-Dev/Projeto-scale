@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ArrowLeft, UserPlus, Users, Save, Trash2, LayoutGrid, Layers } from 'lucide-react'
+import { ArrowLeft, UserPlus, Users, Save, Trash2, LayoutGrid, Layers, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react'
 
 /** Base deve apontar para .../api */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
@@ -25,6 +25,46 @@ const PAPEL_OPTIONS = [
   { value: 'supervisor', label: 'Supervisor' },
   { value: 'admin', label: 'Administrador' },
 ]
+
+// ========= Validação de senha (mesma regra do backend) =========
+function checkPasswordPolicy(pw = '') {
+  const issues = {
+    length: pw.length >= 10,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    digit: /\d/.test(pw),
+    symbol: /[^\w\s]/.test(pw),
+  }
+  const valid = Object.values(issues).every(Boolean)
+  return { valid, issues }
+}
+
+function PolicyRow({ ok, text }) {
+  const Icon = ok ? CheckCircle2 : XCircle
+  const color = ok ? 'text-green-600' : 'text-red-500'
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <Icon className={`h-4 w-4 ${color}`} />
+      <span className={ok ? 'text-green-700' : 'text-red-600'}>{text}</span>
+    </div>
+  )
+}
+
+function PasswordPolicy({ password }) {
+  const { issues } = checkPasswordPolicy(password)
+  return (
+    <div className="rounded-md border p-3 bg-gray-50 dark:bg-zinc-900/40">
+      <div className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">A senha deve conter:</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1">
+        <PolicyRow ok={issues.length} text="Mínimo de 10 caracteres" />
+        <PolicyRow ok={issues.upper} text="Pelo menos 1 letra maiúscula (A-Z)" />
+        <PolicyRow ok={issues.lower} text="Pelo menos 1 letra minúscula (a-z)" />
+        <PolicyRow ok={issues.digit} text="Pelo menos 1 dígito (0-9)" />
+        <PolicyRow ok={issues.symbol} text="Pelo menos 1 símbolo (!@#…)" />
+      </div>
+    </div>
+  )
+}
 
 export default function UsuariosAdmin() {
   const token = useMemo(() => localStorage.getItem('access') || '', [])
@@ -55,6 +95,10 @@ export default function UsuariosAdmin() {
   // telas herdadas pelos roles selecionados (checadas e desabilitadas na UI)
   const [autoScreenIds, setAutoScreenIds] = useState(new Set())
 
+  // visibilidade de senha
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+
   // form criação
   const [form, setForm] = useState({
     username: '',
@@ -62,10 +106,16 @@ export default function UsuariosAdmin() {
     last_name: '',
     email: '',
     password: '',
+    confirm: '',
     papel: 'operador',
     role_ids: [],          // manteremos array por compatibilidade com a API, porém só com 0 ou 1 item
     extra_screen_ids: [],  // só as marcadas manualmente
   })
+
+  // estados de validação
+  const pwCheck = useMemo(() => checkPasswordPolicy(form.password), [form.password])
+  const confirmOk = useMemo(() => form.password && form.password === form.confirm, [form.password, form.confirm])
+  const canSubmit = pwCheck.valid && confirmOk && !!form.username && !!form.first_name
 
   const perfilByUsername = useMemo(() => {
     const map = new Map()
@@ -174,10 +224,8 @@ export default function UsuariosAdmin() {
   const toggleSingleRole = (roleId, checked) => {
     setForm(prev => {
       if (checked) {
-        // seleciona SOMENTE este role
         return { ...prev, role_ids: [roleId] }
       } else {
-        // se o mesmo for desmarcado, zera
         if (prev.role_ids[0] === roleId) {
           return { ...prev, role_ids: [] }
         }
@@ -193,8 +241,18 @@ export default function UsuariosAdmin() {
     setSuccess('')
 
     try {
-      if (!form.username || !form.password || !form.first_name) {
-        setError('Preencha pelo menos usuário, senha e nome.')
+      if (!form.username || !form.first_name) {
+        setError('Preencha pelo menos usuário e nome.')
+        return
+      }
+
+      // validação de senha cliente
+      if (!pwCheck.valid) {
+        setError('A senha não atende à política de complexidade.')
+        return
+      }
+      if (!confirmOk) {
+        setError('A confirmação de senha não confere.')
         return
       }
 
@@ -216,10 +274,21 @@ export default function UsuariosAdmin() {
       })
 
       if (!res.ok) {
-        const raw = await res.text()
-        let detail = raw
-        try { detail = JSON.stringify(JSON.parse(raw)) } catch { }
-        throw new Error(`Erro ao criar usuário (${res.status}) ${detail}`)
+        // tenta extrair erro legível (inclui erros do validator de senha do Django)
+        let detail = 'Não foi possível criar o usuário. Verifique dados/duplicidade.'
+        try {
+          const data = await res.json()
+          // erros comuns: {password: ["..."]} | {username: ["..."]} | {detail: "..."}
+          if (data?.password) detail = Array.isArray(data.password) ? data.password.join(' ') : String(data.password)
+          else if (data?.username) detail = Array.isArray(data.username) ? data.username.join(' ') : String(data.username)
+          else if (data?.detail) detail = String(data.detail)
+          else detail = JSON.stringify(data)
+        } catch {
+          // corpo não-JSON
+          const raw = await res.text()
+          if (raw) detail = raw
+        }
+        throw new Error(detail)
       }
 
       setSuccess('Usuário criado com sucesso!')
@@ -229,6 +298,7 @@ export default function UsuariosAdmin() {
         last_name: '',
         email: '',
         password: '',
+        confirm: '',
         papel: 'operador',
         role_ids: [],
         extra_screen_ids: [],
@@ -238,7 +308,7 @@ export default function UsuariosAdmin() {
       await carregar()
     } catch (e) {
       console.error(e)
-      setError('Não foi possível criar o usuário. Verifique dados/duplicidade.')
+      setError(e?.message || 'Não foi possível criar o usuário.')
     } finally {
       setLoading(false)
     }
@@ -345,10 +415,60 @@ export default function UsuariosAdmin() {
                   <Label htmlFor="username">Usuário</Label>
                   <Input id="username" value={form.username} onChange={e => handleChange('username', e.target.value)} required />
                 </div>
+
+                {/* Senha + ver/ocultar */}
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
-                  <Input id="password" type="password" value={form.password} onChange={e => handleChange('password', e.target.value)} required />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={form.password}
+                      onChange={e => handleChange('password', e.target.value)}
+                      required
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(v => !v)}
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Confirmar senha */}
+                <div className="space-y-2">
+                  <Label htmlFor="confirm">Confirmar Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm"
+                      type={showConfirm ? 'text' : 'password'}
+                      value={form.confirm}
+                      onChange={e => handleChange('confirm', e.target.value)}
+                      required
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowConfirm(v => !v)}
+                      aria-label={showConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'}
+                    >
+                      {showConfirm ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                    </Button>
+                  </div>
+                  {!confirmOk && form.confirm && (
+                    <div className="text-xs text-red-600 mt-1">A confirmação não confere.</div>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="first_name">Nome</Label>
                   <Input id="first_name" value={form.first_name} onChange={e => handleChange('first_name', e.target.value)} required />
@@ -373,6 +493,9 @@ export default function UsuariosAdmin() {
                   </Select>
                 </div>
               </div>
+
+              {/* Política de senha (feedback em tempo real) */}
+              <PasswordPolicy password={form.password} />
 
               {/* Papéis (roles) – agora SELEÇÃO ÚNICA */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -443,7 +566,7 @@ export default function UsuariosAdmin() {
               {success && <Alert className="border-green-200 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
 
               <div className="flex items-center gap-3">
-                <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                <Button type="submit" disabled={loading || !canSubmit} className="flex items-center gap-2">
                   <Save className="h-4 w-4" />
                   {loading ? 'Salvando...' : 'Salvar Usuário'}
                 </Button>

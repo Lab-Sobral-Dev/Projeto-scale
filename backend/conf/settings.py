@@ -94,8 +94,14 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
+    # sessão controlada por env (mantido)
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(env("ACCESS_TOKEN_MINUTES", "60"))),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(env("REFRESH_TOKEN_DAYS", "7"))),
+
+    # extras úteis (segue padrão seguro)
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
 }
 
 ROOT_URLCONF = "conf.urls"
@@ -141,11 +147,18 @@ else:
         }
     }
 
+# =========================
+# Política de Senhas
+# =========================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    # mínimo configurável por env, default 10
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": int(env("PASSWORD_MIN_LENGTH", "10"))}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    # Validador de complexidade (maiúscula, minúscula, dígito e símbolo)
+    {"NAME": "usuarios.validators.ComplexityValidator"},
 ]
 
 LANGUAGE_CODE = env("LANGUAGE_CODE", "pt-br")

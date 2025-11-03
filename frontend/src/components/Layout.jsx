@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, Outlet } from 'react-router-dom'
+// src/Layout.jsx
+import { useState, useMemo } from 'react'
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import {
   Home,
@@ -17,237 +18,231 @@ import {
   ListChecks,
   Boxes,
 } from 'lucide-react'
+import api from '@/services/api'
 
-/** Base deve apontar para .../api */
-const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
-const AUTH_ME_URL = `${API_BASE}/usuarios/auth/me/`
+// Mapa entre "códigos de tela" do backend e itens de navegação
+// Ajuste os hrefs conforme suas rotas reais.
+const NAV_MAP = {
+  dashboard: { name: 'Dashboard', href: '/', icon: Home },
+  nova_pesagem: { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
+  historico_pesagens: { name: 'Histórico de Pesagens', href: '/historico-pesagens', icon: History },
+
+  cadastro_produto: { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
+  cadastro_mp: { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
+
+  geracao_etiqueta: { name: 'Gerar Etiqueta', href: '/geracao-etiqueta', icon: TagIcon }, // veremos abaixo
+  estruturas: { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes },
+  balancas: { name: 'Balanças', href: '/balancas', icon: Weight },
+  ops: { name: 'Ordem de Produção', href: '/ops', icon: Factory },
+  auditoria: { name: 'Auditoria', href: '/auditoria', icon: ScrollText },
+  checklist: { name: 'Checklist', href: '/checklist', icon: ListChecks },
+
+  usuarios: { name: 'Usuários', href: '/usuarios', icon: User },
+}
+
+// Fallback do icon "Tag" se você não importou acima
+function TagIcon(props) { return <Package {...props} /> }
+
+// Fallback por papel, caso o JWT não traga allowed_screens por algum motivo.
+// Ajuste conforme sua política.
+const ROLE_FALLBACK = {
+  admin: [
+    'dashboard', 'nova_pesagem', 'historico_pesagens',
+    'cadastro_produto', 'cadastro_mp', 'geracao_etiqueta',
+    'estruturas', 'balancas', 'ops', 'auditoria', 'checklist', 'usuarios'
+  ],
+  supervisor: [
+    'dashboard', 'nova_pesagem', 'historico_pesagens',
+    'cadastro_produto', 'cadastro_mp', 'geracao_etiqueta', 'estruturas', 'balancas', 'ops', 'auditoria'
+  ],
+  qa: [
+    'dashboard', 'historico_pesagens', 'auditoria'
+  ],
+  operador: [
+    'dashboard', 'nova_pesagem', 'historico_pesagens', 'geracao_etiqueta'
+  ]
+}
+
+function useAllowedScreens(user) {
+  return useMemo(() => {
+    // 1) Primeiro tenta as permissões vindas do JWT (salvas no login)
+    try {
+      const raw = localStorage.getItem('allowed_screens')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length) {
+          // normaliza para string sem espaços
+          return [...new Set(parsed.map(s => String(s).trim()).filter(Boolean))]
+        }
+      }
+    } catch { /* ignore */ }
+
+    // 2) Fallback por papel (client-side, só para UX; backend continua sendo a fonte da verdade)
+    const papel = (user?.papel || '').toLowerCase()
+    const fallback = ROLE_FALLBACK[papel] || ROLE_FALLBACK['operador']
+    return [...new Set(fallback)]
+  }, [user])
+}
 
 const Layout = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [logoError, setLogoError] = useState(false)
-  const [me, setMe] = useState(null)
-  const [loadingMe, setLoadingMe] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
 
-  // --- hidrata /auth/me se necessário (ex.: user sem allowedScreens) ---
-  useEffect(() => {
-    let mounted = true
-    // já temos allowed screens no prop?
-    const hasAllowedFromProp =
-      Array.isArray(user?.allowedScreens) || Array.isArray(user?.allowed_screens)
+  const allowedScreens = useAllowedScreens(user)
 
-    if (hasAllowedFromProp) {
-      setMe(null) // não precisa de fallback
-      return
+  // Constrói a lista final a partir do NAV_MAP ∩ allowedScreens.
+  const navigation = useMemo(() => {
+    const items = []
+    allowedScreens.forEach(code => {
+      const item = NAV_MAP[code]
+      if (item) items.push(item)
+    })
+    // Garante que Dashboard apareça primeiro se estiver presente
+    items.sort((a, b) => (a.href === '/' ? -1 : b.href === '/' ? 1 : 0))
+    return items
+  }, [allowedScreens])
+
+  const isActive = (href) => location.pathname === href
+
+  const handleLogout = async () => {
+    try {
+      await api.logout()
+    } finally {
+      onLogout?.()
+      navigate('/login', { replace: true })
     }
-
-    const token = localStorage.getItem('access') || ''
-    if (!token) return
-
-      ; (async () => {
-        try {
-          setLoadingMe(true)
-          const res = await fetch(AUTH_ME_URL, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          if (!mounted) return
-          if (!res.ok) {
-            // se 401, deixa sem me (menu ficará só com Sobre para não-admins)
-            setMe(null)
-            return
-          }
-          const data = await res.json()
-          setMe(data)
-        } catch (e) {
-          console.error(e)
-        } finally {
-          if (mounted) setLoadingMe(false)
-        }
-      })()
-
-    return () => { mounted = false }
-  }, [user])
-
-  // escolhe a melhor fonte do usuário efetivo
-  const effectiveUser = useMemo(() => {
-    // prioriza prop se tiver allowed screens; senão, usa /auth/me
-    const propHasAllowed = Array.isArray(user?.allowedScreens) || Array.isArray(user?.allowed_screens)
-    if (propHasAllowed) return user
-    if (me) return me
-    return user || me
-  }, [user, me])
-
-  const allowedList =
-    (Array.isArray(effectiveUser?.allowedScreens) && effectiveUser.allowedScreens) ||
-    (Array.isArray(effectiveUser?.allowed_screens) && effectiveUser.allowed_screens) ||
-    []
-
-  const allowed = useMemo(() => new Set(allowedList), [allowedList])
-
-  const isAdmin =
-    effectiveUser?.tipo === 'admin' ||
-    effectiveUser?.is_staff === true ||
-    effectiveUser?.is_superuser === true
-
-  // Mapeie cada item para o code da Screen no backend (iguais ao seed que criamos)
-  const navigation = [
-    { name: 'Home', href: '/', icon: Home, requiredScreen: 'dashboard' },
-    { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers, requiredScreen: 'cadastro_mp' },
-    { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package, requiredScreen: 'cadastro_produto' },
-    { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes, requiredScreen: 'estruturas' },
-    { name: 'OPs', href: '/ops', icon: Factory, requiredScreen: 'ops' },
-    { name: 'Nova OP', href: '/ops/nova', icon: ListChecks, requiredScreen: 'nova_op' },
-    { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale, requiredScreen: 'nova_pesagem' },
-    { name: 'Histórico', href: '/historico', icon: History, requiredScreen: 'historico_pesagens' },
-    { name: 'Balanças', href: '/balancas', icon: Weight, requiredScreen: 'balancas' },
-    { name: 'Sobre', href: '/sobre', icon: ScrollText, requiredScreen: 'sobre' },
-  ]
-
-  const canSee = (item) => {
-    if (isAdmin) return true
-    if (!item.requiredScreen) return true
-    return allowed.has(item.requiredScreen)
-  }
-
-  const visibleNav = navigation.filter(canSee)
-
-  // evita que '/ops' e '/estruturas' fiquem ativos quando estiver em subrotas (ex.: '/ops/nova')
-  const isActive = (href) => {
-    const path = location.pathname
-    if (href === '/ops') return path === '/ops' || path === '/ops/'
-    if (href === '/estruturas') return path === '/estruturas' || path === '/estruturas/'
-    return path === href || path.startsWith(href + '/')
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
-        <div
-          className="fixed inset-0 bg-gray-600 bg-opacity-75"
-          onClick={() => setSidebarOpen(false)}
-        />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
-          <div className="flex h-16 items-center justify-between px-4 border-b">
-            <div className="flex items-center gap-2">
-              <img
-                src={logoError ? '/logo.png' : '/logo2.png'}
-                alt="Logo"
-                className="h-12 w-auto"
-                onError={() => setLogoError(true)}
-              />
-              <h1 className="text-xl font-bold text-gray-800">Scale v1.0</h1>
+    <div className="min-h-screen flex bg-background">
+      {/* Sidebar Mobile */}
+      <div className={`fixed inset-0 z-40 md:hidden ${sidebarOpen ? '' : 'pointer-events-none'}`}>
+        <div className={`absolute inset-0 bg-black/40 transition-opacity ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setSidebarOpen(false)} />
+        <div className={`absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-zinc-900 shadow-xl transform transition-transform
+                         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="flex items-center justify-between px-4 h-16 border-b">
+            <div className="flex items-center gap-3">
+              {!logoError ? (
+                <img
+                  src="/logo.png"
+                  alt="Logo"
+                  className="h-8 w-auto"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <Home className="h-6 w-6" />
+              )}
+              <span className="font-semibold">Scale</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
+            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <nav className="flex-1 space-y-1 px-2 py-4">
-            {visibleNav.map((item) => {
+          <nav className="p-2 space-y-1">
+            {navigation.map((item) => {
               const Icon = item.icon
+              const active = isActive(item.href)
               return (
                 <Link
-                  key={item.name}
+                  key={item.href}
                   to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
                   onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm
+                    ${active
+                      ? 'bg-primary text-primary-foreground'
+                      : 'hover:bg-muted text-foreground'}`}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {item.name}
+                  <Icon className="h-4 w-4" />
+                  <span>{item.name}</span>
                 </Link>
               )
             })}
-            {/* Se ainda está carregando /auth/me e nada aparece, evita “menu vazio” para não-admin */}
-            {visibleNav.length === 0 && loadingMe && (
-              <div className="px-2 text-sm text-gray-500">Carregando permissões…</div>
-            )}
+
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 mt-2"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair</span>
+            </button>
           </nav>
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
-          <div className="flex h-16 items-center px-4 border-b">
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Logo Scale" className="h-7 w-7" />
-              <h1 className="text-xl font-bold text-gray-900">Scale 1.0</h1>
-            </div>
+      {/* Sidebar Desktop */}
+      <aside className="hidden md:flex md:flex-col w-64 border-r">
+        <div className="h-16 flex items-center justify-between px-4 border-b">
+          <div className="flex items-center gap-3">
+            {!logoError ? (
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="h-8 w-auto"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <Home className="h-6 w-6" />
+            )}
+            <span className="font-semibold">Scale</span>
           </div>
-          <nav className="flex-1 space-y-1 px-2 py-4">
-            {visibleNav.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {item.name}
-                </Link>
-              )
-            })}
-            {visibleNav.length === 0 && loadingMe && (
-              <div className="px-2 text-sm text-gray-500">Carregando permissões…</div>
-            )}
-          </nav>
         </div>
-      </div>
 
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Top bar */}
-        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8 relative">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(true)}
+        <nav className="flex-1 p-2 space-y-1">
+          {navigation.map((item) => {
+            const Icon = item.icon
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm
+                  ${active
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted text-foreground'}`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{item.name}</span>
+              </Link>
+            )
+          })}
+        </nav>
+
+        <div className="p-2 border-t">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
           >
+            <LogOut className="h-4 w-4" />
+            <span>Sair</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col">
+        {/* Topbar */}
+        <header className="h-16 border-b px-4 flex items-center justify-between md:justify-end">
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* 🔹 Texto centralizado “Homologação” */}
-          <div className="absolute inset-x-0 flex justify-center items-center pointer-events-none">
-            <span className="text-sm font-semibold text-gray-700 tracking-wide uppercase">
-              Homologação
-            </span>
-          </div>
-
-          {/* 🔹 Conteúdo alinhado à direita */}
-          <div className="flex flex-1 justify-end items-center gap-x-4 lg:gap-x-6">
-            <div className="flex items-center gap-x-2">
-              <Link
-                to="/perfil"
-                className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-              >
-                <User className="h-5 w-5" />
-                <span className="hidden sm:block">{effectiveUser?.nome || user?.nome || 'Usuário'}</span>
-              </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onLogout}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
+          <div className="flex items-center gap-3">
+            <User className="h-5 w-5 opacity-70" />
+            <div className="text-sm">
+              <div className="font-medium leading-4">{user?.nome || user?.usuario || 'Usuário'}</div>
+              <div className="text-muted-foreground text-xs">
+                {user?.papel || (user?.is_staff ? 'admin' : 'operador')}
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Page content */}
-        <main className="py-6">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <Outlet context={{ user: effectiveUser || user, onLogout }} />
-          </div>
+        {/* Conteúdo */}
+        <main className="p-4">
+          <Outlet />
         </main>
       </div>
     </div>
