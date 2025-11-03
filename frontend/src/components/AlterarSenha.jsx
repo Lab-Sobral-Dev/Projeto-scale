@@ -17,8 +17,20 @@ const hasSymbol = (s) => /[^\w\s]/.test(s || '')
 
 function Rule({ ok, children }) {
     return (
-        <li className={`text-sm ${ok ? 'text-green-600' : 'text-gray-500'}`}>
-            {ok ? '✓' : '•'} {children}
+        <li
+            className={`text-sm flex items-start gap-2 ${ok ? 'text-green-600' : 'text-gray-600'}`}
+            role="status"
+            aria-live="polite"
+        >
+            <span
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${ok ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-300'}`}
+                aria-hidden="true"
+            >
+                {ok ? '✓' : '•'}
+            </span>
+            <span className={`${ok ? 'line-through decoration-green-400/60' : ''}`}>
+                {children}
+            </span>
         </li>
     )
 }
@@ -32,6 +44,62 @@ function readPwdFlags() {
     } catch {
         return { mustChange: false, expired: false }
     }
+}
+
+function PasswordRules({ meets }) {
+    const score = ['min', 'upper', 'lower', 'digit', 'symbol'].reduce((acc, k) => acc + (meets[k] ? 1 : 0), 0)
+    const percent = (score / 5) * 100
+    const strengthLabel =
+        score <= 1 ? 'Muito fraca' :
+            score === 2 ? 'Fraca' :
+                score === 3 ? 'Média' :
+                    score === 4 ? 'Forte' : 'Excelente'
+
+    const barColor =
+        score <= 1 ? 'bg-red-500' :
+            score === 2 ? 'bg-orange-500' :
+                score === 3 ? 'bg-yellow-500' :
+                    score === 4 ? 'bg-green-500' : 'bg-emerald-600'
+
+    return (
+        <div className="rounded-md border bg-white/60">
+            <div className="px-3 py-2 border-b text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                Requisitos mínimos
+            </div>
+
+            <div className="p-3">
+                <ul className="space-y-2">
+                    <Rule ok={meets.min}>Mínimo de 8 caracteres</Rule>
+                    <Rule ok={meets.upper}>Pelo menos 1 letra maiúscula</Rule>
+                    <Rule ok={meets.lower}>Pelo menos 1 letra minúscula</Rule>
+                    <Rule ok={meets.digit}>Pelo menos 1 número</Rule>
+                    <Rule ok={meets.symbol}>Pelo menos 1 símbolo</Rule>
+                </ul>
+
+                <div className="mt-4" aria-live="polite">
+                    <label htmlFor="pwd-strength" className="text-xs font-medium text-gray-700">
+                        Força da senha: <span className="font-semibold">{strengthLabel}</span>
+                    </label>
+                    <div className="mt-1 h-2 w-full rounded bg-gray-200" id="pwd-strength" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={5}>
+                        <div
+                            className={`h-2 rounded ${barColor} transition-all`}
+                            style={{ width: `${percent}%` }}
+                        />
+                    </div>
+                    <p className="mt-1 text-[11px] text-gray-500">
+                        Dica: combine letras, números e símbolos. Evite sequências (1234, abcd) e dados pessoais.
+                    </p>
+                </div>
+
+                <div className="mt-3 pt-3 border-t">
+                    <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Confirmação</div>
+                    <ul className="mt-2">
+                        <Rule ok={meets.match}>A confirmação confere com a nova senha</Rule>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    )
 }
 
 const AlterarSenha = () => {
@@ -136,7 +204,7 @@ const AlterarSenha = () => {
                 </CardHeader>
 
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                         {/* Senha atual */}
                         <div className="space-y-2">
                             <Label htmlFor="current">Senha atual</Label>
@@ -218,15 +286,8 @@ const AlterarSenha = () => {
                             </div>
                         </div>
 
-                        {/* Regras de senha - mesmo estilo do login (texto simples) */}
-                        <ul className="grid grid-cols-2 gap-x-4 gap-y-1 bg-white/50 rounded-md p-3">
-                            <Rule ok={meets.min}>Mínimo de 8 caracteres</Rule>
-                            <Rule ok={meets.upper}>Pelo menos 1 letra maiúscula</Rule>
-                            <Rule ok={meets.lower}>Pelo menos 1 letra minúscula</Rule>
-                            <Rule ok={meets.digit}>Pelo menos 1 número</Rule>
-                            <Rule ok={meets.symbol}>Pelo menos 1 símbolo</Rule>
-                            <Rule ok={meets.match}>Confirmação igual à nova senha</Rule>
-                        </ul>
+                        {/* Regras de senha (organizado) */}
+                        <PasswordRules meets={meets} />
 
                         {error && (
                             <Alert variant="destructive">
@@ -239,7 +300,7 @@ const AlterarSenha = () => {
                         </Button>
 
                         <p className="text-xs text-gray-500 text-center">
-                            Dica: evite repetir senhas antigas e não use informações pessoais óbvias.
+                            Evite repetir senhas antigas e não use informações pessoais óbvias.
                         </p>
                     </form>
                 </CardContent>
