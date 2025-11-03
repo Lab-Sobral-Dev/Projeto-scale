@@ -23,47 +23,47 @@ import api from '@/services/api'
 // Mapa entre "códigos de tela" do backend e itens de navegação
 // Ajuste os hrefs conforme suas rotas reais.
 const NAV_MAP = {
-  dashboard: { name: 'Dashboard', href: '/', icon: Home },
-  nova_pesagem: { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale },
-  historico_pesagens: { name: 'Histórico de Pesagens', href: '/historico-pesagens', icon: History },
+  dashboard:        { name: 'Dashboard',               href: '/',                         icon: Home },
+  nova_pesagem:     { name: 'Nova Pesagem',            href: '/nova-pesagem',             icon: Scale },
+  historico_pesagens:{name: 'Histórico de Pesagens',   href: '/historico-pesagens',       icon: History },
 
-  cadastro_produto: { name: 'Cadastrar Produto', href: '/cadastro-produto', icon: Package },
-  cadastro_mp: { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers },
+  cadastro_produto: { name: 'Cadastrar Produto',       href: '/cadastro-produto',         icon: Package },
+  cadastro_mp:      { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima',   icon: Layers },
 
-  geracao_etiqueta: { name: 'Gerar Etiqueta', href: '/geracao-etiqueta', icon: TagIcon }, // veremos abaixo
-  estruturas: { name: 'Estrutura de Produtos', href: '/estruturas', icon: Boxes },
-  balancas: { name: 'Balanças', href: '/balancas', icon: Weight },
-  ops: { name: 'Ordem de Produção', href: '/ops', icon: Factory },
-  auditoria: { name: 'Auditoria', href: '/auditoria', icon: ScrollText },
-  checklist: { name: 'Checklist', href: '/checklist', icon: ListChecks },
+  geracao_etiqueta: { name: 'Gerar Etiqueta',          href: '/geracao-etiqueta',         icon: TagIcon }, // veremos abaixo
+  estruturas:       { name: 'Estrutura de Produtos',   href: '/estruturas',               icon: Boxes },
+  balancas:         { name: 'Balanças',                href: '/balancas',                 icon: Weight },
+  ops:              { name: 'Ordem de Produção',       href: '/ops',                      icon: Factory },
+  auditoria:        { name: 'Auditoria',               href: '/auditoria',                icon: ScrollText },
+  checklist:        { name: 'Checklist',               href: '/checklist',                icon: ListChecks },
 
-  usuarios: { name: 'Usuários', href: '/usuarios', icon: User },
+  usuarios:         { name: 'Usuários',                href: '/usuarios',                 icon: User },
 }
 
 // Fallback do icon "Tag" se você não importou acima
-function TagIcon(props) { return <Package {...props} /> }
+function TagIcon(props){ return <Package {...props} /> }
 
 // Fallback por papel, caso o JWT não traga allowed_screens por algum motivo.
 // Ajuste conforme sua política.
 const ROLE_FALLBACK = {
   admin: [
-    'dashboard', 'nova_pesagem', 'historico_pesagens',
-    'cadastro_produto', 'cadastro_mp', 'geracao_etiqueta',
-    'estruturas', 'balancas', 'ops', 'auditoria', 'checklist', 'usuarios'
+    'dashboard','nova_pesagem','historico_pesagens',
+    'cadastro_produto','cadastro_mp','geracao_etiqueta',
+    'estruturas','balancas','ops','auditoria','checklist','usuarios'
   ],
   supervisor: [
-    'dashboard', 'nova_pesagem', 'historico_pesagens',
-    'cadastro_produto', 'cadastro_mp', 'geracao_etiqueta', 'estruturas', 'balancas', 'ops', 'auditoria'
+    'dashboard','nova_pesagem','historico_pesagens',
+    'cadastro_produto','cadastro_mp','geracao_etiqueta','estruturas','balancas','ops','auditoria'
   ],
   qa: [
-    'dashboard', 'historico_pesagens', 'auditoria'
+    'dashboard','historico_pesagens','auditoria'
   ],
   operador: [
-    'dashboard', 'nova_pesagem', 'historico_pesagens', 'geracao_etiqueta'
+    'dashboard','nova_pesagem','historico_pesagens','geracao_etiqueta'
   ]
 }
 
-function useAllowedScreens(user) {
+function useAllowedScreens(user){
   return useMemo(() => {
     // 1) Primeiro tenta as permissões vindas do JWT (salvas no login)
     try {
@@ -100,7 +100,7 @@ const Layout = ({ user, onLogout }) => {
       if (item) items.push(item)
     })
     // Garante que Dashboard apareça primeiro se estiver presente
-    items.sort((a, b) => (a.href === '/' ? -1 : b.href === '/' ? 1 : 0))
+    items.sort((a,b) => (a.href === '/' ? -1 : b.href === '/' ? 1 : 0))
     return items
   }, [allowedScreens])
 
@@ -120,7 +120,7 @@ const Layout = ({ user, onLogout }) => {
       {/* Sidebar Mobile */}
       <div className={`fixed inset-0 z-40 md:hidden ${sidebarOpen ? '' : 'pointer-events-none'}`}>
         <div className={`absolute inset-0 bg-black/40 transition-opacity ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`}
-          onClick={() => setSidebarOpen(false)} />
+             onClick={() => setSidebarOpen(false)} />
         <div className={`absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-zinc-900 shadow-xl transform transition-transform
                          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex items-center justify-between px-4 h-16 border-b">
