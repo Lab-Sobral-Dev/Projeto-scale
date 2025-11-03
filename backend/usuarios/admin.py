@@ -79,7 +79,7 @@ class LoginSecurityAdmin(admin.ModelAdmin):
     date_hierarchy = "locked_at"
     search_fields = ("user__username", "user__first_name", "user__last_name")
     autocomplete_fields = ("user",)
-    # Evita “esbarrões” editando contadores manualmente
+    # Evita edições manuais acidentais
     readonly_fields = ("failed_logins", "locked_at", "updated_at")
     actions = ["unlock_selected"]
 
@@ -117,14 +117,17 @@ class LoginSecurityInline(admin.StackedInline):
     fk_name = "user"
 
 
-# Se já existir um ModelAdmin para User no seu projeto, só adiciona a action nele.
-# Caso não, registramos um básico aqui:
+# -----------------------------
+# UserAdmin (herda do BaseUserAdmin)
+# -----------------------------
 try:
     from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
     @admin.register(User)
     class UserAdmin(BaseUserAdmin):
-        actions = getattr(BaseUserAdmin, "actions", []) + [unlock_users]
+        # Padroniza para tuple (funciona mesmo se BaseUserAdmin.actions for None/list/tuple)
+        _base_actions = getattr(BaseUserAdmin, "actions", None) or ()
+        actions = (*_base_actions, unlock_users)
         inlines = [LoginSecurityInline]
 
 except admin.sites.AlreadyRegistered:
