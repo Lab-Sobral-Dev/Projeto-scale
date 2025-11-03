@@ -63,18 +63,25 @@ function App() {
         {/* Rota pública de login */}
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
 
-        {/* Rotas privadas (qualquer usuário autenticado) */}
+        {/* Rota de alteração de senha — protegida, mas independente */}
+        <Route
+          path="/alterar-senha"
+          element={
+            <RequireAuth>
+              <AlterarSenha />
+            </RequireAuth>
+          }
+        />
+
+        {/* Rotas privadas com layout comum */}
         <Route
           element={
             <RequireAuth>
               <Layout user={user} onLogout={handleLogout} />
-
             </RequireAuth>
           }
         >
           <Route path="/" element={<Dashboard />} />
-          <Route path="/alterar-senha" element={<AlterarSenha />} />
-
           <Route path="/nova-pesagem" element={<NovaPesagem />} />
           <Route path="/ops" element={<Ops />} />
           <Route path="/ops/nova" element={<CriarOP />} />
@@ -82,7 +89,7 @@ function App() {
           <Route path="/historico" element={<Historico />} />
           <Route path="/perfil" element={<PerfilUsuario user={user} onLogout={handleLogout} />} />
           <Route path="/etiqueta/:id" element={<GeracaoEtiqueta />} />
-          <Route path='/sobre' element={<Sobre />} />
+          <Route path="/sobre" element={<Sobre />} />
         </Route>
 
         {/* Rotas exclusivas para admin */}
@@ -95,7 +102,7 @@ function App() {
         >
           <Route path="/cadastro-produto" element={<CadastroProduto />} />
           <Route path="/estruturas" element={<Estruturas />} />
-          <Route path="/estruturas/:id" element={<ComposicaoEstrutura />} />  
+          <Route path="/estruturas/:id" element={<ComposicaoEstrutura />} />
           <Route path="/cadastro-materia-prima" element={<CadastroMateriaPrima />} />
           <Route path="/balancas" element={<CadastroBalanca />} />
           <Route path="/usuarios" element={<UsuariosAdmin />} />
@@ -104,9 +111,10 @@ function App() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
+
   )
 }
 
