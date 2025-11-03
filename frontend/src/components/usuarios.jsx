@@ -48,7 +48,7 @@ const PAPEL_OPTIONS = [
 // ========= Validação de senha (mesma regra do backend) =========
 function checkPasswordPolicy(pw = '') {
   const issues = {
-    length: pw.length >= 10,
+    length: pw.length >= 8,
     upper: /[A-Z]/.test(pw),
     lower: /[a-z]/.test(pw),
     digit: /\d/.test(pw),
@@ -75,7 +75,7 @@ function PasswordPolicy({ password }) {
     <div className="rounded-md border p-3 bg-gray-50 dark:bg-zinc-900/40">
       <div className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">A senha deve conter:</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1">
-        <PolicyRow ok={issues.length} text="Mínimo de 10 caracteres" />
+        <PolicyRow ok={issues.length} text="Mínimo de 8 caracteres" />
         <PolicyRow ok={issues.upper} text="Pelo menos 1 letra maiúscula (A-Z)" />
         <PolicyRow ok={issues.lower} text="Pelo menos 1 letra minúscula (a-z)" />
         <PolicyRow ok={issues.digit} text="Pelo menos 1 dígito (0-9)" />
