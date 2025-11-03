@@ -6,13 +6,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { History, Search, Eye, Printer, Edit, Filter, Calendar, Weight, User, ChevronLeft, ChevronRight } from 'lucide-react'
+import { History, Search, Eye, Printer, Edit, Filter, Calendar, Weight, User } from 'lucide-react'
 import api from '@/services/api'
 
 // Helpers
 const tz = 'America/Fortaleza'
-const nfInt = new Intl.NumberFormat('pt-BR')
-const nfG = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }) // g com separador de mil
+const nfG = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 })
 const normalizeList = (data) => (Array.isArray(data) ? data : (data?.results ?? []))
 const formatDateTime = (iso) => {
   if (!iso) return '-'
@@ -30,8 +29,6 @@ const toDisplay = (v) => {
 const KG_IN_G = 1000
 const toNum = (x) => (x == null ? null : Number(x))
 const kgToG = (kg) => (kg == null ? null : kg * KG_IN_G)
-
-// formatador de gramas
 const fmtG = (v) => (v == null ? '-' : nfG.format(v))
 
 const Historico = () => {
@@ -86,7 +83,6 @@ const Historico = () => {
               produto: toDisplay(p.produto?.nome ?? p.produto_nome ?? p.produto),
               materiaPrima: toDisplay(p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
               op: toDisplay(p.op?.numero ?? p.op),
-              // Lote/LoteMP continuam no objeto (visíveis só no detalhe)
               lote: toDisplay(p.op?.lote ?? p.lote),
               loteMP: toDisplay(p.lote_mp ?? p.loteMP ?? ''),
               pesador: toDisplay(p.pesador),
@@ -116,6 +112,58 @@ const Historico = () => {
     setPage(1)
   }
 
+  // --- Relacionamentos Produto <-> MP a partir das pesagens ---
+  const { prodToMPs, mpToProds } = useMemo(() => {
+    const p2m = new Map()   // produto(string) -> Set(mpName)
+    const m2p = new Map()   // mp(string) -> Set(prodName)
+    for (const p of pesagens) {
+      const prod = p.produto || ''
+      const mp = p.materiaPrima || ''
+      if (prod) {
+        if (!p2m.has(prod)) p2m.set(prod, new Set())
+        if (mp) p2m.get(prod).add(mp)
+      }
+      if (mp) {
+        if (!m2p.has(mp)) m2p.set(mp, new Set())
+        if (prod) m2p.get(mp).add(prod)
+      }
+    }
+    return { prodToMPs: p2m, mpToProds: m2p }
+  }, [pesagens])
+
+  // Mapas por nome (para recuperar id quando existir)
+  const prodByName = useMemo(() => new Map(produtos.map(p => [p.nome, p])), [produtos])
+  const mpByName = useMemo(() => new Map(materiasPrimas.map(mp => [mp.nome, mp])), [materiasPrimas])
+
+  // Opções dos dropdowns dependentes
+  const produtoOptions = useMemo(() => {
+    if (!filtros.materiaPrima) return produtos.map(p => p.nome)
+    const prodsSet = mpToProds.get(filtros.materiaPrima)
+    return prodsSet ? Array.from(prodsSet) : []
+  }, [produtos, mpToProds, filtros.materiaPrima])
+
+  const mpOptions = useMemo(() => {
+    if (!filtros.produto) return materiasPrimas.map(mp => mp.nome)
+    const mpsSet = prodToMPs.get(filtros.produto)
+    return mpsSet ? Array.from(mpsSet) : []
+  }, [materiasPrimas, prodToMPs, filtros.produto])
+
+  // Garantir consistência: se um filtro ficar inválido após escolher o outro, limpar
+  useEffect(() => {
+    if (filtros.produto && !mpOptions.includes(filtros.materiaPrima)) {
+      setFiltros(prev => ({ ...prev, materiaPrima: '' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtros.produto, mpOptions.join('|')])
+
+  useEffect(() => {
+    if (filtros.materiaPrima && !produtoOptions.includes(filtros.produto)) {
+      setFiltros(prev => ({ ...prev, produto: '' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtros.materiaPrima, produtoOptions.join('|')])
+
+  // Filtro de datas
   const inDateRange = (isoString) => {
     if (!isoString) return false
     if (!filtros.dataInicio && !filtros.dataFim) return true
@@ -190,6 +238,7 @@ const Historico = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Produto (dependente de MP) */}
             <div className="space-y-2 min-w-0">
               <Label htmlFor="produto">Produto</Label>
               <Select
@@ -205,15 +254,19 @@ const Historico = () => {
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="__all__">Todos</SelectItem>
-                  {produtos.map(p => (
-                    <SelectItem key={p.id} value={p.nome}>
-                      <span className="block max-w-[340px] truncate">{p.nome}</span>
-                    </SelectItem>
-                  ))}
+                  {produtoOptions.map(nome => {
+                    const p = prodByName.get(nome)
+                    return (
+                      <SelectItem key={p?.id ?? nome} value={nome}>
+                        <span className="block max-w-[340px] truncate">{nome}</span>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Matéria-Prima (dependente de Produto) */}
             <div className="space-y-2 min-w-0">
               <Label htmlFor="materiaPrima">Matéria-Prima</Label>
               <Select
@@ -229,11 +282,14 @@ const Historico = () => {
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="__all__">Todas</SelectItem>
-                  {materiasPrimas.map(mp => (
-                    <SelectItem key={mp.id} value={mp.nome}>
-                      <span className="block max-w-[340px] truncate">{mp.nome}</span>
-                    </SelectItem>
-                  ))}
+                  {mpOptions.map(nome => {
+                    const mp = mpByName.get(nome)
+                    return (
+                      <SelectItem key={mp?.id ?? nome} value={nome}>
+                        <span className="block max-w-[340px] truncate">{nome}</span>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -323,7 +379,7 @@ const Historico = () => {
                         </div>
                       </td>
 
-                      {/* PESOS (g) — alinhamento consistente */}
+                      {/* PESOS (g) */}
                       <td className="px-4 py-3 text-sm text-gray-700 hidden lg:table-cell">
                         <div className="grid gap-0.5">
                           <div className="flex items-center justify-between" title="Bruto (g)">
