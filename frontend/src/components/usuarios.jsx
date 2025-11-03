@@ -8,17 +8,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ArrowLeft, UserPlus, Users, Save, Trash2, LayoutGrid, Layers, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react'
+import {
+  ArrowLeft, UserPlus, Users, Save, Trash2, LayoutGrid, Layers,
+  CheckCircle2, XCircle, Eye, EyeOff, Lock, Unlock, KeyRound, Copy
+} from 'lucide-react'
+
+// ⬇️ shadcn/ui Dialog (modal)
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog'
 
 /** Base deve apontar para .../api */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 
-/** ENDPOINTS conforme urls.py (mantidos) */
+/** ENDPOINTS conforme urls.py */
 const USERS_URL = `${API_BASE}/usuarios/usuarios/`
 const PERFIS_URL = `${API_BASE}/usuarios/perfis/`
 const ME_URL = `${API_BASE}/usuarios/auth/me/`
 const ROLES_URL = `${API_BASE}/usuarios/roles/`
 const SCREENS_URL = `${API_BASE}/usuarios/screens/`
+
+// Endpoints de segurança do usuário (backend novo)
+const USER_SECURITY_URL = (id) => `${API_BASE}/usuarios/security/${id}/`
+const USER_UNLOCK_URL = (id) => `${API_BASE}/usuarios/security/${id}/unlock/`
+const USER_FORCE_URL = (id) => `${API_BASE}/usuarios/security/${id}/force-reset/`
 
 const PAPEL_OPTIONS = [
   { value: 'operador', label: 'Operador' },
@@ -86,16 +105,16 @@ export default function UsuariosAdmin() {
   const [users, setUsers] = useState([])
   const [perfis, setPerfis] = useState([])
   const [me, setMe] = useState(null)
-  const [roles, setRoles] = useState([])      // cada role já vem com "screens" (id, code, label)
-  const [screens, setScreens] = useState([])  // catálogo de telas (id, code, label)
+  const [roles, setRoles] = useState([])      // cada role já vem com "screens"
+  const [screens, setScreens] = useState([])  // catálogo de telas
 
-  // mapa roleId -> [screenIds] (derivado de roles)
+  // mapa roleId -> [screenIds]
   const [roleScreensMap, setRoleScreensMap] = useState({})
 
-  // telas herdadas pelos roles selecionados (checadas e desabilitadas na UI)
+  // telas herdadas pelos roles selecionados
   const [autoScreenIds, setAutoScreenIds] = useState(new Set())
 
-  // visibilidade de senha
+  // visibilidade de senha (criação)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -108,8 +127,8 @@ export default function UsuariosAdmin() {
     password: '',
     confirm: '',
     papel: 'operador',
-    role_ids: [],          // manteremos array por compatibilidade com a API, porém só com 0 ou 1 item
-    extra_screen_ids: [],  // só as marcadas manualmente
+    role_ids: [],          // seleção única (0 ou 1)
+    extra_screen_ids: [],
   })
 
   // estados de validação
@@ -154,10 +173,8 @@ export default function UsuariosAdmin() {
       const rList = Array.isArray(rJson) ? rJson : (rJson?.results ?? [])
       const sList = Array.isArray(sJson) ? sJson : (sJson?.results ?? [])
 
-      // ordena telas por label para organizar a lista
       sList.sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
 
-      // constrói roleId -> [screenIds]
       const map = {}
       for (const r of rList) {
         const ids = Array.isArray(r.screens) ? r.screens.map(sc => sc.id).filter(Boolean) : []
@@ -199,7 +216,6 @@ export default function UsuariosAdmin() {
     }
     setAutoScreenIds(set)
 
-    // ao trocar o papel, opcionalmente removemos extras que estejam contidos no novo papel
     setForm(prev => ({
       ...prev,
       extra_screen_ids: prev.extra_screen_ids.filter(id => !set.has(id)),
@@ -214,23 +230,16 @@ export default function UsuariosAdmin() {
     })
   }
 
-  // toggle de tela extra respeitando herdadas
   const toggleExtraScreen = (id) => {
-    if (autoScreenIds.has(id)) return // herdada por papel → não altera
+    if (autoScreenIds.has(id)) return
     toggleInArray('extra_screen_ids', id)
   }
 
-  // *** Seleção ÚNICA de roles ***
   const toggleSingleRole = (roleId, checked) => {
     setForm(prev => {
-      if (checked) {
-        return { ...prev, role_ids: [roleId] }
-      } else {
-        if (prev.role_ids[0] === roleId) {
-          return { ...prev, role_ids: [] }
-        }
-        return prev
-      }
+      if (checked) return { ...prev, role_ids: [roleId] }
+      if (prev.role_ids[0] === roleId) return { ...prev, role_ids: [] }
+      return prev
     })
   }
 
@@ -245,8 +254,6 @@ export default function UsuariosAdmin() {
         setError('Preencha pelo menos usuário e nome.')
         return
       }
-
-      // validação de senha cliente
       if (!pwCheck.valid) {
         setError('A senha não atende à política de complexidade.')
         return
@@ -263,8 +270,8 @@ export default function UsuariosAdmin() {
         last_name: form.last_name,
         email: form.email,
         papel: form.papel,
-        role_ids: form.role_ids,                 // array com 0 ou 1 id
-        extra_screen_ids: form.extra_screen_ids, // apenas extras manuais
+        role_ids: form.role_ids,
+        extra_screen_ids: form.extra_screen_ids,
       }
 
       const res = await fetch(USERS_URL, {
@@ -274,17 +281,14 @@ export default function UsuariosAdmin() {
       })
 
       if (!res.ok) {
-        // tenta extrair erro legível (inclui erros do validator de senha do Django)
         let detail = 'Não foi possível criar o usuário. Verifique dados/duplicidade.'
         try {
           const data = await res.json()
-          // erros comuns: {password: ["..."]} | {username: ["..."]} | {detail: "..."}
           if (data?.password) detail = Array.isArray(data.password) ? data.password.join(' ') : String(data.password)
           else if (data?.username) detail = Array.isArray(data.username) ? data.username.join(' ') : String(data.username)
           else if (data?.detail) detail = String(data.detail)
           else detail = JSON.stringify(data)
         } catch {
-          // corpo não-JSON
           const raw = await res.text()
           if (raw) detail = raw
         }
@@ -358,7 +362,7 @@ export default function UsuariosAdmin() {
     try {
       const res = await fetch(`${USERS_URL}${id}/`, {
         method: 'DELETE',
-        headers: authHeaders, // objeto com Authorization
+        headers: authHeaders,
       })
       if (res.status !== 204 && res.status !== 200) {
         const raw = await res.text()
@@ -376,6 +380,118 @@ export default function UsuariosAdmin() {
     }
   }
 
+  // =========================
+  // Modal de Segurança por Usuário
+  // =========================
+  const [securityOpen, setSecurityOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null) // {id, username, first_name, last_name, email}
+  const [securityLoading, setSecurityLoading] = useState(false)
+  const [securityError, setSecurityError] = useState('')
+  const [securitySuccess, setSecuritySuccess] = useState('')
+  const [securityData, setSecurityData] = useState(null) // /security/:id
+  const [tempPassword, setTempPassword] = useState('')   // senha temporária retornada no force-reset
+
+  const openSecurity = async (u) => {
+    setSelectedUser(u)
+    setSecurityOpen(true)
+    setSecurityError('')
+    setSecuritySuccess('')
+    setTempPassword('')
+    await fetchSecurity(u.id)
+  }
+
+  const fetchSecurity = async (userId) => {
+    setSecurityLoading(true)
+    setSecurityError('')
+    setSecuritySuccess('')
+    try {
+      const res = await fetch(USER_SECURITY_URL(userId), { headers: authHeaders })
+      if (!res.ok) {
+        const raw = await res.text()
+        throw new Error(`Falha ao carregar segurança (${res.status}) ${raw}`)
+      }
+      const data = await res.json()
+      setSecurityData(data)
+    } catch (e) {
+      console.error(e)
+      setSecurityError(e?.message || 'Não foi possível carregar os dados de segurança.')
+    } finally {
+      setSecurityLoading(false)
+    }
+  }
+
+  const unlockUser = async () => {
+    if (!selectedUser) return
+    setSecurityLoading(true)
+    setSecurityError('')
+    setSecuritySuccess('')
+    try {
+      const res = await fetch(USER_UNLOCK_URL(selectedUser.id), {
+        method: 'POST',
+        headers: jsonHeaders,
+      })
+      if (!res.ok) {
+        const raw = await res.text()
+        throw new Error(`Erro ao desbloquear (${res.status}) ${raw}`)
+      }
+      setSecuritySuccess('Usuário desbloqueado com sucesso.')
+      await fetchSecurity(selectedUser.id)
+    } catch (e) {
+      console.error(e)
+      setSecurityError('Não foi possível desbloquear o usuário.')
+    } finally {
+      setSecurityLoading(false)
+    }
+  }
+
+  const forceReset = async () => {
+    if (!selectedUser) return
+    setSecurityLoading(true)
+    setSecurityError('')
+    setSecuritySuccess('')
+    setTempPassword('')
+    try {
+      const res = await fetch(USER_FORCE_URL(selectedUser.id), {
+        method: 'POST',
+        headers: jsonHeaders,
+        body: JSON.stringify({}), // opcional: { temporary_password: '...' }
+      })
+      if (!res.ok) {
+        const raw = await res.text()
+        throw new Error(`Erro ao redefinir senha (${res.status}) ${raw}`)
+      }
+      const data = await res.json()
+      const temp = data?.temporary_password || ''
+      setTempPassword(temp)
+      setSecuritySuccess('Senha temporária gerada. O usuário deverá alterar no próximo login.')
+      await fetchSecurity(selectedUser.id)
+    } catch (e) {
+      console.error(e)
+      setSecurityError('Não foi possível gerar a senha temporária.')
+    } finally {
+      setSecurityLoading(false)
+    }
+  }
+
+  const copyTempPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(tempPassword)
+      setSecuritySuccess('Senha temporária copiada para a área de transferência.')
+    } catch {
+      setSecurityError('Não foi possível copiar a senha.')
+    }
+  }
+
+  const formatDateTime = (s) => {
+    if (!s) return '—'
+    try {
+      const dt = new Date(s)
+      return dt.toLocaleString()
+    } catch {
+      return String(s)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -388,7 +504,6 @@ export default function UsuariosAdmin() {
           </div>
         </div>
 
-        {/* Botão Voltar para Perfil */}
         <Button asChild variant="outline" className="gap-2">
           <Link to="/perfil">
             <ArrowLeft className="h-4 w-4" />
@@ -494,10 +609,10 @@ export default function UsuariosAdmin() {
                 </div>
               </div>
 
-              {/* Política de senha (feedback em tempo real) */}
+              {/* Política de senha */}
               <PasswordPolicy password={form.password} />
 
-              {/* Papéis (roles) – agora SELEÇÃO ÚNICA */}
+              {/* Papéis (roles) – seleção única */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -525,7 +640,7 @@ export default function UsuariosAdmin() {
                   )}
                 </div>
 
-                {/* Telas extras – lista única e só com o nome */}
+                {/* Telas extras */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <LayoutGrid className="h-4 w-4 text-gray-600" />
@@ -586,7 +701,7 @@ export default function UsuariosAdmin() {
         <Card>
           <CardHeader>
             <CardTitle>Usuários Cadastrados ({users.length})</CardTitle>
-            <CardDescription>Gerencie o papel (Operador/Supervisor/Admin)</CardDescription>
+            <CardDescription>Gerencie o papel e ações de segurança</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-gray-200">
@@ -597,12 +712,19 @@ export default function UsuariosAdmin() {
                 const papel = perfil?.papel || u.papel || 'operador'
                 const isRowBusy = rowLoading === u.username
                 const isMe = me?.username === u.username
+                const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username
+
                 return (
-                  <div key={u.id} className="p-4 hover:bg-gray-50">
+                  <div
+                    key={u.id}
+                    className="p-4 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => openSecurity(u)}
+                    title="Clique para abrir detalhes e ações"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{u.first_name} {u.last_name}</span>
+                          <span className="font-medium text-gray-900">{fullName}</span>
                           <Badge variant={papel === 'admin' ? 'default' : papel === 'supervisor' ? 'secondary' : 'outline'}>
                             {papel === 'admin' ? 'Administrador' : papel === 'supervisor' ? 'Supervisor' : 'Operador'}
                           </Badge>
@@ -612,11 +734,13 @@ export default function UsuariosAdmin() {
                           @{u.username} {u.email ? `• ${u.email}` : ''}
                         </div>
                       </div>
+
                       <div className="flex items-center gap-3">
                         <Select
                           value={papel}
                           onValueChange={(v) => atualizarPapel(u.username, v)}
                           disabled={isRowBusy}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <SelectTrigger className="w-44">
                             <SelectValue />
@@ -627,10 +751,11 @@ export default function UsuariosAdmin() {
                             ))}
                           </SelectContent>
                         </Select>
+
                         <Button
                           variant="ghost"
                           className={`text-red-600 hover:text-red-800 ${isMe ? 'opacity-40 cursor-not-allowed' : ''}`}
-                          onClick={() => removerUsuario(u.id, u.username)}
+                          onClick={(e) => { e.stopPropagation(); removerUsuario(u.id, u.username) }}
                           disabled={isRowBusy || isMe}
                           title={isMe ? 'Você não pode excluir sua própria conta' : 'Excluir usuário'}
                         >
@@ -645,6 +770,135 @@ export default function UsuariosAdmin() {
           </CardContent>
         </Card>
       </div>
+
+      {/* =======================
+          Dialog de Segurança
+          ======================= */}
+      <Dialog open={securityOpen} onOpenChange={setSecurityOpen}>
+        <DialogContent className="sm:max-w-xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Segurança do usuário</DialogTitle>
+            <DialogDescription>
+              Visualize o status e execute ações como desbloquear e gerar senha temporária.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Conteúdo do modal */}
+          {!selectedUser ? (
+            <div className="text-sm text-gray-500">Selecione um usuário…</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded border p-3 bg-gray-50">
+                <div className="font-medium text-gray-900">
+                  {(selectedUser.first_name || selectedUser.last_name)
+                    ? `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim()
+                    : selectedUser.username}
+                </div>
+                <div className="text-sm text-gray-600">
+                  @{selectedUser.username} {selectedUser.email ? `• ${selectedUser.email}` : ''}
+                </div>
+              </div>
+
+              {/* status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded border p-3">
+                  <div className="text-xs text-gray-500 mb-1">Bloqueio</div>
+                  <div className="flex items-center gap-2">
+                    {securityData?.is_locked ? (
+                      <>
+                        <Lock className="h-4 w-4 text-red-600" />
+                        <span className="text-red-700 text-sm">Bloqueado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="h-4 w-4 text-green-600" />
+                        <span className="text-green-700 text-sm">Ativo</span>
+                      </>
+                    )}
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      Tentativas: {securityData?.failed_logins ?? 0}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="rounded border p-3">
+                  <div className="text-xs text-gray-500 mb-1">Senha</div>
+                  <div className="space-y-1 text-sm">
+                    <div>Última troca: <span className="font-medium">{formatDateTime(securityData?.last_password_change)}</span></div>
+                    <div>Expira em: <span className="font-medium">{formatDateTime(securityData?.expires_at)}</span></div>
+                    <div>Troca obrigatória no próximo login: <span className="font-medium">{securityData?.must_change_password ? 'Sim' : 'Não'}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* mensagens */}
+              {securityError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{securityError}</AlertDescription>
+                </Alert>
+              )}
+              {securitySuccess && (
+                <Alert className="border-green-200 bg-green-50">
+                  <AlertDescription className="text-green-800">{securitySuccess}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Senha temporária gerada */}
+              {tempPassword && (
+                <div className="rounded-md border p-3 bg-amber-50">
+                  <div className="text-sm font-medium text-amber-900 mb-1">Senha temporária gerada</div>
+                  <div className="flex items-center gap-2">
+                    <Input readOnly value={tempPassword} className="font-mono text-sm" />
+                    <Button type="button" variant="outline" onClick={copyTempPassword} className="gap-2">
+                      <Copy className="h-4 w-4" />
+                      Copiar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-800 mt-2">
+                    Entregue ao usuário por um canal seguro. Ele será obrigado a definir uma nova senha no próximo login.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!selectedUser || securityLoading}
+                onClick={unlockUser}
+                className="gap-2"
+              >
+                <Unlock className="h-4 w-4" />
+                Desbloquear
+              </Button>
+
+              <Button
+                type="button"
+                disabled={!selectedUser || securityLoading}
+                onClick={forceReset}
+                className="gap-2"
+              >
+                <KeyRound className="h-4 w-4" />
+                Gerar senha temporária
+              </Button>
+            </div>
+
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">Fechar</Button>
+            </DialogClose>
+          </DialogFooter>
+
+          {/* Loading fino */}
+          {securityLoading && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center rounded-md">
+              <div className="text-sm text-gray-700">Processando…</div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
