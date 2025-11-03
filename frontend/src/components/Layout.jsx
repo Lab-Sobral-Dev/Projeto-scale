@@ -22,6 +22,27 @@ import {
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 const AUTH_ME_URL = `${API_BASE}/usuarios/auth/me/`
 
+// ---- helpers de normalização/merge de permissões ----
+const norm = (s) => (typeof s === 'string' ? s.trim().toLowerCase() : '')
+function getAllowedFromStorage() {
+  try {
+    const raw = localStorage.getItem('allowed_screens')
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.map(norm).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+function mergeAllowed(...lists) {
+  const set = new Set()
+  lists.forEach((l) => {
+    if (Array.isArray(l)) l.forEach((x) => set.add(norm(x)))
+  })
+  return Array.from(set)
+}
+
 const Layout = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [logoError, setLogoError] = useState(false)
@@ -29,15 +50,14 @@ const Layout = ({ user, onLogout }) => {
   const [loadingMe, setLoadingMe] = useState(false)
   const location = useLocation()
 
-  // --- hidrata /auth/me se necessário (ex.: user sem allowedScreens) ---
+  // --- hidrata /auth/me se necessário ---
   useEffect(() => {
     let mounted = true
-    // já temos allowed screens no prop?
     const hasAllowedFromProp =
       Array.isArray(user?.allowedScreens) || Array.isArray(user?.allowed_screens)
 
     if (hasAllowedFromProp) {
-      setMe(null) // não precisa de fallback
+      setMe(null) // já temos permissões no prop
       return
     }
 
@@ -52,8 +72,7 @@ const Layout = ({ user, onLogout }) => {
           })
           if (!mounted) return
           if (!res.ok) {
-            // se 401, deixa sem me (menu ficará só com Sobre para não-admins)
-            setMe(null)
+            setMe(null) // sem /auth/me → seguimos com storage + prop
             return
           }
           const data = await res.json()
@@ -70,18 +89,20 @@ const Layout = ({ user, onLogout }) => {
 
   // escolhe a melhor fonte do usuário efetivo
   const effectiveUser = useMemo(() => {
-    // prioriza prop se tiver allowed screens; senão, usa /auth/me
     const propHasAllowed = Array.isArray(user?.allowedScreens) || Array.isArray(user?.allowed_screens)
     if (propHasAllowed) return user
     if (me) return me
     return user || me
   }, [user, me])
 
-  const allowedList =
+  // permissões vindas de: prop + /auth/me + localStorage
+  const allowedFromProp =
     (Array.isArray(effectiveUser?.allowedScreens) && effectiveUser.allowedScreens) ||
     (Array.isArray(effectiveUser?.allowed_screens) && effectiveUser.allowed_screens) ||
     []
+  const allowedFromStorage = getAllowedFromStorage()
 
+  const allowedList = mergeAllowed(allowedFromProp, allowedFromStorage)
   const allowed = useMemo(() => new Set(allowedList), [allowedList])
 
   const isAdmin =
@@ -89,7 +110,7 @@ const Layout = ({ user, onLogout }) => {
     effectiveUser?.is_staff === true ||
     effectiveUser?.is_superuser === true
 
-  // Mapeie cada item para o code da Screen no backend (iguais ao seed que criamos)
+  // Mapeie cada item para o code da Screen no backend (iguais ao seed)
   const navigation = [
     { name: 'Home', href: '/', icon: Home, requiredScreen: 'dashboard' },
     { name: 'Cadastrar Matéria-Prima', href: '/cadastro-materia-prima', icon: Layers, requiredScreen: 'cadastro_mp' },
@@ -100,14 +121,27 @@ const Layout = ({ user, onLogout }) => {
     { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale, requiredScreen: 'nova_pesagem' },
     { name: 'Histórico', href: '/historico', icon: History, requiredScreen: 'historico_pesagens' },
     { name: 'Balanças', href: '/balancas', icon: Weight, requiredScreen: 'balancas' },
-    { name: 'Sobre', href: '/sobre', icon: ScrollText, requiredScreen: 'sobre' },
+    // 🔒 Auditoria: só admin
+    { name: 'Auditoria', href: '/auditoria', icon: ScrollText, requiredScreen: 'auditoria', adminOnly: true },
+    // 🔸 Sobre sempre visível
+    { name: 'Sobre', href: '/sobre', icon: ScrollText },
   ]
 
+
   const canSee = (item) => {
+    // Se item é exclusivo de admin, só mostra para admin
+    if (item.adminOnly) return isAdmin
+
+    // Admin vê tudo
     if (isAdmin) return true
+
+    // Itens sem requiredScreen (ex.: Sobre) ficam sempre visíveis
     if (!item.requiredScreen) return true
-    return allowed.has(item.requiredScreen)
+
+    // Caso contrário, depende das permissões permitidas
+    return allowed.has(String(item.requiredScreen).trim().toLowerCase())
   }
+
 
   const visibleNav = navigation.filter(canSee)
 
@@ -150,8 +184,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -160,7 +194,6 @@ const Layout = ({ user, onLogout }) => {
                 </Link>
               )
             })}
-            {/* Se ainda está carregando /auth/me e nada aparece, evita “menu vazio” para não-admin */}
             {visibleNav.length === 0 && loadingMe && (
               <div className="px-2 text-sm text-gray-500">Carregando permissões…</div>
             )}
@@ -185,8 +218,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -214,14 +247,14 @@ const Layout = ({ user, onLogout }) => {
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* 🔹 Texto centralizado “Homologação” */}
+          {/* “Homologação” centralizado */}
           <div className="absolute inset-x-0 flex justify-center items-center pointer-events-none">
             <span className="text-sm font-semibold text-gray-700 tracking-wide uppercase">
               Homologação
             </span>
           </div>
 
-          {/* 🔹 Conteúdo alinhado à direita */}
+          {/* Usuário + logout à direita */}
           <div className="flex flex-1 justify-end items-center gap-x-4 lg:gap-x-6">
             <div className="flex items-center gap-x-2">
               <Link
