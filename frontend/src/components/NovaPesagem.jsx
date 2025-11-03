@@ -37,6 +37,8 @@ const toNumber = (v) => {
   return Number(s.replace(/\./g, '').replace(',', '.')) || 0
 }
 
+const isNonEmpty = (s) => typeof s === 'string' ? s.trim().length > 0 : !!s
+
 const NovaPesagem = () => {
   const [localUser, setLocalUser] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -51,6 +53,7 @@ const NovaPesagem = () => {
 
   const [openItem, setOpenItem] = useState(false)
   const [searchItem, setSearchItem] = useState('')
+  const [triedSubmit, setTriedSubmit] = useState(false)
 
   // refs opcionais para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
@@ -173,7 +176,6 @@ const NovaPesagem = () => {
     setFormData(prev => ({ ...prev, [name]: value }))
     setError('')
     setSuccess('')
-    // manter createdId até gerar etiqueta; só limpamos ao iniciar novo envio
     setCreatedId(null)
   }
 
@@ -211,11 +213,12 @@ const NovaPesagem = () => {
     }
   }, [itemSelecionado])
 
-  // Campos obrigatórios
+  // ---- REQUERIDOS (agora inclui Lote MP) ----
   const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido && formData.tara
+  const loteObrigatorioOK = isNonEmpty(formData.loteMP)
 
-  // Pode salvar quando não excede o máximo (parciais abaixo do mínimo são ok)
-  const canSave = !loading && hasCamposBasicos && !excedeMaximo && liquidoKg > 0 && taraKg >= 0
+  // Pode salvar quando não excede o máximo (parciais abaixo do mínimo são ok) e LOTE OK
+  const canSave = !loading && hasCamposBasicos && loteObrigatorioOK && !excedeMaximo && liquidoKg > 0 && taraKg >= 0
 
   const refreshItensOP = async (opId) => {
     try {
@@ -232,7 +235,6 @@ const NovaPesagem = () => {
       setItensOP(itens)
     } catch (err) {
       console.error('Erro ao atualizar itens da OP', err)
-      // mantém a tela funcional mesmo se a atualização falhar
     }
   }
 
@@ -242,7 +244,6 @@ const NovaPesagem = () => {
       liquido: '',
       tara: ''
     }))
-    // foco volta para o campo de líquido, agilizando o fluxo de pesagens
     setTimeout(() => {
       if (liquidoRef.current) liquidoRef.current.focus()
     }, 0)
@@ -250,6 +251,7 @@ const NovaPesagem = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setTriedSubmit(true)
     setLoading(true)
     setError('')
     setSuccess('')
@@ -258,6 +260,11 @@ const NovaPesagem = () => {
     try {
       if (!hasCamposBasicos) {
         setError('Preencha OP, Item da OP, Líquido e Tara.')
+        setLoading(false)
+        return
+      }
+      if (!loteObrigatorioOK) {
+        setError('Informe o Lote da Matéria-Prima (campo obrigatório).')
         setLoading(false)
         return
       }
@@ -297,12 +304,10 @@ const NovaPesagem = () => {
       setCreatedId(created?.id)
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
 
-      // 🔄 Atualiza apenas o saldo dos itens da OP selecionada
       if (formData.op) {
         await refreshItensOP(formData.op)
       }
 
-      // 🧹 Limpa somente Líquido e Tara e foca novamente
       limparLiquidoETara()
 
     } catch (err) {
@@ -328,6 +333,7 @@ const NovaPesagem = () => {
     setItensOP([])
     setOpenItem(false)
     setSearchItem('')
+    setTriedSubmit(false)
     setTimeout(() => liquidoRef.current?.focus(), 0)
   }
 
@@ -364,6 +370,8 @@ const NovaPesagem = () => {
     return o ? `OP ${o.numero} • ${o.produtoNome} • Lote ${o.lote} (${o.status})` : undefined
   }, [formData.op, ops])
 
+  const showLoteErro = !loteObrigatorioOK && triedSubmit
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -386,7 +394,7 @@ const NovaPesagem = () => {
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Ordem dos inputs:
                 OP, Produto, OP/Lote, Item da OP, Código Interno, Lote MP, Balança, Tara, Peso Líquido */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -398,6 +406,7 @@ const NovaPesagem = () => {
                   value={String(formData.op || '')}
                   onValueChange={handleOPChange}
                   disabled={loading}
+                  required
                 >
                   <SelectTrigger
                     className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis"
@@ -516,19 +525,30 @@ const NovaPesagem = () => {
                 />
               </div>
 
-              {/* Lote MP */}
+              {/* Lote MP — OBRIGATÓRIO */}
               <div className="space-y-2">
-                <Label htmlFor="loteMP">Lote MP</Label>
+                <Label htmlFor="loteMP">Lote MP <span className="text-red-600">*</span></Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="loteMP"
                     type="text"
                     value={formData.loteMP}
                     onChange={(e) => handleChange('loteMP', e.target.value)}
+                    onBlur={(e) => handleChange('loteMP', e.target.value.trim())}
                     placeholder="Ex.: L2408-XYZ"
-                    className="flex-1"
+                    className={cn(
+                      'flex-1',
+                      showLoteErro && 'border-red-500 focus-visible:ring-red-500'
+                    )}
+                    required
+                    aria-required="true"
+                    maxLength={60} // casa com models.CharField(max_length=60)
+                    title="Informe o lote da matéria-prima (obrigatório)."
                   />
                 </div>
+                {showLoteErro && (
+                  <p className="text-sm text-red-600">Informe o Lote da Matéria-Prima.</p>
+                )}
               </div>
 
               {/* Balança — Select controlado (sempre string) */}
@@ -566,7 +586,7 @@ const NovaPesagem = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="liquido">Peso Líquido (kg) *</Label>
+                <Label htmlFor="liquido">Peso Líquido (kg) <span className="text-red-600">*</span></Label>
                 <Input
                   id="liquido"
                   ref={liquidoRef}
@@ -575,6 +595,8 @@ const NovaPesagem = () => {
                   value={formData.liquido}
                   onChange={(e) => handleChange('liquido', e.target.value)}
                   placeholder="0,000 kg"
+                  required
+                  aria-required="true"
                 />
               </div>
             </div>

@@ -213,7 +213,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
           <Button asChild className="flex items-center gap-2">
             <Link to="/usuarios">
               <UserPlus className="h-4 w-4" />
-              Cadastrar usuários
+              Usuários
             </Link>
           </Button>
         )}

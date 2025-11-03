@@ -1,9 +1,7 @@
-# models.py
-
 from decimal import Decimal
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from django.db.models import F, Sum, Q
+from django.db.models import F, Sum
 from django.utils import timezone
 
 KG_TO_G = Decimal('1000')
@@ -291,12 +289,11 @@ class Pesagem(models.Model):
     )
     codigo_interno = models.CharField(max_length=50, default='TEMP')
 
-    # Lote da MP utilizada
+    # Lote da MP utilizada — OBRIGATÓRIO
     lote_mp = models.CharField(
         "lote_MP",
         max_length=60,
-        blank=True,
-        default="",
+        blank=False,                 # obrigatório em forms/admin/DRF
         db_index=True,
         help_text="Identificador do lote da matéria-prima usado nesta pesagem (ex.: 24A0321)."
     )
@@ -318,11 +315,19 @@ class Pesagem(models.Model):
         if tara_kg < 0 or liquido_kg_informado <= 0:
             raise ValidationError("Informe tara (kg) ≥ 0 e líquido (kg) > 0.")
 
+        # Lote MP obrigatório
+        if not self.lote_mp or not str(self.lote_mp).strip():
+            raise ValidationError("Informe o lote da matéria-prima (lote_MP é obrigatório).")
+
     @transaction.atomic
     def save(self, *args, **kwargs):
         # Normaliza o lote
-        if self.lote_mp:
-            self.lote_mp = self.lote_mp.strip()
+        if self.lote_mp is not None:
+            self.lote_mp = str(self.lote_mp).strip()
+
+        # Como clean() pode não ser chamado em todos os fluxos, garanta aqui também:
+        if not self.lote_mp:
+            raise ValidationError("Informe o lote da matéria-prima (lote_MP é obrigatório).")
 
         # Lê entradas em kg (front manda em kg)
         tara_kg = self.tara or 0
