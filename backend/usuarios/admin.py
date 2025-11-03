@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.utils.html import format_html
+from django.utils import timezone
+
 from .models import PerfilUsuario, Screen, Role
 from .models_security import LoginSecurity
 
@@ -74,19 +77,60 @@ class RoleAdmin(admin.ModelAdmin):
 # -----------------------------
 @admin.register(LoginSecurity)
 class LoginSecurityAdmin(admin.ModelAdmin):
-    list_display = ("user", "failed_logins", "is_locked", "locked_at", "updated_at")
-    list_filter = ("is_locked",)
+    list_display = (
+        "user",
+        "failed_logins",
+        "is_locked",
+        "must_change_password",
+        "password_status",
+        "locked_at",
+        "last_password_change",
+        "updated_at",
+    )
+    list_filter = ("is_locked", "must_change_password")
     date_hierarchy = "locked_at"
     search_fields = ("user__username", "user__first_name", "user__last_name")
     autocomplete_fields = ("user",)
-    # Evita edições manuais acidentais
     readonly_fields = ("failed_logins", "locked_at", "updated_at")
-    actions = ["unlock_selected"]
+    actions = [
+        "unlock_selected",
+        "force_expiration",
+        "mark_change_required",
+    ]
 
+    def password_status(self, obj: LoginSecurity):
+        if obj.is_password_expired():
+            return format_html('<span style="color:red;">Expirada</span>')
+        if obj.must_change_password:
+            return format_html('<span style="color:orange;">Troca obrigatória</span>')
+        return format_html('<span style="color:green;">Válida</span>')
+    password_status.short_description = "Status senha"
+
+    @admin.action(description="Desbloquear usuários selecionados")
     def unlock_selected(self, request, queryset):
-        updated = queryset.update(is_locked=False, failed_logins=0, locked_at=None)
-        self.message_user(request, f"{updated} registro(s) desbloqueado(s).")
-    unlock_selected.short_description = "Desbloquear usuários selecionados"
+        updated = 0
+        for sec in queryset:
+            sec.failed_logins = 0
+            sec.is_locked = False
+            sec.locked_at = None
+            sec.save(update_fields=["failed_logins", "is_locked", "locked_at"])
+            updated += 1
+        self.message_user(request, f"{updated} usuário(s) desbloqueado(s).")
+
+    @admin.action(description="Forçar expiração imediata da senha (90 dias retroativos)")
+    def force_expiration(self, request, queryset):
+        updated = 0
+        for sec in queryset:
+            sec.last_password_change = timezone.now() - timezone.timedelta(days=91)
+            sec.must_change_password = True
+            sec.save(update_fields=["last_password_change", "must_change_password"])
+            updated += 1
+        self.message_user(request, f"{updated} senha(s) marcadas como expirada(s).")
+
+    @admin.action(description="Marcar 'troca obrigatória' sem alterar data")
+    def mark_change_required(self, request, queryset):
+        updated = queryset.update(must_change_password=True)
+        self.message_user(request, f"{updated} usuário(s) precisarão trocar senha no próximo login.")
 
 
 # -----------------------------
@@ -125,11 +169,22 @@ try:
 
     @admin.register(User)
     class UserAdmin(BaseUserAdmin):
-        # Padroniza para tuple (funciona mesmo se BaseUserAdmin.actions for None/list/tuple)
         _base_actions = getattr(BaseUserAdmin, "actions", None) or ()
         actions = (*_base_actions, unlock_users)
         inlines = [LoginSecurityInline]
 
+        # Mostra flag de troca obrigatória diretamente na listagem
+        def must_change_password(self, obj):
+            try:
+                sec = obj.security
+                if sec.must_change_password:
+                    return format_html('<span style="color:orange;">Sim</span>')
+                return format_html('<span style="color:green;">Não</span>')
+            except LoginSecurity.DoesNotExist:
+                return "—"
+        must_change_password.short_description = "Troca obrigatória"
+
+        list_display = BaseUserAdmin.list_display + ('must_change_password',)
+
 except admin.sites.AlreadyRegistered:
-    # Se o User já estiver registrado em outro lugar, ignore.
     pass

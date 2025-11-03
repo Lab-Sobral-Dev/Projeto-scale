@@ -53,25 +53,53 @@ const Login = ({ onLogin }) => {
       localStorage.setItem('access', tokens.access)
       if (tokens.refresh) localStorage.setItem('refresh', tokens.refresh)
 
-      // claims úteis (allowed_screens, username, etc.)
+      // claims úteis
       const claims = decodeJwt(tokens.access)
       if (claims?.allowed_screens) {
         localStorage.setItem('allowed_screens', JSON.stringify(claims.allowed_screens))
       }
 
-      // /me para dados de perfil
-      const me = await api.me()
-      const userData = {
-        id: me?.id,
-        nome: `${me?.first_name || ''} ${me?.last_name || ''}`.trim() || me?.username,
-        usuario: me?.username,
-        email: me?.email,
-        papel: me?.papel || 'operador',
-        is_staff: me?.is_staff ?? false,
+      const mustChange = !!claims?.must_change_password
+      const expired = !!claims?.password_expired
+
+      // guarda flags para a tela de alteração usar (opcional)
+      localStorage.setItem('pwd_flags', JSON.stringify({ mustChange, expired }))
+
+      // tenta /me (pode falhar com 403 se bloqueado por política)
+      let userData = null
+      try {
+        const me = await api.me()
+        userData = {
+          id: me?.id,
+          nome: `${me?.first_name || ''} ${me?.last_name || ''}`.trim() || me?.username || claims?.username,
+          usuario: me?.username || claims?.username,
+          email: me?.email || '',
+          papel: me?.papel || (claims?.is_staff ? 'admin' : 'operador'),
+          is_staff: me?.is_staff ?? !!claims?.is_staff,
+        }
+      } catch {
+        // fallback mínimo só para manter estado do app caso precise
+        userData = {
+          id: undefined,
+          nome: claims?.username || formData.usuario.trim(),
+          usuario: claims?.username || formData.usuario.trim(),
+          email: '',
+          papel: claims?.is_staff ? 'admin' : 'operador',
+          is_staff: !!claims?.is_staff,
+        }
       }
 
       onLogin?.(userData, tokens.access)
-      navigate('/', { replace: true })
+
+      // fluxo de redirecionamento conforme flags
+      if (mustChange || expired) {
+        navigate('/alterar-senha', {
+          replace: true,
+          state: { reason: mustChange ? 'reset' : 'expired' },
+        })
+      } else {
+        navigate('/', { replace: true })
+      }
     } catch (err) {
       const status = err?.status || err?.response?.status
       if (status === 423) {
@@ -84,6 +112,7 @@ const Login = ({ onLogin }) => {
       localStorage.removeItem('access')
       localStorage.removeItem('refresh')
       localStorage.removeItem('allowed_screens')
+      localStorage.removeItem('pwd_flags')
     } finally {
       setLoading(false)
     }
@@ -172,9 +201,6 @@ const Login = ({ onLogin }) => {
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
 
-            <p className="text-xs text-gray-500 text-center">
-              Regras de senha: mínimo 10 caracteres com letra maiúscula, minúscula, número e símbolo.
-            </p>
           </form>
         </CardContent>
       </Card>

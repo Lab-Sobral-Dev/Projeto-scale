@@ -13,7 +13,6 @@ def ensure_defaults(sender, **kwargs):
     - Cria telas do SCREENS_REGISTRY (se houver)
     - Atribui todas as telas ao papel admin
     """
-    # qual banco está sendo migrado (default, etc.)
     using = kwargs.get("using", "default")
     conn = connections[using]
 
@@ -26,13 +25,12 @@ def ensure_defaults(sender, **kwargs):
     required = {
         "usuarios_role",
         "usuarios_screen",
-        # m2m que o Django cria (os nomes podem variar conforme o teu schema):
+        # m2m (nomes podem variar conforme o schema, mantenha estes):
         "usuarios_role_screens",
         "usuarios_perfilusuario_roles",
         "usuarios_perfilusuario_extra_screens",
     }
 
-    # se qualquer uma das tabelas essenciais não existir, não faz nada agora
     if not required.issubset(existing_tables):
         return
 
@@ -54,10 +52,69 @@ def ensure_defaults(sender, **kwargs):
         # se ainda assim algo falhar por ordem de migrações, silencie e deixe para a próxima execução
         return
 
+
+def ensure_security_backfill(sender, **kwargs):
+    """
+    Pós-migrate complementar:
+    - Só executa quando as tabelas necessárias existirem.
+    - Garante que todo usuário tenha um registro em LoginSecurity (backfill).
+    - Não altera estados existentes; apenas cria o que falta.
+    """
+    using = kwargs.get("using", "default")
+    conn = connections[using]
+
+    try:
+        existing_tables = set(conn.introspection.table_names())
+    except Exception:
+        return
+
+    # Tabelas necessárias para o backfill
+    required = {
+        "auth_user",                 # tabela do User padrão do Django
+        "usuarios_loginsecurity",    # tabela do LoginSecurity
+    }
+    if not required.issubset(existing_tables):
+        return
+
+    from django.contrib.auth import get_user_model
+    from .models_security import LoginSecurity
+
+    User = get_user_model()
+
+    try:
+        with transaction.atomic(using=using):
+            # Seleciona apenas os usuários sem registro de segurança
+            user_ids_with_sec = set(
+                LoginSecurity.objects.using(using).values_list("user_id", flat=True)
+            )
+            missing = (
+                User.objects.using(using)
+                .exclude(id__in=user_ids_with_sec)
+                .values_list("id", flat=True)
+            )
+
+            created = 0
+            for uid in missing:
+                LoginSecurity.objects.using(using).get_or_create(user_id=uid)
+                created += 1
+
+            if created:
+                # Log simples via print para não depender de LOGGING em fase de migração
+                print(f"[usuarios.apps] LoginSecurity backfill: criados {created} registro(s).")
+    except (ProgrammingError, OperationalError):
+        # Se a ordem de migrações ainda não permite, deixe para a próxima execução
+        return
+
+
 class UsuariosConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'usuarios'
 
     def ready(self):
-        from . import signals  # registra receivers
+        # registra receivers (signals de perfil/telas + criação do LoginSecurity on_create)
+        from . import signals  # noqa: F401
+
+        # pós-migrate: defaults de telas/papel
         post_migrate.connect(ensure_defaults, sender=self)
+        # pós-migrate: backfill de segurança (garante que todos os usuários tenham LoginSecurity)
+        post_migrate.connect(ensure_security_backfill, sender=self)

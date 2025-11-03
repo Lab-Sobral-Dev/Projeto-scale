@@ -31,6 +31,7 @@ class ApiService {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
     localStorage.removeItem("allowed_screens");
+    localStorage.removeItem("pwd_flags");
   }
 
   // ===== Navegação segura para login =====
@@ -208,6 +209,34 @@ class ApiService {
     this.clearTokens();
     this._redirectToLogin();
     return true;
+  }
+
+  // ===== Segurança do usuário (admin) =====
+  async getUserSecurity(userId) {
+    return this.request(`${this.baseUsuarios}/security/${userId}/`);
+  }
+
+  async unlockUser(userId) {
+    return this.request(`${this.baseUsuarios}/security/${userId}/unlock/`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  }
+
+  async forceResetUser(userId, temporary_password) {
+    const body = temporary_password ? { temporary_password } : {};
+    return this.request(`${this.baseUsuarios}/security/${userId}/force-reset/`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  // ===== Troca de senha (usuário autenticado) =====
+  async changePassword({ current_password, new_password, confirm_password }) {
+    return this.request(`${this.baseUsuarios}/auth/change-password/`, {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password, confirm_password }),
+    });
   }
 
   // ===== Produtos (/api/registro/produtos/) =====

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useState, useEffect } from 'react'
 
 import Login from './components/Login'
+import AlterarSenha from './components/AlterarSenha'
 import Dashboard from './components/Dashboard'
 import NovaPesagem from './components/NovaPesagem'
 import Ops from '@/components/Ops'
@@ -72,6 +73,7 @@ function App() {
           }
         >
           <Route path="/" element={<Dashboard />} />
+          <Route path="/alterar-senha" element={<AlterarSenha />} />
 
           <Route path="/nova-pesagem" element={<NovaPesagem />} />
           <Route path="/ops" element={<Ops />} />
