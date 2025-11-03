@@ -527,7 +527,7 @@ const NovaPesagem = () => {
 
               {/* Lote MP — OBRIGATÓRIO */}
               <div className="space-y-2">
-                <Label htmlFor="loteMP">Lote MP <span className="text-red-600">*</span></Label>
+                <Label htmlFor="loteMP">Lote MP <span className="text-red-600"></span></Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="loteMP"
@@ -535,7 +535,6 @@ const NovaPesagem = () => {
                     value={formData.loteMP}
                     onChange={(e) => handleChange('loteMP', e.target.value)}
                     onBlur={(e) => handleChange('loteMP', e.target.value.trim())}
-                    placeholder="Ex.: L2408-XYZ"
                     className={cn(
                       'flex-1',
                       showLoteErro && 'border-red-500 focus-visible:ring-red-500'
@@ -586,7 +585,7 @@ const NovaPesagem = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="liquido">Peso Líquido (kg) <span className="text-red-600">*</span></Label>
+                <Label htmlFor="liquido">Peso Líquido (kg) <span className="text-red-600"></span></Label>
                 <Input
                   id="liquido"
                   ref={liquidoRef}

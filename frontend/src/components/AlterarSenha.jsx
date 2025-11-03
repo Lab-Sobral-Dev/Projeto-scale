@@ -9,7 +9,7 @@ import { Scale, Eye, EyeOff } from 'lucide-react'
 import api from '@/services/api'
 
 // validação local (espelha o backend)
-const hasMin = (s) => (s || '').length >= 10
+const hasMin = (s) => (s || '').length >= 8
 const hasUpper = (s) => /[A-Z]/.test(s || '')
 const hasLower = (s) => /[a-z]/.test(s || '')
 const hasDigit = (s) => /\d/.test(s || '')
@@ -220,7 +220,7 @@ const AlterarSenha = () => {
 
                         {/* Regras de senha - mesmo estilo do login (texto simples) */}
                         <ul className="grid grid-cols-2 gap-x-4 gap-y-1 bg-white/50 rounded-md p-3">
-                            <Rule ok={meets.min}>Mínimo de 10 caracteres</Rule>
+                            <Rule ok={meets.min}>Mínimo de 8 caracteres</Rule>
                             <Rule ok={meets.upper}>Pelo menos 1 letra maiúscula</Rule>
                             <Rule ok={meets.lower}>Pelo menos 1 letra minúscula</Rule>
                             <Rule ok={meets.digit}>Pelo menos 1 número</Rule>
