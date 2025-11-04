@@ -7,31 +7,107 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { listarLogs, exportarCsv } from "@/services/auditoria"
 import { Download, RefreshCcw, Search } from "lucide-react"
 
-const ACTIONS = ["request","create","update","delete","login","logout","token_refresh","label_print","error"]
-const METHODS = ["GET","POST","PUT","PATCH","DELETE"]
+const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
 
-// helper para mapear o sentinela "__ALL__" de volta para string vazia no estado
+// API base para buscar os motivos padronizados
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
+const MOTIVOS_URL = `${API_BASE}/registro/pesagens/motivos/`
+
+// helper: sentinela "__ALL__" -> string vazia
 const mapAll = (v) => (v === "__ALL__" ? "" : v)
+
+// extrai o melhor "display" para usuário
+const userDisplay = (r) =>
+  r.user_name || r.user_display || r.username || r.user || "-"
+
+// Fortaleza
+const tz = 'America/Fortaleza'
+const fmtDate = (iso) => {
+  try { return new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) } catch { return "-" }
+}
+
+// tenta extrair motivo/observação de várias formas possíveis (changes/extra)
+function extractReason(record) {
+  const c = record?.changes || {}
+  const e = record?.extra || {}
+  // chaves candidatas
+  const reason =
+    c.reason || c.motivo || c.motivo_edicao || c.motivo_exclusao ||
+    e.reason || e.motivo || e.motivo_edicao || e.motivo_exclusao || ""
+  const note =
+    c.reason_note || c.motivo_obs || c.motivo_observacao ||
+    e.reason_note || e.motivo_obs || e.motivo_observacao || ""
+  return { reason: String(reason || ""), note: String(note || "") }
+}
+
+// badge helpers
+const methodClass = (m) =>
+  ({ GET: "bg-blue-50 text-blue-700", POST: "bg-green-50 text-green-700", PUT: "bg-amber-50 text-amber-700", PATCH: "bg-amber-50 text-amber-700", DELETE: "bg-red-50 text-red-700" }[m] || "bg-gray-50 text-gray-600")
+
+const actionClass = (a) =>
+  ({ update: "bg-amber-50 text-amber-700", delete: "bg-red-50 text-red-700", create: "bg-green-50 text-green-700", login: "bg-emerald-50 text-emerald-700", logout: "bg-slate-50 text-slate-700", error: "bg-rose-50 text-rose-700" }[a] || "bg-gray-50 text-gray-700")
+
+const statusClass = (s) => {
+  if (!s && s !== 0) return "bg-gray-50 text-gray-600"
+  if (s >= 500) return "bg-rose-50 text-rose-700"
+  if (s >= 400) return "bg-amber-50 text-amber-700"
+  if (s >= 200) return "bg-green-50 text-green-700"
+  return "bg-gray-50 text-gray-600"
+}
 
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState({
     q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
     start: "", end: "", ordering: "-timestamp",
+    reason: "" // novo: filtro por motivo
   })
   const [data, setData] = useState({ count: 0, results: [] })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+
+  // motivos carregados do backend
+  const [motivosEdit, setMotivosEdit] = useState({})
+  const [motivosDelete, setMotivosDelete] = useState({})
+  const motivoOptions = useMemo(() => {
+    // junta e remove duplicatas
+    const merged = { ...motivosEdit, ...motivosDelete }
+    // mantém "outro" por último
+    const entries = Object.entries(merged).filter(([k]) => k && k !== "outro")
+    entries.sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+    if (merged.outro) entries.push(["outro", merged.outro])
+    return entries
+  }, [motivosEdit, motivosDelete])
 
   useEffect(() => {
     fetchData(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.ordering])
 
+  useEffect(() => {
+    // carrega motivos de edição/exclusão para exibir/filtrar
+    ; (async () => {
+      try {
+        const res = await fetch(MOTIVOS_URL, { headers: { Authorization: `Bearer ${localStorage.getItem('access') || ''}` } })
+        if (!res.ok) return
+        const json = await res.json()
+        setMotivosEdit(json?.edit || {})
+        setMotivosDelete(json?.delete || {})
+      } catch { /* silencioso */ }
+    })()
+  }, [])
+
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
+      // Não alteramos o serviço; o filtro "reason" será aplicado client-side abaixo.
       const resp = await listarLogs({ filters, page: pg })
-      setData(resp)
+      // filtro por motivo (client-side) usando extractReason()
+      let results = resp?.results || []
+      if (filters.reason) {
+        results = results.filter(r => extractReason(r).reason === filters.reason)
+      }
+      setData({ count: resp?.count ?? results.length, results })
       setPage(pg)
     } finally {
       setLoading(false)
@@ -48,6 +124,10 @@ export default function LogsAuditoria() {
     return Math.max(1, Math.ceil((data?.count || 0) / pageSize))
   }, [data?.count])
 
+  // JSON colapsável
+  const [openJson, setOpenJson] = useState({}) // key -> bool
+  const toggleJson = (k) => setOpenJson(prev => ({ ...prev, [k]: !prev[k] }))
+
   return (
     <div className="space-y-4">
       <Card>
@@ -63,7 +143,9 @@ export default function LogsAuditoria() {
                   value={filters.q}
                   onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
                 />
-                <Button type="submit" variant="secondary"><Search className="w-4 h-4" /></Button>
+                <Button type="submit" variant="secondary" disabled={loading}>
+                  <Search className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 
@@ -102,7 +184,7 @@ export default function LogsAuditoria() {
             />
 
             <Input
-              placeholder="User ID"
+              placeholder="Usuário (id/nome)"
               value={filters.user}
               onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
             />
@@ -128,6 +210,20 @@ export default function LogsAuditoria() {
               onChange={e => setFilters(f => ({ ...f, path: e.target.value }))}
             />
 
+            {/* Novo: filtro por motivo (edição/exclusão) */}
+            <Select
+              value={filters.reason || undefined}
+              onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}
+            >
+              <SelectTrigger><SelectValue placeholder="Motivo (edição/exclusão)" /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="__ALL__">(todos)</SelectItem>
+                {motivoOptions.map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select
               value={filters.ordering}
               onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}
@@ -145,7 +241,12 @@ export default function LogsAuditoria() {
               <Button type="submit" disabled={loading}>
                 Aplicar
               </Button>
-              <Button type="button" variant="outline" onClick={() => exportarCsv(data?.results || [])}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => exportarCsv(data?.results || [])}
+                disabled={loading || (data?.results || []).length === 0}
+              >
                 <Download className="w-4 h-4 mr-1" /> CSV
               </Button>
               <Button type="button" variant="ghost" onClick={() => fetchData(page)} disabled={loading}>
@@ -170,33 +271,64 @@ export default function LogsAuditoria() {
                 <th className="px-2 py-2">Ação</th>
                 <th className="px-2 py-2">Modelo</th>
                 <th className="px-2 py-2">Objeto</th>
-                <th className="px-2 py-2">Changes</th>
+                <th className="px-2 py-2">Motivo</th>
+                <th className="px-2 py-2">Obs.</th>
+                <th className="px-2 py-2">Detalhes</th>
               </tr>
             </thead>
             <tbody>
-              {(data?.results || []).map((r, idx) => (
-                <tr key={`${r.timestamp}-${r.model}-${r.object_pk}-${idx}`} className="border-b hover:bg-muted/40">
-                  <td className="px-2 py-2 whitespace-nowrap text-center">
-                    {new Date(r.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2 text-center">{r.user ?? "-"}</td>
-                  <td className="px-2 py-2 text-center">{r.ip ?? "-"}</td>
-                  <td className="px-2 py-2 text-center">{r.method}</td>
-                  <td className="px-2 py-2">{r.path}</td>
-                  <td className="px-2 py-2 text-center">{r.status_code ?? "-"}</td>
-                  <td className="px-2 py-2 text-center">{r.action}</td>
-                  <td className="px-2 py-2 text-center">{r.model || "-"}</td>
-                  <td className="px-2 py-2 text-center">{r.object_pk || "-"}</td>
-                  <td className="px-2 py-2">
-                    <pre className="max-w-[340px] overflow-auto bg-muted/30 p-2 rounded text-xs">
-                      {JSON.stringify(r.changes || r.extra || {}, null, 2)}
-                    </pre>
-                  </td>
-                </tr>
-              ))}
+              {(data?.results || []).map((r, idx) => {
+                const key = `${r.timestamp}-${r.model}-${r.object_pk}-${idx}`
+                const { reason, note } = extractReason(r)
+                // label amigável
+                const label =
+                  motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "-")
+                return (
+                  <tr key={key} className="border-b hover:bg-muted/40">
+                    <td className="px-2 py-2 whitespace-nowrap text-center">{fmtDate(r.timestamp)}</td>
+                    <td className="px-2 py-2 text-center">{userDisplay(r)}</td>
+                    <td className="px-2 py-2 text-center">{r.ip ?? "-"}</td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method}</span>
+                    </td>
+                    <td className="px-2 py-2">{r.path}</td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span>
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{r.action}</span>
+                    </td>
+                    <td className="px-2 py-2 text-center">{r.model || "-"}</td>
+                    <td className="px-2 py-2 text-center">{r.object_pk || "-"}</td>
+
+                    {/* Motivo / Obs */}
+                    <td className="px-2 py-2 text-center">{label}</td>
+                    <td className="px-2 py-2 text-center">
+                      {note ? <span title={note} className="inline-block max-w-[220px] truncate align-middle">{note}</span> : "—"}
+                    </td>
+
+                    {/* JSON colapsável (changes/extra) */}
+                    <td className="px-2 py-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleJson(key)}
+                      >
+                        {openJson[key] ? 'Ocultar' : 'Ver'}
+                      </Button>
+                      {openJson[key] && (
+                        <pre className="mt-2 max-w-[420px] max-h-60 overflow-auto bg-muted/30 p-2 rounded text-xs">
+                          {JSON.stringify(r.changes || r.extra || {}, null, 2)}
+                        </pre>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
 
               {!loading && (data?.results || []).length === 0 && (
-                <tr><td className="px-2 py-6 text-center" colSpan={10}>Sem registros</td></tr>
+                <tr><td className="px-2 py-6 text-center" colSpan={12}>Sem registros</td></tr>
               )}
             </tbody>
           </table>
