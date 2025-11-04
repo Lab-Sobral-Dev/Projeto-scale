@@ -4,34 +4,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
 import { Download, RefreshCcw, Search } from "lucide-react"
 
 const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
 
-// API base para buscar os motivos padronizados
+// API base p/ motivos + usuários (mapeia id->nome)
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 const MOTIVOS_URL = `${API_BASE}/registro/pesagens/motivos/`
+const USERS_URL = `${API_BASE}/usuarios/usuarios/`
 
-// helper: sentinela "__ALL__" -> string vazia
 const mapAll = (v) => (v === "__ALL__" ? "" : v)
 
-// extrai o melhor "display" para usuário
-const userDisplay = (r) =>
-  r.user_name || r.user_display || r.username || r.user || "-"
-
-// Fortaleza
 const tz = 'America/Fortaleza'
 const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) } catch { return "-" }
 }
 
-// tenta extrair motivo/observação de várias formas possíveis (changes/extra)
 function extractReason(record) {
   const c = record?.changes || {}
   const e = record?.extra || {}
-  // chaves candidatas
   const reason =
     c.reason || c.motivo || c.motivo_edicao || c.motivo_exclusao ||
     e.reason || e.motivo || e.motivo_edicao || e.motivo_exclusao || ""
@@ -41,7 +35,6 @@ function extractReason(record) {
   return { reason: String(reason || ""), note: String(note || "") }
 }
 
-// badge helpers
 const methodClass = (m) =>
   ({ GET: "bg-blue-50 text-blue-700", POST: "bg-green-50 text-green-700", PUT: "bg-amber-50 text-amber-700", PATCH: "bg-amber-50 text-amber-700", DELETE: "bg-red-50 text-red-700" }[m] || "bg-gray-50 text-gray-600")
 
@@ -60,24 +53,30 @@ export default function LogsAuditoria() {
   const [filters, setFilters] = useState({
     q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
     start: "", end: "", ordering: "-timestamp",
-    reason: "" // novo: filtro por motivo
+    reason: ""
   })
   const [data, setData] = useState({ count: 0, results: [] })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
 
-  // motivos carregados do backend
+  // motivos e mapeamento id->label
   const [motivosEdit, setMotivosEdit] = useState({})
   const [motivosDelete, setMotivosDelete] = useState({})
   const motivoOptions = useMemo(() => {
-    // junta e remove duplicatas
     const merged = { ...motivosEdit, ...motivosDelete }
-    // mantém "outro" por último
     const entries = Object.entries(merged).filter(([k]) => k && k !== "outro")
     entries.sort((a, b) => String(a[1]).localeCompare(String(b[1])))
     if (merged.outro) entries.push(["outro", merged.outro])
     return entries
   }, [motivosEdit, motivosDelete])
+
+  // usuários para exibir nome em vez do id
+  const [usersMap, setUsersMap] = useState(new Map())
+
+  // Modal de detalhes
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [selected, setSelected] = useState(null) // registro completo do log
+  const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
 
   useEffect(() => {
     fetchData(1)
@@ -85,14 +84,28 @@ export default function LogsAuditoria() {
   }, [filters.ordering])
 
   useEffect(() => {
-    // carrega motivos de edição/exclusão para exibir/filtrar
     ; (async () => {
       try {
-        const res = await fetch(MOTIVOS_URL, { headers: { Authorization: `Bearer ${localStorage.getItem('access') || ''}` } })
-        if (!res.ok) return
-        const json = await res.json()
-        setMotivosEdit(json?.edit || {})
-        setMotivosDelete(json?.delete || {})
+        const headers = { Authorization: `Bearer ${localStorage.getItem('access') || ''}` }
+        // motivos
+        const res = await fetch(MOTIVOS_URL, { headers })
+        if (res.ok) {
+          const json = await res.json()
+          setMotivosEdit(json?.edit || {})
+          setMotivosDelete(json?.delete || {})
+        }
+        // usuários
+        const ur = await fetch(USERS_URL, { headers })
+        if (ur.ok) {
+          const uj = await ur.json()
+          const list = Array.isArray(uj) ? uj : (uj?.results ?? [])
+          const mp = new Map()
+          for (const u of list) {
+            const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || String(u.id)
+            mp.set(String(u.id), name)
+          }
+          setUsersMap(mp)
+        }
       } catch { /* silencioso */ }
     })()
   }, [])
@@ -100,9 +113,7 @@ export default function LogsAuditoria() {
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
-      // Não alteramos o serviço; o filtro "reason" será aplicado client-side abaixo.
       const resp = await listarLogs({ filters, page: pg })
-      // filtro por motivo (client-side) usando extractReason()
       let results = resp?.results || []
       if (filters.reason) {
         results = results.filter(r => extractReason(r).reason === filters.reason)
@@ -124,12 +135,23 @@ export default function LogsAuditoria() {
     return Math.max(1, Math.ceil((data?.count || 0) / pageSize))
   }, [data?.count])
 
-  // JSON colapsável
-  const [openJson, setOpenJson] = useState({}) // key -> bool
-  const toggleJson = (k) => setOpenJson(prev => ({ ...prev, [k]: !prev[k] }))
+  // resolve melhor nome possível do usuário
+  const userDisplay = (r) => {
+    const direct =
+      r.user_name || r.user_display || r.username
+    if (direct) return direct
+    const idStr = r.user != null ? String(r.user) : ""
+    if (idStr && usersMap.has(idStr)) return usersMap.get(idStr)
+    return idStr || "-"
+  }
+
+  // label amigável do motivo
+  const reasonLabel = (reason) =>
+    motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "—")
 
   return (
     <div className="space-y-4">
+      {/* Filtros */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle>Logs de Auditoria</CardTitle>
@@ -139,7 +161,7 @@ export default function LogsAuditoria() {
             <div className="md:col-span-2">
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder="Busca livre (path, model, object_pk, UA)…"
+                  placeholder="Busca livre (path, model, objeto, UA)…"
                   value={filters.q}
                   onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
                 />
@@ -210,7 +232,6 @@ export default function LogsAuditoria() {
               onChange={e => setFilters(f => ({ ...f, path: e.target.value }))}
             />
 
-            {/* Novo: filtro por motivo (edição/exclusão) */}
             <Select
               value={filters.reason || undefined}
               onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}
@@ -238,9 +259,7 @@ export default function LogsAuditoria() {
             </Select>
 
             <div className="flex gap-2">
-              <Button type="submit" disabled={loading}>
-                Aplicar
-              </Button>
+              <Button type="submit" disabled={loading}>Aplicar</Button>
               <Button
                 type="button"
                 variant="outline"
@@ -257,37 +276,33 @@ export default function LogsAuditoria() {
         </CardContent>
       </Card>
 
+      {/* Lista compacta + Modal de detalhes */}
       <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            {loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}
+          </CardTitle>
+        </CardHeader>
         <CardContent className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b text-center">
                 <th className="px-2 py-2">Data/Hora</th>
                 <th className="px-2 py-2">Usuário</th>
-                <th className="px-2 py-2">IP</th>
                 <th className="px-2 py-2">Método</th>
                 <th className="px-2 py-2">Path</th>
                 <th className="px-2 py-2">Status</th>
                 <th className="px-2 py-2">Ação</th>
-                <th className="px-2 py-2">Modelo</th>
-                <th className="px-2 py-2">Objeto</th>
-                <th className="px-2 py-2">Motivo</th>
-                <th className="px-2 py-2">Obs.</th>
                 <th className="px-2 py-2">Detalhes</th>
               </tr>
             </thead>
             <tbody>
               {(data?.results || []).map((r, idx) => {
                 const key = `${r.timestamp}-${r.model}-${r.object_pk}-${idx}`
-                const { reason, note } = extractReason(r)
-                // label amigável
-                const label =
-                  motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "-")
                 return (
                   <tr key={key} className="border-b hover:bg-muted/40">
                     <td className="px-2 py-2 whitespace-nowrap text-center">{fmtDate(r.timestamp)}</td>
                     <td className="px-2 py-2 text-center">{userDisplay(r)}</td>
-                    <td className="px-2 py-2 text-center">{r.ip ?? "-"}</td>
                     <td className="px-2 py-2 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method}</span>
                     </td>
@@ -298,37 +313,17 @@ export default function LogsAuditoria() {
                     <td className="px-2 py-2 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{r.action}</span>
                     </td>
-                    <td className="px-2 py-2 text-center">{r.model || "-"}</td>
-                    <td className="px-2 py-2 text-center">{r.object_pk || "-"}</td>
-
-                    {/* Motivo / Obs */}
-                    <td className="px-2 py-2 text-center">{label}</td>
                     <td className="px-2 py-2 text-center">
-                      {note ? <span title={note} className="inline-block max-w-[220px] truncate align-middle">{note}</span> : "—"}
-                    </td>
-
-                    {/* JSON colapsável (changes/extra) */}
-                    <td className="px-2 py-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleJson(key)}
-                      >
-                        {openJson[key] ? 'Ocultar' : 'Ver'}
+                      <Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)}>
+                        Ver
                       </Button>
-                      {openJson[key] && (
-                        <pre className="mt-2 max-w-[420px] max-h-60 overflow-auto bg-muted/30 p-2 rounded text-xs">
-                          {JSON.stringify(r.changes || r.extra || {}, null, 2)}
-                        </pre>
-                      )}
                     </td>
                   </tr>
                 )
               })}
 
               {!loading && (data?.results || []).length === 0 && (
-                <tr><td className="px-2 py-6 text-center" colSpan={12}>Sem registros</td></tr>
+                <tr><td className="px-2 py-6 text-center" colSpan={7}>Sem registros</td></tr>
               )}
             </tbody>
           </table>
@@ -336,7 +331,7 @@ export default function LogsAuditoria() {
           {/* Paginação */}
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-muted-foreground">
-              {data?.count ?? 0} registro(s) • página {page} de {totalPages}
+              {data?.count ?? 0} registro(s) • página {page} de {Math.max(1, Math.ceil((data?.count || 0) / 50))}
             </span>
             <div className="flex gap-2">
               <Button
@@ -350,8 +345,8 @@ export default function LogsAuditoria() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => fetchData(Math.min(totalPages, page + 1))}
-                disabled={loading || page >= totalPages}
+                onClick={() => fetchData(page + 1)}
+                disabled={loading || (page * 50) >= (data?.count || 0)}
               >
                 Próxima
               </Button>
@@ -359,6 +354,115 @@ export default function LogsAuditoria() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal de detalhes */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Log</DialogTitle>
+            <DialogDescription>
+              Informações completas do registro selecionado.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selected && (
+            <div className="space-y-3">
+              {/* Linha 1: data, usuário, ip */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">Data/Hora</div>
+                  <div className="font-medium">{fmtDate(selected.timestamp)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Usuário</div>
+                  <div className="font-medium">{userDisplay(selected)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">IP</div>
+                  <div className="font-medium">{selected.ip || "—"}</div>
+                </div>
+              </div>
+
+              {/* Linha 2: método, status, ação */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">Método</div>
+                  <div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>
+                    {selected.method}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>
+                    {selected.status_code ?? "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Ação</div>
+                  <div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>
+                    {selected.action}
+                  </div>
+                </div>
+              </div>
+
+              {/* Path, Modelo, Objeto */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-3">
+                  <div className="text-xs text-muted-foreground">Path</div>
+                  <div className="font-mono text-xs bg-muted/30 rounded px-2 py-1 overflow-x-auto">{selected.path}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Modelo</div>
+                  <div className="font-medium">{selected.model || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Objeto (PK)</div>
+                  <div className="font-medium">{selected.object_pk || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">User-Agent</div>
+                  <div className="text-xs break-words">{selected.user_agent || "—"}</div>
+                </div>
+              </div>
+
+              {/* Motivo + Observação (quando houver) */}
+              {(() => {
+                const { reason, note } = extractReason(selected)
+                const label = reasonLabel(reason)
+                if (!reason && !note) return null
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Motivo</div>
+                      <div className="font-medium">{label}</div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <div className="text-xs text-muted-foreground">Observação</div>
+                      <div className="text-sm">{note || "—"}</div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Changes / Extra */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">Changes</div>
+                  <pre className="text-xs bg-muted/30 rounded p-2 max-h-72 overflow-auto">
+                    {JSON.stringify(selected.changes || {}, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Extra</div>
+                  <pre className="text-xs bg-muted/30 rounded p-2 max-h-72 overflow-auto">
+                    {JSON.stringify(selected.extra || {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
