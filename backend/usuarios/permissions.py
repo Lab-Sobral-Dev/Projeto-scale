@@ -1,5 +1,6 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+
 class IsAuthenticatedReadOnly(BasePermission):
     """
     GET/HEAD/OPTIONS: requer autenticado.
@@ -69,3 +70,19 @@ class HasScreen(BasePermission):
             return False
         # Usa a API do PerfilUsuario (Caminho A)
         return perfil.has_screen(code)
+
+
+class IsSupervisorOrAdminOrReadOnly(BasePermission):
+    """
+    SAFE_METHODS: requer autenticado (qualquer papel) -> leitura liberada.
+    Métodos de escrita (POST/PUT/PATCH/DELETE): apenas supervisor ou admin.
+    """
+    def has_permission(self, request, view):
+        user = request.user
+        if request.method in SAFE_METHODS:
+            return bool(user and user.is_authenticated)
+
+        perfil = getattr(user, "perfil", None)
+        if not (user and user.is_authenticated and perfil):
+            return False
+        return perfil.papel in {perfil.PAPEL_SUPERVISOR, perfil.PAPEL_ADMIN}

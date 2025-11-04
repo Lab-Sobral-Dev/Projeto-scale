@@ -46,9 +46,7 @@ async function tryFetchEstruturas() {
         const res = await fn({ page_size: 500 })
         const list = normalizeList(res)
         if (list.length) return list
-      } catch (_e) {
-        // segue tentando o próximo
-      }
+      } catch (_e) { /* segue */ }
     }
   }
   return null
@@ -56,11 +54,8 @@ async function tryFetchEstruturas() {
 
 // Extrai pares produto<->mp de vários formatos comuns de payload
 function buildEdgesFromEstruturas(estruturas) {
-  const edges = [] // [{prodId, prodNome, mpId, mpNome}]
+  const edges = []
   for (const e of estruturas) {
-    // Tentamos cobrir formatos comuns:
-    // 1) { produto: {id, nome}, itens: [{ materia_prima: {id, nome} }]}
-    // 2) { produto, materia_prima } (flat)
     const produto = e.produto ?? e.product ?? e?.item?.produto ?? null
     const itens = e.itens ?? e.items ?? e.componentes ?? e.components ?? null
     if (produto && Array.isArray(itens)) {
@@ -77,8 +72,6 @@ function buildEdgesFromEstruturas(estruturas) {
       }
       continue
     }
-
-    // Flat (cada registro já liga um produto a uma MP)
     const mpFlat = e.materia_prima ?? e.materiaPrima ?? e.raw ?? e.material
     if (produto && mpFlat) {
       edges.push({
@@ -97,9 +90,13 @@ const Historico = () => {
   const [pesagens, setPesagens] = useState([])
   const [produtos, setProdutos] = useState([])
   const [materiasPrimas, setMateriasPrimas] = useState([])
-  const [edgesBOM, setEdgesBOM] = useState([]) // relações produto<->mp vindas da estrutura
+  const [edgesBOM, setEdgesBOM] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Papel do usuário (para controlar UI de edição)
+  const [userRole, setUserRole] = useState('operador')
+  const canEdit = useMemo(() => ['supervisor', 'admin'].includes(userRole), [userRole])
 
   // Filtros
   const [filtros, setFiltros] = useState({
@@ -116,6 +113,18 @@ const Historico = () => {
   // Paginação
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
+
+  useEffect(() => {
+    // Descobrir papel do usuário logado
+    try {
+      const raw = localStorage.getItem('user')
+      if (raw) {
+        const u = JSON.parse(raw)
+        if (u?.papel) setUserRole(u.papel)
+        else if (u?.is_staff) setUserRole('admin')
+      }
+    } catch { }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -143,8 +152,8 @@ const Historico = () => {
             return {
               id: p.id,
               dataHora: p.data_hora ?? p.dataHora,
-              produto: toDisplay(p.produto?.nome ?? p.produto_nome ?? p.produto),
-              materiaPrima: toDisplay(p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
+              produto: toDisplay(p.op?.produto?.nome ?? p.produto?.nome ?? p.produto_nome ?? p.produto),
+              materiaPrima: toDisplay(p.item_op?.materia_prima?.nome ?? p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
               op: toDisplay(p.op?.numero ?? p.op),
               lote: toDisplay(p.op?.lote ?? p.lote),
               loteMP: toDisplay(p.lote_mp ?? p.loteMP ?? ''),
@@ -162,11 +171,10 @@ const Historico = () => {
           setProdutos(prodsList)
           setMateriasPrimas(mpsList)
 
-          // Se veio estrutura, usa para construir edges
           if (Array.isArray(estruturas) && estruturas.length) {
             setEdgesBOM(buildEdgesFromEstruturas(estruturas))
           } else {
-            setEdgesBOM([]) // sem estrutura, vamos cair no fallback via pesagens
+            setEdgesBOM([])
           }
         } catch (e) {
           console.error(e)
@@ -183,8 +191,6 @@ const Historico = () => {
     setFiltros({ produto: '', materiaPrima: '', op: '', lote: '', loteMP: '', dataInicio: '', dataFim: '', pesador: '' })
     setPage(1)
   }
-
-  // --- Relacionamentos Produto <-> MP ---
 
   // 1) Mapas via ESTRUTURA (preferido)
   const { prodToMPs_BOM, mpToProds_BOM } = useMemo(() => {
@@ -204,7 +210,7 @@ const Historico = () => {
     return { prodToMPs_BOM: p2m, mpToProds_BOM: m2p }
   }, [edgesBOM])
 
-  // 2) Fallback via PESAGENS (quando não houver estrutura)
+  // 2) Fallback via PESAGENS
   const { prodToMPs_PES, mpToProds_PES } = useMemo(() => {
     const p2m = new Map()
     const m2p = new Map()
@@ -224,15 +230,12 @@ const Historico = () => {
     return { prodToMPs_PES: p2m, mpToProds_PES: m2p }
   }, [pesagens])
 
-  // Escolhe fonte: primeiro BOM; se vazio, usa PESAGENS
   const prodToMPs = prodToMPs_BOM.size ? prodToMPs_BOM : prodToMPs_PES
   const mpToProds = mpToProds_BOM.size ? mpToProds_BOM : mpToProds_PES
 
-  // Mapas por nome (para metadados/id)
   const prodByName = useMemo(() => new Map(produtos.map(p => [p.nome, p])), [produtos])
   const mpByName = useMemo(() => new Map(materiasPrimas.map(mp => [mp.nome, mp])), [materiasPrimas])
 
-  // Opções dos dropdowns dependentes (agora com estrutura completa)
   const produtoOptions = useMemo(() => {
     if (!filtros.materiaPrima) return produtos.map(p => p.nome)
     const prodsSet = mpToProds.get(filtros.materiaPrima)
@@ -245,7 +248,6 @@ const Historico = () => {
     return mpsSet ? Array.from(mpsSet) : []
   }, [materiasPrimas, prodToMPs, filtros.produto])
 
-  // Consistência: limpa seleção inválida ao trocar o outro filtro
   useEffect(() => {
     if (filtros.produto && !mpOptions.includes(filtros.materiaPrima)) {
       setFiltros(prev => ({ ...prev, materiaPrima: '' }))
@@ -260,7 +262,6 @@ const Historico = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtros.materiaPrima, produtoOptions.join('|')])
 
-  // Filtro de datas
   const inDateRange = (isoString) => {
     if (!isoString) return false
     if (!filtros.dataInicio && !filtros.dataFim) return true
@@ -335,7 +336,7 @@ const Historico = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Produto (dependente de MP) */}
+            {/* Produto */}
             <div className="space-y-2 min-w-0">
               <Label htmlFor="produto">Produto</Label>
               <Select
@@ -363,7 +364,7 @@ const Historico = () => {
               </Select>
             </div>
 
-            {/* Matéria-Prima (dependente de Produto) */}
+            {/* MP */}
             <div className="space-y-2 min-w-0">
               <Label htmlFor="materiaPrima">Matéria-Prima</Label>
               <Select
@@ -507,7 +508,19 @@ const Historico = () => {
                         <div className="flex space-x-1 justify-end">
                           <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(p.id)} className="text-blue-600 hover:text-blue-800"><Eye className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleGerarEtiqueta(p.id)} className="text-green-600 hover:text-green-800"><Printer className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleEditar(p.id)} className="text-orange-600 hover:text-orange-800"><Edit className="h-4 w-4" /></Button>
+
+                          {/* Editar apenas para supervisor/admin */}
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditar(p.id)}
+                              className="text-orange-600 hover:text-orange-800"
+                              title="Editar pesagem"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -530,7 +543,9 @@ const Historico = () => {
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(p.id)}><Eye className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleGerarEtiqueta(p.id)}><Printer className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleEditar(p.id)}><Edit className="h-4 w-4" /></Button>
+                    {canEdit && (
+                      <Button variant="ghost" size="icon" onClick={() => handleEditar(p.id)}><Edit className="h-4 w-4" /></Button>
+                    )}
                   </div>
                 </div>
                 <div className="mt-1 text-sm font-medium text-gray-900 truncate">{p.produto}</div>

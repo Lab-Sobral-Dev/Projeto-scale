@@ -7,16 +7,22 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Save, Printer, Package2, Layers, Factory, Scale, QrCode, Weight } from 'lucide-react'
-import api from '@/services/api'
 
 const nf3 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 const tz = 'America/Fortaleza'
 const fmtDT = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) : '-')
 
+// API base (para pegar motivos)
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
+const MOTIVOS_URL = `${API_BASE}/registro/pesagens/motivos/`
+
 // unidades
 const KG_IN_G = 1000
 const toNum = (x) => (x == null || x === '' ? null : Number(x))
 const gToKg = (g) => (g == null ? null : Number(g) / KG_IN_G)
+
+// Acessa serviço (mantendo tua api existente)
+import api from '@/services/api'
 
 export default function PesagemEditar() {
   const { id } = useParams()
@@ -32,21 +38,29 @@ export default function PesagemEditar() {
   const [mps, setMps] = useState([])
   const [balancas, setBalancas] = useState([])
 
+  // controle de permissão local (papel)
+  const [userRole, setUserRole] = useState('operador')
+  const canEdit = useMemo(() => ['supervisor', 'admin'].includes(userRole), [userRole])
+
+  // motivos (do backend)
+  const [motivosEditMap, setMotivosEditMap] = useState({})
+  const motivosEditList = useMemo(
+    () => Object.entries(motivosEditMap).map(([value, label]) => ({ value, label })),
+    [motivosEditMap]
+  )
+  const [motivo, setMotivo] = useState('')           // value (chave)
+  const [motivoObs, setMotivoObs] = useState('')     // observação (quando "outro")
+
   // form controlado
   const [form, setForm] = useState({
-    // vínculos (se for legado)
     produto_id: null,
     materia_prima_id: null,
-    // vínculos OP (somente leitura)
     op_id: null,
     item_op_id: null,
-
     op_numero: '',
     lote: '',
-    // ENTRADAS DO OPERADOR (kg):
-    liquido: '', // <— novo campo editável
-    tara: '',
-    // DERIVADOS / METADADOS
+    liquido: '', // kg
+    tara: '',    // kg
     balanca_id: null,
     codigo_interno: '',
   })
@@ -60,6 +74,18 @@ export default function PesagemEditar() {
     const b = l + t
     return Number.isFinite(b) ? b : null
   }, [form.liquido, form.tara])
+
+  useEffect(() => {
+    // papel do usuário
+    try {
+      const raw = localStorage.getItem('user')
+      if (raw) {
+        const u = JSON.parse(raw)
+        if (u?.papel) setUserRole(u.papel)
+        else if (u?.is_staff) setUserRole('admin')
+      }
+    } catch { }
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -79,14 +105,9 @@ export default function PesagemEditar() {
           setMps(Array.isArray(mats) ? mats : (mats?.results ?? []))
           setBalancas(Array.isArray(bals) ? bals : (bals?.results ?? []))
 
-          // IDs legados
-          const produtoId = p?.produto?.id ?? (typeof p?.produto === 'number' ? p.produto : null)
-          const mpId = p?.materia_prima?.id ?? (typeof p?.materia_prima === 'number' ? p.materia_prima : null)
+          const produtoId = p?.op?.produto?.id ?? p?.produto?.id ?? (typeof p?.produto === 'number' ? p.produto : null)
+          const mpId = p?.item_op?.materia_prima?.id ?? p?.materia_prima?.id ?? (typeof p?.materia_prima === 'number' ? p.materia_prima : null)
 
-          // backend atual:
-          // - bruto: kg (p.bruto)
-          // - tara: kg (p.tara)
-          // - liquido: g (p.liquido)  -> converter para kg na UI
           const taraKg = toNum(p?.tara)
           const liquidoKg =
             gToKg(toNum(p?.liquido ?? p?.liquido_g ?? p?.peso_liquido)) ??
@@ -95,19 +116,24 @@ export default function PesagemEditar() {
           setForm({
             produto_id: produtoId,
             materia_prima_id: mpId,
-
             op_id: p?.op?.id ?? null,
             item_op_id: p?.item_op?.id ?? null,
-
             op_numero: p?.op?.numero || p?.op_numero || p?.op || '',
             lote: p?.lote || p?.op?.lote || '',
-
-            liquido: liquidoKg != null ? String(liquidoKg) : '',   // input (kg)
-            tara: taraKg != null ? String(taraKg) : '',             // input (kg)
-
+            liquido: liquidoKg != null ? String(liquidoKg) : '',
+            tara: taraKg != null ? String(taraKg) : '',
             balanca_id: p?.balanca?.id ?? null,
             codigo_interno: p?.codigo_interno ?? '',
           })
+
+          // buscar motivos
+          try {
+            const res = await fetch(MOTIVOS_URL, { headers: { Authorization: `Bearer ${localStorage.getItem('access') || ''}` } })
+            if (res.ok) {
+              const data = await res.json()
+              setMotivosEditMap(data?.edit || {})
+            }
+          } catch (e) { /* silencioso */ }
         } catch (e) {
           console.error(e)
           setError('Não foi possível carregar a pesagem para edição.')
@@ -132,19 +158,33 @@ export default function PesagemEditar() {
   }
 
   const onSave = async () => {
+    if (!canEdit) {
+      setError('Você não tem permissão para editar esta pesagem.')
+      return
+    }
+    if (!motivo) {
+      setError('Selecione o motivo da edição.')
+      return
+    }
+    if (motivo === 'outro' && !motivoObs.trim()) {
+      setError('Descreva o motivo no campo de observação.')
+      return
+    }
+
     try {
       setSaving(true); setError(''); setSuccess('')
 
-      // payload: operador informa LÍQUIDO (kg) + TARA (kg); NÃO enviamos bruto
       const payload = {
         lote: form.lote,
-        liquido: form.liquido === '' ? null : Number(form.liquido), // kg — backend converte para g
+        liquido: form.liquido === '' ? null : Number(form.liquido), // kg
         tara: form.tara === '' ? null : Number(form.tara),           // kg
         balanca_id: form.balanca_id ?? null,
         codigo_interno: form.codigo_interno,
+        // Motivo obrigatório conforme backend
+        motivo_edicao: motivo,
+        motivo_observacao: motivoObs?.trim() || null,
       }
 
-      // se for legado (sem OP/ItemOP), permite ajustar vínculos e OP textual
       if (!isOPLinked) {
         payload.produto_id = form.produto_id ?? null
         payload.materia_prima_id = form.materia_prima_id ?? null
@@ -177,7 +217,6 @@ export default function PesagemEditar() {
     }
   }
 
-  // labels resolvidos (para cabeçalho)
   const header = useMemo(() => {
     if (!pesagem) return { produto: '-', mp: '-' }
     const produto =
@@ -204,7 +243,7 @@ export default function PesagemEditar() {
           <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
           </Button>
-          <Button onClick={onSave} disabled={saving || loading}>
+          <Button onClick={onSave} disabled={saving || loading || !canEdit} className={!canEdit ? 'opacity-60 cursor-not-allowed' : ''}>
             <Save className="h-4 w-4 mr-2" /> {saving ? 'Salvando…' : 'Salvar'}
           </Button>
           <Button variant="secondary" onClick={onEtiqueta}>
@@ -212,6 +251,14 @@ export default function PesagemEditar() {
           </Button>
         </div>
       </div>
+
+      {!canEdit && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertDescription className="text-amber-800">
+            Seu perfil não permite editar pesagens. Contate um supervisor ou administrador.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {!!error && (
         <Alert variant="destructive">
@@ -247,6 +294,7 @@ export default function PesagemEditar() {
               <Select
                 value={form.produto_id ? String(form.produto_id) : '__none__'}
                 onValueChange={(v) => onChange('produto_id', v === '__none__' ? null : Number(v))}
+                disabled={!canEdit}
               >
                 <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
                 <SelectContent>
@@ -270,6 +318,7 @@ export default function PesagemEditar() {
               <Select
                 value={form.materia_prima_id ? String(form.materia_prima_id) : '__none__'}
                 onValueChange={(v) => onChange('materia_prima_id', v === '__none__' ? null : Number(v))}
+                disabled={!canEdit}
               >
                 <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
                 <SelectContent>
@@ -289,24 +338,24 @@ export default function PesagemEditar() {
                 <span className="truncate">{form.op_numero || '—'}</span>
               </div>
             ) : (
-              <Input value={form.op_numero} onChange={(e) => onChange('op_numero', e.target.value)} placeholder="Número da OP (opcional)" />
+              <Input value={form.op_numero} onChange={(e) => onChange('op_numero', e.target.value)} placeholder="Número da OP (opcional)" disabled={!canEdit} />
             )}
           </div>
 
           <div className="space-y-2">
             <Label>Lote</Label>
-            <Input value={form.lote} onChange={(e) => onChange('lote', e.target.value)} placeholder="Lote" />
+            <Input value={form.lote} onChange={(e) => onChange('lote', e.target.value)} placeholder="Lote" disabled={!canEdit} />
           </div>
 
-          {/* Pesos — entradas em kg, bruto é auto */}
+          {/* Pesos */}
           <div className="space-y-2">
             <Label>Líquido (kg)</Label>
-            <Input type="number" step="0.001" value={form.liquido} onChange={(e) => onChange('liquido', e.target.value)} />
+            <Input type="number" step="0.001" value={form.liquido} onChange={(e) => onChange('liquido', e.target.value)} disabled={!canEdit} />
           </div>
 
           <div className="space-y-2">
             <Label>Tara (kg)</Label>
-            <Input type="number" step="0.001" value={form.tara} onChange={(e) => onChange('tara', e.target.value)} />
+            <Input type="number" step="0.001" value={form.tara} onChange={(e) => onChange('tara', e.target.value)} disabled={!canEdit} />
           </div>
 
           <div className="space-y-2">
@@ -318,12 +367,12 @@ export default function PesagemEditar() {
           </div>
 
           {/* Balança / Código */}
-
           <div className="space-y-2">
             <Label>Balança</Label>
             <Select
               value={form.balanca_id ? String(form.balanca_id) : '__none__'}
               onValueChange={(v) => onChange('balanca_id', v === '__none__' ? null : Number(v))}
+              disabled={!canEdit}
             >
               <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
               <SelectContent>
@@ -337,11 +386,11 @@ export default function PesagemEditar() {
             <Label>Código Interno</Label>
             <div className="flex items-center gap-2">
               <QrCode className="h-4 w-4 text-gray-500" />
-              <Input value={form.codigo_interno} onChange={(e) => onChange('codigo_interno', e.target.value)} placeholder="Ex.: CI-0001" />
+              <Input value={form.codigo_interno} onChange={(e) => onChange('codigo_interno', e.target.value)} placeholder="Ex.: CI-0001" disabled={!canEdit} />
             </div>
           </div>
 
-          {/* Metadados (leitura) */}
+          {/* Metadados */}
           <div className="space-y-2">
             <Label>Pesador</Label>
             <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
@@ -355,6 +404,45 @@ export default function PesagemEditar() {
               {fmtDT(pesagem?.data_hora)}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Motivo da edição */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Motivo da edição</CardTitle>
+          <CardDescription>Selecione um motivo padronizado. Se necessário, detalhe no campo de observação.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {motivosEditList.length === 0 ? (
+              <div className="text-sm text-gray-500">Carregando motivos…</div>
+            ) : motivosEditList.map((m) => (
+              <label key={m.value} className={`flex items-center gap-2 rounded border p-2 hover:bg-gray-50 ${!canEdit ? 'opacity-60' : ''}`}>
+                <input
+                  type="radio"
+                  name="motivo_edicao"
+                  value={m.value}
+                  checked={motivo === m.value}
+                  onChange={() => setMotivo(m.value)}
+                  disabled={!canEdit}
+                />
+                <span className="text-sm">{m.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {motivo === 'outro' && (
+            <div className="space-y-2">
+              <Label>Observação</Label>
+              <Input
+                placeholder="Descreva o motivo"
+                value={motivoObs}
+                onChange={(e) => setMotivoObs(e.target.value)}
+                disabled={!canEdit}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

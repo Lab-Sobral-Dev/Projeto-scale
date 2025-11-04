@@ -15,6 +15,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from registro.audit_models import AuditLog
 from .serializers import AuditLogSerializer
 
+# registro/views.py (no topo, junto aos imports existentes)
+from usuarios.permissions import IsSupervisorOrAdminOrReadOnly, IsAdmin
+from django.forms.models import model_to_dict
+
 
 from .models import (
     Produto, MateriaPrima, Balanca,
@@ -171,6 +175,15 @@ class ItemOPViewSet(viewsets.ModelViewSet):
 # Pesagem
 # ======================
 
+# registro/views.py
+from rest_framework.decorators import action
+from usuarios.permissions import IsSupervisorOrAdminOrReadOnly, IsAdmin
+from django.forms.models import model_to_dict
+
+# ======================
+# Pesagem
+# ======================
+
 class PesagemViewSet(viewsets.ModelViewSet):
     queryset = (
         Pesagem.objects
@@ -179,28 +192,123 @@ class PesagemViewSet(viewsets.ModelViewSet):
         .order_by('-data_hora')
     )
     serializer_class = PesagemSerializer
-    permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = [
-        'op__numero', 'op__lote',
-        'item_op__materia_prima__nome', 'item_op__materia_prima__codigo_interno',
-        'codigo_interno', 'pesador',
-        'lote_mp',  # novo: permite buscar pelo lote da MP
-    ]
-    ordering_fields = ['data_hora', 'op__numero', 'lote_mp']  # novo: ordenar por lote_mp também
+    permission_classes = [IsSupervisorOrAdminOrReadOnly]
+    search_fields = ['op__numero', 'item_op__materia_prima__nome', 'codigo_interno']
+    ordering_fields = ['data_hora', 'op__numero']
 
-    def get_queryset(self):
-        qs = super().get_queryset()
-        # filtro exato opcional por ?lote_mp=XYZ (case-insensitive)
-        lote_mp = self.request.query_params.get("lote_mp")
-        if lote_mp:
-            qs = qs.filter(lote_mp__iexact=lote_mp.strip())
-        return qs
+    # ===== Motivos padrões =====
+    EDIT_MOTIVOS = {
+        "erro_digitacao": "Correção de erro de digitação",
+        "ajuste_tolerancia": "Ajuste por tolerância de pesagem",
+        "correcao_balanca": "Correção por falha de balança",
+        "troca_materia_prima": "Troca de matéria-prima",
+        "outro": "Outro motivo",
+    }
+    DELETE_MOTIVOS = {
+        "duplicidade": "Registro duplicado",
+        "erro_operador": "Erro de operação/pesagem",
+        "item_incorreto": "Item incorreto vinculado",
+        "teste_ou_treinamento": "Registro de teste/treinamento",
+        "outro": "Outro motivo",
+    }
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        nome = (user.get_full_name() or "").strip() or user.username
-        serializer.save(pesador=nome)
+    @action(detail=False, methods=["get"], url_path="motivos")
+    def motivos(self, request):
+        """
+        Endpoint público para o frontend listar motivos padrão.
+        GET /api/registro/pesagens/motivos/
+        """
+        return Response({
+            "edit": self.EDIT_MOTIVOS,
+            "delete": self.DELETE_MOTIVOS,
+        })
+
+    def get_permissions(self):
+        if self.action == "destroy":
+            return [IsAdmin()]
+        return [IsSupervisorOrAdminOrReadOnly()]
+
+    # ====== Edição (supervisor/admin, com motivo) ======
+    def update(self, request, *args, **kwargs):
+        motivo = (request.data.get("motivo_edicao") or "").strip()
+        motivo_obs = (request.data.get("motivo_observacao") or "").strip()
+
+        if not motivo:
+            return Response({"detail": "Informe o motivo da edição."}, status=400)
+        if motivo not in self.EDIT_MOTIVOS:
+            return Response({"detail": "Motivo inválido. Use um dos motivos padrões."}, status=400)
+
+        instance = self.get_object()
+        before = model_to_dict(instance)
+        response = super().update(request, *args, **kwargs)
+
+        try:
+            instance.refresh_from_db()
+            after = model_to_dict(instance)
+            diff = {k: {"old": before.get(k), "new": after.get(k)}
+                    for k in after.keys() if before.get(k) != after.get(k)}
+
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                ip=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                path=request.path,
+                method=request.method,
+                status_code=getattr(response, "status_code", None),
+                action="update",
+                model="Pesagem",
+                object_pk=str(instance.pk),
+                changes=diff,
+                extra={
+                    "edit_reason": motivo,
+                    "edit_reason_label": self.EDIT_MOTIVOS.get(motivo),
+                    "edit_reason_note": motivo_obs,
+                },
+            )
+        except Exception:
+            pass
+        return response
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    # ====== Exclusão (somente admin, com motivo) ======
+    def destroy(self, request, *args, **kwargs):
+        motivo = (request.data.get("motivo_exclusao") or request.query_params.get("motivo_exclusao") or "").strip()
+        motivo_obs = (request.data.get("motivo_observacao") or request.query_params.get("motivo_observacao") or "").strip()
+
+        if not motivo:
+            return Response({"detail": "Informe o motivo da exclusão."}, status=400)
+        if motivo not in self.DELETE_MOTIVOS:
+            return Response({"detail": "Motivo inválido. Use um dos motivos padrões."}, status=400)
+
+        instance = self.get_object()
+        snapshot = model_to_dict(instance)
+        response = super().destroy(request, *args, **kwargs)
+
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                ip=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                path=request.path,
+                method=request.method,
+                status_code=getattr(response, "status_code", None),
+                action="delete",
+                model="Pesagem",
+                object_pk=str(instance.pk),
+                changes=snapshot,
+                extra={
+                    "delete_reason": motivo,
+                    "delete_reason_label": self.DELETE_MOTIVOS.get(motivo),
+                    "delete_reason_note": motivo_obs,
+                },
+            )
+        except Exception:
+            pass
+        return response
+
 
 
 # ======================
