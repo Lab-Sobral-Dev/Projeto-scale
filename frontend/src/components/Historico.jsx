@@ -31,14 +31,6 @@ const toNum = (x) => (x == null ? null : Number(x))
 const kgToG = (kg) => (kg == null ? null : kg * KG_IN_G)
 const fmtG = (v) => (v == null ? '-' : nfG.format(v))
 
-// util para unir Sets
-const unionSets = (a, b) => {
-  const out = new Set()
-  if (a) for (const x of a) out.add(x)
-  if (b) for (const x of b) out.add(x)
-  return out
-}
-
 const Historico = () => {
   const navigate = useNavigate()
   const [pesagens, setPesagens] = useState([])
@@ -46,18 +38,6 @@ const Historico = () => {
   const [materiasPrimas, setMateriasPrimas] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  // Mapeamentos vindos da ESTRUTURA (prioridade para opções dos filtros)
-  const [structMaps, setStructMaps] = useState({
-    prodToMPs: new Map(), // produto -> Set(MP)
-    mpToProds: new Map(), // MP -> Set(produto)
-  })
-
-  // Mapeamentos observados nas PESAGENS (complementam a estrutura)
-  const [pesMaps, setPesMaps] = useState({
-    prodToMPs: new Map(),
-    mpToProds: new Map(),
-  })
 
   // Filtros
   const [filtros, setFiltros] = useState({
@@ -81,30 +61,13 @@ const Historico = () => {
         setLoading(true)
         setError('')
         try {
-          // Tenta buscar estrutura por múltiplos nomes de função (robusto a variações)
-          const structFns = [
-            api.getEstruturasProduto,
-            api.getEstruturas,
-            api.getEstruturaProdutos,
-            api.getEstrutura,
-            api.getEstruturasComItens,
-          ].filter(fn => typeof fn === 'function')
-
-          const [pes, prods, mps, estruturasRaw] = await Promise.all([
-            api.getPesagens({ page_size: 1000 }),
-            api.getProdutos({ page_size: 1000 }),
-            api.getMateriasPrimas({ page_size: 1000 }),
-            (async () => {
-              for (const fn of structFns) {
-                try { return await fn({ page_size: 1000 }) } catch (_) { }
-              }
-              return null
-            })(),
+          const [pes, prods, mps] = await Promise.all([
+            api.getPesagens({ page_size: 500 }),
+            api.getProdutos({ page_size: 500 }),
+            api.getMateriasPrimas({ page_size: 500 })
           ])
-
           if (!mounted) return
 
-          // --- PESAGENS (para lista e para completar relacionamentos) ---
           const pesList = normalizeList(pes).map((p) => {
             const brutoKg = toNum(p.bruto ?? p.bruto_kg)
             const taraKg = toNum(p.tara ?? p.tara_kg)
@@ -130,59 +93,6 @@ const Historico = () => {
             }
           })
 
-          // constrói mapas a partir das PESAGENS
-          const pesP2M = new Map()
-          const pesM2P = new Map()
-          for (const r of pesList) {
-            const prod = r.produto || ''
-            const mp = r.materiaPrima || ''
-            if (prod) {
-              if (!pesP2M.has(prod)) pesP2M.set(prod, new Set())
-              if (mp) pesP2M.get(prod).add(mp)
-            }
-            if (mp) {
-              if (!pesM2P.has(mp)) pesM2P.set(mp, new Set())
-              if (prod) pesM2P.get(mp).add(prod)
-            }
-          }
-
-          // --- ESTRUTURA (PRIORITÁRIA para as opções dos filtros) ---
-          const estrList = normalizeList(estruturasRaw)
-          const structP2M = new Map()
-          const structM2P = new Map()
-
-          for (const e of estrList) {
-            // Produto pode vir como objeto ou string
-            const prodName =
-              toDisplay(e.produto?.nome ?? e.produto_nome ?? e.produto ?? e.produto_label)
-
-            // Itens podem vir como "itens", "items", "componentes", "materias_primas"…
-            const items = e.itens ?? e.items ?? e.componentes ?? e.materias_primas ?? []
-            if (!prodName) continue
-
-            if (!structP2M.has(prodName)) structP2M.set(prodName, new Set())
-
-            for (const it of items) {
-              const mpName =
-                toDisplay(
-                  it.materia_prima?.nome ??
-                  it.materia_prima_nome ??
-                  it.materia_prima ??
-                  it.mp?.nome ??
-                  it.mp_nome ??
-                  it.mp
-                )
-              if (!mpName) continue
-              structP2M.get(prodName).add(mpName)
-
-              if (!structM2P.has(mpName)) structM2P.set(mpName, new Set())
-              structM2P.get(mpName).add(prodName)
-            }
-          }
-
-          setStructMaps({ prodToMPs: structP2M, mpToProds: structM2P })
-          setPesMaps({ prodToMPs: pesP2M, mpToProds: pesM2P })
-
           setPesagens(pesList)
           setProdutos(normalizeList(prods).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
           setMateriasPrimas(normalizeList(mps).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
@@ -202,32 +112,43 @@ const Historico = () => {
     setPage(1)
   }
 
+  // --- Relacionamentos Produto <-> MP a partir das pesagens ---
+  const { prodToMPs, mpToProds } = useMemo(() => {
+    const p2m = new Map()   // produto(string) -> Set(mpName)
+    const m2p = new Map()   // mp(string) -> Set(prodName)
+    for (const p of pesagens) {
+      const prod = p.produto || ''
+      const mp = p.materiaPrima || ''
+      if (prod) {
+        if (!p2m.has(prod)) p2m.set(prod, new Set())
+        if (mp) p2m.get(prod).add(mp)
+      }
+      if (mp) {
+        if (!m2p.has(mp)) m2p.set(mp, new Set())
+        if (prod) m2p.get(mp).add(prod)
+      }
+    }
+    return { prodToMPs: p2m, mpToProds: m2p }
+  }, [pesagens])
+
   // Mapas por nome (para recuperar id quando existir)
   const prodByName = useMemo(() => new Map(produtos.map(p => [p.nome, p])), [produtos])
   const mpByName = useMemo(() => new Map(materiasPrimas.map(mp => [mp.nome, mp])), [materiasPrimas])
 
-  // Opções dos dropdowns (estrutura ∪ pesagens). A estrutura tem prioridade de "existência".
+  // Opções dos dropdowns dependentes
   const produtoOptions = useMemo(() => {
     if (!filtros.materiaPrima) return produtos.map(p => p.nome)
-
-    // prods que usam essa MP na estrutura
-    const s = structMaps.mpToProds.get(filtros.materiaPrima)
-    // prods que já pesaram com essa MP (para complementar)
-    const p = pesMaps.mpToProds.get(filtros.materiaPrima)
-    return Array.from(unionSets(s, p))
-  }, [produtos, structMaps.mpToProds, pesMaps.mpToProds, filtros.materiaPrima])
+    const prodsSet = mpToProds.get(filtros.materiaPrima)
+    return prodsSet ? Array.from(prodsSet) : []
+  }, [produtos, mpToProds, filtros.materiaPrima])
 
   const mpOptions = useMemo(() => {
     if (!filtros.produto) return materiasPrimas.map(mp => mp.nome)
+    const mpsSet = prodToMPs.get(filtros.produto)
+    return mpsSet ? Array.from(mpsSet) : []
+  }, [materiasPrimas, prodToMPs, filtros.produto])
 
-    // MPs do produto na estrutura (garante TODAS, mesmo sem pesagem)
-    const s = structMaps.prodToMPs.get(filtros.produto)
-    // MPs vistas em pesagens (complemento)
-    const p = pesMaps.prodToMPs.get(filtros.produto)
-    return Array.from(unionSets(s, p))
-  }, [materiasPrimas, structMaps.prodToMPs, pesMaps.prodToMPs, filtros.produto])
-
-  // Consistência cruzada
+  // Garantir consistência: se um filtro ficar inválido após escolher o outro, limpar
   useEffect(() => {
     if (filtros.produto && !mpOptions.includes(filtros.materiaPrima)) {
       setFiltros(prev => ({ ...prev, materiaPrima: '' }))
@@ -317,7 +238,7 @@ const Historico = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Produto (depende da MP selecionada) */}
+            {/* Produto (dependente de MP) */}
             <div className="space-y-2 min-w-0">
               <Label htmlFor="produto">Produto</Label>
               <Select
@@ -345,7 +266,7 @@ const Historico = () => {
               </Select>
             </div>
 
-            {/* Matéria-Prima (depende do Produto selecionado) */}
+            {/* Matéria-Prima (dependente de Produto) */}
             <div className="space-y-2 min-w-0">
               <Label htmlFor="materiaPrima">Matéria-Prima</Label>
               <Select
