@@ -31,11 +31,73 @@ const toNum = (x) => (x == null ? null : Number(x))
 const kgToG = (kg) => (kg == null ? null : kg * KG_IN_G)
 const fmtG = (v) => (v == null ? '-' : nfG.format(v))
 
+// Tenta descobrir um endpoint de estrutura disponível
+async function tryFetchEstruturas() {
+  const candidates = [
+    'getEstruturasProduto',
+    'getEstruturas',
+    'getBom',
+    'getEstruturaProdutos',
+  ]
+  for (const name of candidates) {
+    const fn = api?.[name]
+    if (typeof fn === 'function') {
+      try {
+        const res = await fn({ page_size: 500 })
+        const list = normalizeList(res)
+        if (list.length) return list
+      } catch (_e) {
+        // segue tentando o próximo
+      }
+    }
+  }
+  return null
+}
+
+// Extrai pares produto<->mp de vários formatos comuns de payload
+function buildEdgesFromEstruturas(estruturas) {
+  const edges = [] // [{prodId, prodNome, mpId, mpNome}]
+  for (const e of estruturas) {
+    // Tentamos cobrir formatos comuns:
+    // 1) { produto: {id, nome}, itens: [{ materia_prima: {id, nome} }]}
+    // 2) { produto, materia_prima } (flat)
+    const produto = e.produto ?? e.product ?? e?.item?.produto ?? null
+    const itens = e.itens ?? e.items ?? e.componentes ?? e.components ?? null
+    if (produto && Array.isArray(itens)) {
+      for (const it of itens) {
+        const mp = it.materia_prima ?? it.materiaPrima ?? it.raw ?? it.material ?? it?.componente
+        if (mp) {
+          edges.push({
+            prodId: produto.id ?? produto,
+            prodNome: toDisplay(produto.nome ?? produto),
+            mpId: mp.id ?? mp,
+            mpNome: toDisplay(mp.nome ?? mp),
+          })
+        }
+      }
+      continue
+    }
+
+    // Flat (cada registro já liga um produto a uma MP)
+    const mpFlat = e.materia_prima ?? e.materiaPrima ?? e.raw ?? e.material
+    if (produto && mpFlat) {
+      edges.push({
+        prodId: produto.id ?? produto,
+        prodNome: toDisplay(produto.nome ?? produto),
+        mpId: mpFlat.id ?? mpFlat,
+        mpNome: toDisplay(mpFlat.nome ?? mpFlat),
+      })
+    }
+  }
+  return edges
+}
+
 const Historico = () => {
   const navigate = useNavigate()
   const [pesagens, setPesagens] = useState([])
   const [produtos, setProdutos] = useState([])
   const [materiasPrimas, setMateriasPrimas] = useState([])
+  const [edgesBOM, setEdgesBOM] = useState([]) // relações produto<->mp vindas da estrutura
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -61,10 +123,11 @@ const Historico = () => {
         setLoading(true)
         setError('')
         try {
-          const [pes, prods, mps] = await Promise.all([
+          const [pes, prods, mps, estruturas] = await Promise.all([
             api.getPesagens({ page_size: 500 }),
             api.getProdutos({ page_size: 500 }),
-            api.getMateriasPrimas({ page_size: 500 })
+            api.getMateriasPrimas({ page_size: 500 }),
+            tryFetchEstruturas()
           ])
           if (!mounted) return
 
@@ -94,8 +157,17 @@ const Historico = () => {
           })
 
           setPesagens(pesList)
-          setProdutos(normalizeList(prods).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
-          setMateriasPrimas(normalizeList(mps).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
+          const prodsList = normalizeList(prods).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) }))
+          const mpsList = normalizeList(mps).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) }))
+          setProdutos(prodsList)
+          setMateriasPrimas(mpsList)
+
+          // Se veio estrutura, usa para construir edges
+          if (Array.isArray(estruturas) && estruturas.length) {
+            setEdgesBOM(buildEdgesFromEstruturas(estruturas))
+          } else {
+            setEdgesBOM([]) // sem estrutura, vamos cair no fallback via pesagens
+          }
         } catch (e) {
           console.error(e)
           setError('Não foi possível carregar os dados. Verifique sua conexão e o token.')
@@ -112,10 +184,31 @@ const Historico = () => {
     setPage(1)
   }
 
-  // --- Relacionamentos Produto <-> MP a partir das pesagens ---
-  const { prodToMPs, mpToProds } = useMemo(() => {
-    const p2m = new Map()   // produto(string) -> Set(mpName)
-    const m2p = new Map()   // mp(string) -> Set(prodName)
+  // --- Relacionamentos Produto <-> MP ---
+
+  // 1) Mapas via ESTRUTURA (preferido)
+  const { prodToMPs_BOM, mpToProds_BOM } = useMemo(() => {
+    const p2m = new Map()
+    const m2p = new Map()
+    if (!edgesBOM.length) return { prodToMPs_BOM: p2m, mpToProds_BOM: m2p }
+    for (const { prodNome, mpNome } of edgesBOM) {
+      if (prodNome) {
+        if (!p2m.has(prodNome)) p2m.set(prodNome, new Set())
+        if (mpNome) p2m.get(prodNome).add(mpNome)
+      }
+      if (mpNome) {
+        if (!m2p.has(mpNome)) m2p.set(mpNome, new Set())
+        if (prodNome) m2p.get(mpNome).add(prodNome)
+      }
+    }
+    return { prodToMPs_BOM: p2m, mpToProds_BOM: m2p }
+  }, [edgesBOM])
+
+  // 2) Fallback via PESAGENS (quando não houver estrutura)
+  const { prodToMPs_PES, mpToProds_PES } = useMemo(() => {
+    const p2m = new Map()
+    const m2p = new Map()
+    if (!pesagens.length) return { prodToMPs_PES: p2m, mpToProds_PES: m2p }
     for (const p of pesagens) {
       const prod = p.produto || ''
       const mp = p.materiaPrima || ''
@@ -128,14 +221,18 @@ const Historico = () => {
         if (prod) m2p.get(mp).add(prod)
       }
     }
-    return { prodToMPs: p2m, mpToProds: m2p }
+    return { prodToMPs_PES: p2m, mpToProds_PES: m2p }
   }, [pesagens])
 
-  // Mapas por nome (para recuperar id quando existir)
+  // Escolhe fonte: primeiro BOM; se vazio, usa PESAGENS
+  const prodToMPs = prodToMPs_BOM.size ? prodToMPs_BOM : prodToMPs_PES
+  const mpToProds = mpToProds_BOM.size ? mpToProds_BOM : mpToProds_PES
+
+  // Mapas por nome (para metadados/id)
   const prodByName = useMemo(() => new Map(produtos.map(p => [p.nome, p])), [produtos])
   const mpByName = useMemo(() => new Map(materiasPrimas.map(mp => [mp.nome, mp])), [materiasPrimas])
 
-  // Opções dos dropdowns dependentes
+  // Opções dos dropdowns dependentes (agora com estrutura completa)
   const produtoOptions = useMemo(() => {
     if (!filtros.materiaPrima) return produtos.map(p => p.nome)
     const prodsSet = mpToProds.get(filtros.materiaPrima)
@@ -148,7 +245,7 @@ const Historico = () => {
     return mpsSet ? Array.from(mpsSet) : []
   }, [materiasPrimas, prodToMPs, filtros.produto])
 
-  // Garantir consistência: se um filtro ficar inválido após escolher o outro, limpar
+  // Consistência: limpa seleção inválida ao trocar o outro filtro
   useEffect(() => {
     if (filtros.produto && !mpOptions.includes(filtros.materiaPrima)) {
       setFiltros(prev => ({ ...prev, materiaPrima: '' }))
