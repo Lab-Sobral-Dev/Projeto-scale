@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,7 +58,7 @@ export default function PesagemEditar() {
     op_id: null,
     item_op_id: null,
     op_numero: '',
-    lote: '',
+    lote_mp: '',
     liquido: '', // kg
     tara: '',    // kg
     balanca_id: null,
@@ -119,7 +119,8 @@ export default function PesagemEditar() {
             op_id: p?.op?.id ?? null,
             item_op_id: p?.item_op?.id ?? null,
             op_numero: p?.op?.numero || p?.op_numero || p?.op || '',
-            lote: p?.lote || p?.op?.lote || '',
+            // PESAGEM: campo correto é lote_mp
+            lote_mp: p?.lote_mp || '',
             liquido: liquidoKg != null ? String(liquidoKg) : '',
             tara: taraKg != null ? String(taraKg) : '',
             balanca_id: p?.balanca?.id ?? null,
@@ -133,7 +134,7 @@ export default function PesagemEditar() {
               const data = await res.json()
               setMotivosEditMap(data?.edit || {})
             }
-          } catch (e) { /* silencioso */ }
+          } catch { /* silencioso */ }
         } catch (e) {
           console.error(e)
           setError('Não foi possível carregar a pesagem para edição.')
@@ -171,34 +172,54 @@ export default function PesagemEditar() {
       return
     }
 
+    // validações mínimas de UI para evitar 400 bobos
+    if (!form.lote_mp?.trim()) {
+      setError('Informe o Lote MP.')
+      return
+    }
+    const liquido = Number(form.liquido ?? 0)
+    const tara = Number(form.tara ?? 0)
+    if (!(liquido > 0)) {
+      setError('Peso Líquido (kg) deve ser > 0.')
+      return
+    }
+    if (tara < 0) {
+      setError('Tara (kg) deve ser ≥ 0.')
+      return
+    }
+
     try {
       setSaving(true); setError(''); setSuccess('')
 
       const payload = {
-        lote: form.lote,
-        liquido: form.liquido === '' ? null : Number(form.liquido), // kg
-        tara: form.tara === '' ? null : Number(form.tara),           // kg
+        lote_mp: form.lote_mp.trim(),
+        liquido,                  // kg (backend converte para g)
+        tara,                     // kg
         balanca_id: form.balanca_id ?? null,
-        codigo_interno: form.codigo_interno,
+        codigo_interno: form.codigo_interno?.trim() || null,
         // Motivo obrigatório conforme backend
         motivo_edicao: motivo,
         motivo_observacao: motivoObs?.trim() || null,
       }
 
-      if (!isOPLinked) {
-        payload.produto_id = form.produto_id ?? null
-        payload.materia_prima_id = form.materia_prima_id ?? null
-        payload.op = form.op_numero || ''
-      }
+      // IMPORTANTE: não enviar produto_id/materia_prima_id/op/op_numero no update.
+      // O serializer de Pesagem só aceita op_id/item_op_id na criação, e são read_only na leitura aqui.
 
       await api.updatePesagem(id, payload)
       setSuccess('Pesagem atualizada com sucesso!')
     } catch (e) {
       console.error(e)
-      const msg =
-        e?.response?.data?.detail ||
-        e?.payload?.detail ||
-        'Falha ao salvar. Verifique os campos e tente novamente.'
+      const data = e?.response?.data || e?.payload
+      let msg = 'Falha ao salvar. Verifique os campos e tente novamente.'
+      if (data) {
+        if (typeof data === 'string') {
+          msg = data
+        } else if (typeof data === 'object') {
+          msg = Object.entries(data)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('; ') : String(v)}`)
+            .join(' | ')
+        }
+      }
       setError(String(msg))
     } finally {
       setSaving(false)
@@ -275,7 +296,7 @@ export default function PesagemEditar() {
         <CardHeader>
           <CardTitle>Dados da Pesagem</CardTitle>
           <CardDescription>
-            {isOPLinked ? 'Vinculada a OP/ItemOP (campos de vínculo bloqueados)' : 'Pesagem legada (pode ajustar vínculos)'}
+            {isOPLinked ? 'Vinculada a OP/ItemOP (campos de vínculo bloqueados)' : 'Pesagem legada (campos de vínculo bloqueados)'}
           </CardDescription>
         </CardHeader>
 
@@ -283,68 +304,41 @@ export default function PesagemEditar() {
           {/* Produto / Matéria-prima */}
           <div className="space-y-2">
             <Label>Produto</Label>
-            {isOPLinked ? (
-              <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
-                <Package2 className="h-4 w-4 opacity-70" />
-                <span className="truncate">
-                  {pesagem?.op?.produto?.nome || pesagem?.produto?.nome || pesagem?.produto_nome || '—'}
-                </span>
-              </div>
-            ) : (
-              <Select
-                value={form.produto_id ? String(form.produto_id) : '__none__'}
-                onValueChange={(v) => onChange('produto_id', v === '__none__' ? null : Number(v))}
-                disabled={!canEdit}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__" disabled>Selecione…</SelectItem>
-                  {produtos.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
+            <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
+              <Package2 className="h-4 w-4 opacity-70" />
+              <span className="truncate">
+                {pesagem?.op?.produto?.nome || pesagem?.produto?.nome || pesagem?.produto_nome || '—'}
+              </span>
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label>Matéria-prima</Label>
-            {isOPLinked ? (
-              <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
-                <Layers className="h-4 w-4 opacity-70" />
-                <span className="truncate">
-                  {pesagem?.item_op?.materia_prima?.nome || pesagem?.materia_prima?.nome || pesagem?.materia_prima_nome || '—'}
-                </span>
-              </div>
-            ) : (
-              <Select
-                value={form.materia_prima_id ? String(form.materia_prima_id) : '__none__'}
-                onValueChange={(v) => onChange('materia_prima_id', v === '__none__' ? null : Number(v))}
-                disabled={!canEdit}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__" disabled>Selecione…</SelectItem>
-                  {mps.map(mp => <SelectItem key={mp.id} value={String(mp.id)}>{mp.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
+            <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
+              <Layers className="h-4 w-4 opacity-70" />
+              <span className="truncate">
+                {pesagem?.item_op?.materia_prima?.nome || pesagem?.materia_prima?.nome || pesagem?.materia_prima_nome || '—'}
+              </span>
+            </div>
           </div>
 
-          {/* OP / Lote */}
+          {/* OP / Lote MP */}
           <div className="space-y-2">
             <Label>OP</Label>
-            {isOPLinked ? (
-              <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
-                <Factory className="h-4 w-4 opacity-70" />
-                <span className="truncate">{form.op_numero || '—'}</span>
-              </div>
-            ) : (
-              <Input value={form.op_numero} onChange={(e) => onChange('op_numero', e.target.value)} placeholder="Número da OP (opcional)" disabled={!canEdit} />
-            )}
+            <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
+              <Factory className="h-4 w-4 opacity-70" />
+              <span className="truncate">{form.op_numero || '—'}</span>
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Lote</Label>
-            <Input value={form.lote} onChange={(e) => onChange('lote', e.target.value)} placeholder="Lote" disabled={!canEdit} />
+            <Label>Lote MP</Label>
+            <Input
+              value={form.lote_mp}
+              onChange={(e) => onChange('lote_mp', e.target.value)}
+              placeholder="Ex.: 24A0321"
+              disabled={!canEdit}
+            />
           </div>
 
           {/* Pesos */}
