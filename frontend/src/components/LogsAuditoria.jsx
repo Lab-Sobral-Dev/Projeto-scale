@@ -1,3 +1,4 @@
+// src/pages/LogsAuditoria.jsx
 import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -5,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
-import { Download, RefreshCcw, Search, Filter, XCircle } from "lucide-react"
+import { Download, RefreshCcw, Search, XCircle } from "lucide-react"
 
 const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -19,6 +20,7 @@ const mapAll = (v) => (v === "__ALL__" ? "" : v)
 const tz = 'America/Fortaleza'
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) } catch { return "-" } }
 
+// util p/ ler motivo (compatível com payloads antigos/novos)
 function extractReason(record) {
   const c = record?.changes || {}
   const e = record?.extra || {}
@@ -45,18 +47,22 @@ const statusClass = (s) => {
   return "bg-gray-50 text-gray-600"
 }
 
-// --- estado inicial de filtros ---
+// --- filtros SIMPLES (sem avançados e sem status_code) ---
 const initialFilters = {
-  q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
-  start: "", end: "", ordering: "-timestamp", reason: "",
-  action_group: "", status_group: "", anon: "",
-  has_reason: "", has_changes: "", has_extra: "",
-  path_contains: "", ua_contains: "", ip: "", object_pk: ""
+  q: "",
+  action: "",
+  method: "",
+  model: "",
+  user: "",
+  path: "",
+  start: "",
+  end: "",
+  ordering: "-timestamp",
+  reason: "",
 }
 
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState(initialFilters)
-  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const [data, setData] = useState({ count: 0, results: [] })
   const [page, setPage] = useState(1)
@@ -73,12 +79,15 @@ export default function LogsAuditoria() {
   }, [motivosEdit, motivosDelete])
 
   const [usersMap, setUsersMap] = useState(new Map())
+
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
 
+  // re-busca ao trocar ordenação
   useEffect(() => { fetchData(1) }, [filters.ordering])
 
+  // carga inicial: motivos + usuários
   useEffect(() => {
     (async () => {
       try {
@@ -100,7 +109,7 @@ export default function LogsAuditoria() {
           }
           setUsersMap(mp)
         }
-      } catch { }
+      } catch { /* silencioso */ }
     })()
   }, [])
 
@@ -146,141 +155,105 @@ export default function LogsAuditoria() {
           <CardTitle>Logs de Auditoria</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-6 gap-3">
-            {/* Linha 1 */}
-            <div className="md:col-span-2">
+          {/* grid responsiva com espaçamento consistente */}
+          <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-8 gap-3">
+            {/* Busca livre */}
+            <div className="md:col-span-4">
               <div className="flex items-center gap-2">
-                <Input placeholder="Busca livre (path, model, objeto, UA)…"
-                  value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
-                <Button type="submit" variant="secondary" disabled={loading}><Search className="w-4 h-4" /></Button>
-                <Button type="button" variant="outline" onClick={() => setShowAdvanced(v => !v)}>
-                  <Filter className="w-4 h-4 mr-1" /> {showAdvanced ? "Ocultar" : "Avançados"}
+                <Input
+                  placeholder="Busca (path, modelo, objeto, UA)…"
+                  value={filters.q}
+                  onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
+                />
+                <Button type="submit" variant="secondary" disabled={loading}>
+                  <Search className="w-4 h-4" />
                 </Button>
               </div>
             </div>
 
-            <Select value={filters.action || undefined} onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}>
-              <SelectTrigger><SelectValue placeholder="Ação" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__ALL__">(todas)</SelectItem>
-                {ACTIONS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {/* Ação */}
+            <div className="md:col-span-2">
+              <Select value={filters.action || undefined} onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}>
+                <SelectTrigger><SelectValue placeholder="Ação" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">(todas)</SelectItem>
+                  {ACTIONS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={filters.method || undefined} onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}>
-              <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__ALL__">(todos)</SelectItem>
-                {METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {/* Método */}
+            <div className="md:col-span-2">
+              <Select value={filters.method || undefined} onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}>
+                <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">(todos)</SelectItem>
+                  {METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Input placeholder="Modelo (ex.: Pesagem)" value={filters.model} onChange={e => setFilters(f => ({ ...f, model: e.target.value }))} />
-            <Input placeholder="Status HTTP (ex.: 200)" value={filters.status_code} onChange={e => setFilters(f => ({ ...f, status_code: e.target.value }))} />
-            <Input placeholder="Usuário (id/nome)" value={filters.user} onChange={e => setFilters(f => ({ ...f, user: e.target.value }))} />
+            {/* Modelo */}
+            <div className="md:col-span-2">
+              <Input placeholder="Modelo (ex.: Pesagem)"
+                value={filters.model}
+                onChange={e => setFilters(f => ({ ...f, model: e.target.value }))} />
+            </div>
 
-            <div className="md:col-span-2 grid grid-cols-2 gap-3">
+            {/* Usuário */}
+            <div className="md:col-span-2">
+              <Input placeholder="Usuário (id/nome)"
+                value={filters.user}
+                onChange={e => setFilters(f => ({ ...f, user: e.target.value }))} />
+            </div>
+
+            {/* Intervalo de datas */}
+            <div className="md:col-span-4 grid grid-cols-2 gap-3">
               <Input type="datetime-local" value={filters.start} onChange={e => setFilters(f => ({ ...f, start: e.target.value }))} title="Início" />
               <Input type="datetime-local" value={filters.end} onChange={e => setFilters(f => ({ ...f, end: e.target.value }))} title="Fim" />
             </div>
 
-            <Input placeholder="Path exato (opcional)" value={filters.path} onChange={e => setFilters(f => ({ ...f, path: e.target.value }))} />
+            {/* Path exato */}
+            <div className="md:col-span-4">
+              <Input placeholder="Path exato (opcional)"
+                value={filters.path}
+                onChange={e => setFilters(f => ({ ...f, path: e.target.value }))} />
+            </div>
 
-            <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
-              <SelectTrigger><SelectValue placeholder="Motivo (edição/exclusão)" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value="__ALL__">(todos)</SelectItem>
-                {motivoOptions.map(([key, label]) => (<SelectItem key={key} value={key}>{label}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            {/* Motivo */}
+            <div className="md:col-span-2">
+              <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
+                <SelectTrigger><SelectValue placeholder="Motivo" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="__ALL__">(todos)</SelectItem>
+                  {motivoOptions.map(([key, label]) => (<SelectItem key={key} value={key}>{label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={filters.ordering} onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}>
-              <SelectTrigger><SelectValue placeholder="Ordenação" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="-timestamp">Mais recentes</SelectItem>
-                <SelectItem value="timestamp">Mais antigos</SelectItem>
-                <SelectItem value="-status_code">Status desc</SelectItem>
-                <SelectItem value="status_code">Status asc</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Ordenação */}
+            <div className="md:col-span-2">
+              <Select value={filters.ordering} onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}>
+                <SelectTrigger><SelectValue placeholder="Ordenação" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-timestamp">Mais recentes</SelectItem>
+                  <SelectItem value="timestamp">Mais antigos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            {/* -------- Filtros Avançados (colapsáveis) -------- */}
-            {showAdvanced && (
-              <>
-                <Select value={filters.action_group || undefined} onValueChange={v => setFilters(f => ({ ...f, action_group: mapAll(v) }))}>
-                  <SelectTrigger><SelectValue placeholder="Grupo de ação" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__ALL__">(todos)</SelectItem>
-                    <SelectItem value="seguranca">Segurança (login/logout/token)</SelectItem>
-                    <SelectItem value="dados">Dados (create/update/delete)</SelectItem>
-                    <SelectItem value="request">Request</SelectItem>
-                    <SelectItem value="impressao">Impressão</SelectItem>
-                    <SelectItem value="erro">Erro</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filters.status_group || undefined} onValueChange={v => setFilters(f => ({ ...f, status_group: mapAll(v) }))}>
-                  <SelectTrigger><SelectValue placeholder="Faixa de status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__ALL__">(todas)</SelectItem>
-                    <SelectItem value="2xx">2xx</SelectItem>
-                    <SelectItem value="4xx">4xx</SelectItem>
-                    <SelectItem value="5xx">5xx</SelectItem>
-                    <SelectItem value="none">Sem status</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filters.anon || undefined} onValueChange={v => setFilters(f => ({ ...f, anon: mapAll(v) }))}>
-                  <SelectTrigger><SelectValue placeholder="Anonimato" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__ALL__">(todos)</SelectItem>
-                    <SelectItem value="sim">Somente anônimo</SelectItem>
-                    <SelectItem value="nao">Somente autenticado</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filters.has_reason || undefined} onValueChange={v => setFilters(f => ({ ...f, has_reason: mapAll(v) }))}>
-                  <SelectTrigger><SelectValue placeholder="Possui motivo?" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__ALL__">(todos)</SelectItem>
-                    <SelectItem value="sim">Sim</SelectItem>
-                    <SelectItem value="nao">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filters.has_changes || undefined} onValueChange={v => setFilters(f => ({ ...f, has_changes: mapAll(v) }))}>
-                  <SelectTrigger><SelectValue placeholder="Possui changes?" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__ALL__">(todos)</SelectItem>
-                    <SelectItem value="sim">Sim</SelectItem>
-                    <SelectItem value="nao">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filters.has_extra || undefined} onValueChange={v => setFilters(f => ({ ...f, has_extra: mapAll(v) }))}>
-                  <SelectTrigger><SelectValue placeholder="Possui extra?" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__ALL__">(todos)</SelectItem>
-                    <SelectItem value="sim">Sim</SelectItem>
-                    <SelectItem value="nao">Não</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Input placeholder="Path contém…" value={filters.path_contains} onChange={e => setFilters(f => ({ ...f, path_contains: e.target.value }))} />
-                <Input placeholder="User-Agent contém…" value={filters.ua_contains} onChange={e => setFilters(f => ({ ...f, ua_contains: e.target.value }))} />
-                <Input placeholder="IP (exato)" value={filters.ip} onChange={e => setFilters(f => ({ ...f, ip: e.target.value }))} />
-                <Input placeholder="Objeto (PK)" value={filters.object_pk} onChange={e => setFilters(f => ({ ...f, object_pk: e.target.value }))} />
-              </>
-            )}
-
-            <div className="flex flex-wrap gap-2 md:col-span-3">
+            {/* Ações */}
+            <div className="md:col-span-8 flex flex-wrap gap-2">
               <Button type="submit" disabled={loading}>Aplicar</Button>
               <Button type="button" variant="outline" onClick={onClearFilters} disabled={loading}>
                 <XCircle className="w-4 h-4 mr-1" /> Limpar filtros
               </Button>
-              <Button type="button" variant="outline"
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => exportarCsv(data?.results || [])}
-                disabled={loading || (data?.results || []).length === 0}>
+                disabled={loading || (data?.results || []).length === 0}
+              >
                 <Download className="w-4 h-4 mr-1" /> CSV
               </Button>
               <Button type="button" variant="ghost" onClick={() => fetchData(page)} disabled={loading}>
@@ -342,7 +315,7 @@ export default function LogsAuditoria() {
 
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-muted-foreground">
-              {data?.count ?? 0} registro(s) • página {page} de {Math.max(1, Math.ceil((data?.count || 0) / 50))}
+              {data?.count ?? 0} registro(s) • página {page} de {totalPages}
             </span>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => fetchData(Math.max(1, page - 1))} disabled={loading || page <= 1}>Anterior</Button>
@@ -363,21 +336,18 @@ export default function LogsAuditoria() {
           <div className="overflow-y-auto max-h-[74vh] pr-1">
             {selected && (
               <div className="space-y-3">
-                {/* Linha 1 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div><div className="text-xs text-muted-foreground">Data/Hora</div><div className="font-medium">{fmtDate(selected.timestamp)}</div></div>
                   <div><div className="text-xs text-muted-foreground">Usuário</div><div className="font-medium">{userDisplay(selected)}</div></div>
                   <div><div className="text-xs text-muted-foreground">IP</div><div className="font-medium">{selected.ip || "—"}</div></div>
                 </div>
 
-                {/* Linha 2 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div><div className="text-xs text-muted-foreground">Método</div><div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div></div>
                   <div><div className="text-xs text-muted-foreground">Status</div><div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div></div>
                   <div><div className="text-xs text-muted-foreground">Ação</div><div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div></div>
                 </div>
 
-                {/* Path, Modelo, Objeto */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-3">
                     <div className="text-xs text-muted-foreground">Path</div>
@@ -388,7 +358,6 @@ export default function LogsAuditoria() {
                   <div><div className="text-xs text-muted-foreground">User-Agent</div><div className="text-xs break-words">{selected.user_agent || "—"}</div></div>
                 </div>
 
-                {/* Motivo + Observação (quando houver) */}
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
@@ -407,7 +376,6 @@ export default function LogsAuditoria() {
                   )
                 })()}
 
-                {/* Changes / Extra */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Changes</div>
