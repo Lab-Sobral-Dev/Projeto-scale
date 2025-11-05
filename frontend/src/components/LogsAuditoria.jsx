@@ -11,7 +11,6 @@ import { Download, RefreshCcw, Search } from "lucide-react"
 const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
 
-// API base p/ motivos + usuários (mapeia id->nome)
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 const MOTIVOS_URL = `${API_BASE}/registro/pesagens/motivos/`
 const USERS_URL = `${API_BASE}/usuarios/usuarios/`
@@ -19,9 +18,7 @@ const USERS_URL = `${API_BASE}/usuarios/usuarios/`
 const mapAll = (v) => (v === "__ALL__" ? "" : v)
 
 const tz = 'America/Fortaleza'
-const fmtDate = (iso) => {
-  try { return new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) } catch { return "-" }
-}
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) } catch { return "-" } }
 
 function extractReason(record) {
   const c = record?.changes || {}
@@ -52,14 +49,12 @@ const statusClass = (s) => {
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState({
     q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
-    start: "", end: "", ordering: "-timestamp",
-    reason: ""
+    start: "", end: "", ordering: "-timestamp", reason: ""
   })
   const [data, setData] = useState({ count: 0, results: [] })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
 
-  // motivos e mapeamento id->label
   const [motivosEdit, setMotivosEdit] = useState({})
   const [motivosDelete, setMotivosDelete] = useState({})
   const motivoOptions = useMemo(() => {
@@ -70,31 +65,24 @@ export default function LogsAuditoria() {
     return entries
   }, [motivosEdit, motivosDelete])
 
-  // usuários para exibir nome em vez do id
   const [usersMap, setUsersMap] = useState(new Map())
 
-  // Modal de detalhes
   const [detailOpen, setDetailOpen] = useState(false)
-  const [selected, setSelected] = useState(null) // registro completo do log
+  const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
 
-  useEffect(() => {
-    fetchData(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.ordering])
+  useEffect(() => { fetchData(1) }, [filters.ordering])
 
   useEffect(() => {
-    ; (async () => {
+    (async () => {
       try {
         const headers = { Authorization: `Bearer ${localStorage.getItem('access') || ''}` }
-        // motivos
         const res = await fetch(MOTIVOS_URL, { headers })
         if (res.ok) {
           const json = await res.json()
           setMotivosEdit(json?.edit || {})
           setMotivosDelete(json?.delete || {})
         }
-        // usuários
         const ur = await fetch(USERS_URL, { headers })
         if (ur.ok) {
           const uj = await ur.json()
@@ -106,7 +94,7 @@ export default function LogsAuditoria() {
           }
           setUsersMap(mp)
         }
-      } catch { /* silencioso */ }
+      } catch { }
     })()
   }, [])
 
@@ -120,32 +108,24 @@ export default function LogsAuditoria() {
       }
       setData({ count: resp?.count ?? results.length, results })
       setPage(pg)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
-  function onApplyFilters(e) {
-    e?.preventDefault?.()
-    fetchData(1)
-  }
+  function onApplyFilters(e) { e?.preventDefault?.(); fetchData(1) }
 
   const totalPages = useMemo(() => {
     const pageSize = 50
     return Math.max(1, Math.ceil((data?.count || 0) / pageSize))
   }, [data?.count])
 
-  // resolve melhor nome possível do usuário
   const userDisplay = (r) => {
-    const direct =
-      r.user_name || r.user_display || r.username
+    const direct = r.user_name || r.user_display || r.username
     if (direct) return direct
     const idStr = r.user != null ? String(r.user) : ""
     if (idStr && usersMap.has(idStr)) return usersMap.get(idStr)
     return idStr || "-"
   }
 
-  // label amigável do motivo
   const reasonLabel = (reason) =>
     motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "—")
 
@@ -153,28 +133,18 @@ export default function LogsAuditoria() {
     <div className="space-y-4">
       {/* Filtros */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>Logs de Auditoria</CardTitle>
-        </CardHeader>
+        <CardHeader className="pb-2"><CardTitle>Logs de Auditoria</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div className="md:col-span-2">
               <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Busca livre (path, model, objeto, UA)…"
-                  value={filters.q}
-                  onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
-                />
-                <Button type="submit" variant="secondary" disabled={loading}>
-                  <Search className="w-4 h-4" />
-                </Button>
+                <Input placeholder="Busca livre (path, model, objeto, UA)…"
+                  value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
+                <Button type="submit" variant="secondary" disabled={loading}><Search className="w-4 h-4" /></Button>
               </div>
             </div>
 
-            <Select
-              value={filters.action || undefined}
-              onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}
-            >
+            <Select value={filters.action || undefined} onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}>
               <SelectTrigger><SelectValue placeholder="Ação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__ALL__">(todas)</SelectItem>
@@ -182,10 +152,7 @@ export default function LogsAuditoria() {
               </SelectContent>
             </Select>
 
-            <Select
-              value={filters.method || undefined}
-              onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}
-            >
+            <Select value={filters.method || undefined} onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}>
               <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__ALL__">(todos)</SelectItem>
@@ -193,62 +160,26 @@ export default function LogsAuditoria() {
               </SelectContent>
             </Select>
 
-            <Input
-              placeholder="Modelo (ex.: Pesagem)"
-              value={filters.model}
-              onChange={e => setFilters(f => ({ ...f, model: e.target.value }))}
-            />
-
-            <Input
-              placeholder="Status HTTP (ex.: 200)"
-              value={filters.status_code}
-              onChange={e => setFilters(f => ({ ...f, status_code: e.target.value }))}
-            />
-
-            <Input
-              placeholder="Usuário (id/nome)"
-              value={filters.user}
-              onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
-            />
+            <Input placeholder="Modelo (ex.: Pesagem)" value={filters.model} onChange={e => setFilters(f => ({ ...f, model: e.target.value }))} />
+            <Input placeholder="Status HTTP (ex.: 200)" value={filters.status_code} onChange={e => setFilters(f => ({ ...f, status_code: e.target.value }))} />
+            <Input placeholder="Usuário (id/nome)" value={filters.user} onChange={e => setFilters(f => ({ ...f, user: e.target.value }))} />
 
             <div className="md:col-span-2 grid grid-cols-2 gap-3">
-              <Input
-                type="datetime-local"
-                value={filters.start}
-                onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
-                title="Início"
-              />
-              <Input
-                type="datetime-local"
-                value={filters.end}
-                onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
-                title="Fim"
-              />
+              <Input type="datetime-local" value={filters.start} onChange={e => setFilters(f => ({ ...f, start: e.target.value }))} title="Início" />
+              <Input type="datetime-local" value={filters.end} onChange={e => setFilters(f => ({ ...f, end: e.target.value }))} title="Fim" />
             </div>
 
-            <Input
-              placeholder="Path exato (opcional)"
-              value={filters.path}
-              onChange={e => setFilters(f => ({ ...f, path: e.target.value }))}
-            />
+            <Input placeholder="Path exato (opcional)" value={filters.path} onChange={e => setFilters(f => ({ ...f, path: e.target.value }))} />
 
-            <Select
-              value={filters.reason || undefined}
-              onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}
-            >
+            <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
               <SelectTrigger><SelectValue placeholder="Motivo (edição/exclusão)" /></SelectTrigger>
               <SelectContent className="max-h-72">
                 <SelectItem value="__ALL__">(todos)</SelectItem>
-                {motivoOptions.map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
+                {motivoOptions.map(([key, label]) => (<SelectItem key={key} value={key}>{label}</SelectItem>))}
               </SelectContent>
             </Select>
 
-            <Select
-              value={filters.ordering}
-              onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}
-            >
+            <Select value={filters.ordering} onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}>
               <SelectTrigger><SelectValue placeholder="Ordenação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="-timestamp">Mais recentes</SelectItem>
@@ -260,12 +191,9 @@ export default function LogsAuditoria() {
 
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>Aplicar</Button>
-              <Button
-                type="button"
-                variant="outline"
+              <Button type="button" variant="outline"
                 onClick={() => exportarCsv(data?.results || [])}
-                disabled={loading || (data?.results || []).length === 0}
-              >
+                disabled={loading || (data?.results || []).length === 0}>
                 <Download className="w-4 h-4 mr-1" /> CSV
               </Button>
               <Button type="button" variant="ghost" onClick={() => fetchData(page)} disabled={loading}>
@@ -276,13 +204,9 @@ export default function LogsAuditoria() {
         </CardContent>
       </Card>
 
-      {/* Lista compacta + Modal de detalhes */}
+      {/* Lista + Modal */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            {loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}
-          </CardTitle>
-        </CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-base">{loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}</CardTitle></CardHeader>
         <CardContent className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -303,53 +227,29 @@ export default function LogsAuditoria() {
                   <tr key={key} className="border-b hover:bg-muted/40">
                     <td className="px-2 py-2 whitespace-nowrap text-center">{fmtDate(r.timestamp)}</td>
                     <td className="px-2 py-2 text-center">{userDisplay(r)}</td>
-                    <td className="px-2 py-2 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method}</span>
-                    </td>
+                    <td className="px-2 py-2 text-center"><span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method}</span></td>
                     <td className="px-2 py-2">{r.path}</td>
+                    <td className="px-2 py-2 text-center"><span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span></td>
+                    <td className="px-2 py-2 text-center"><span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{r.action}</span></td>
                     <td className="px-2 py-2 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span>
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{r.action}</span>
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)}>
-                        Ver
-                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)}>Ver</Button>
                     </td>
                   </tr>
                 )
               })}
-
               {!loading && (data?.results || []).length === 0 && (
                 <tr><td className="px-2 py-6 text-center" colSpan={7}>Sem registros</td></tr>
               )}
             </tbody>
           </table>
 
-          {/* Paginação */}
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-muted-foreground">
               {data?.count ?? 0} registro(s) • página {page} de {Math.max(1, Math.ceil((data?.count || 0) / 50))}
             </span>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fetchData(Math.max(1, page - 1))}
-                disabled={loading || page <= 1}
-              >
-                Anterior
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fetchData(page + 1)}
-                disabled={loading || (page * 50) >= (data?.count || 0)}
-              >
-                Próxima
-              </Button>
+              <Button type="button" variant="outline" onClick={() => fetchData(Math.max(1, page - 1))} disabled={loading || page <= 1}>Anterior</Button>
+              <Button type="button" variant="outline" onClick={() => fetchData(page + 1)} disabled={loading || (page * 50) >= (data?.count || 0)}>Próxima</Button>
             </div>
           </div>
         </CardContent>
@@ -357,55 +257,30 @@ export default function LogsAuditoria() {
 
       {/* Modal de detalhes */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        {/* 🔧 LARGURA/ALTURA AUMENTADAS + CABEÇALHO FIXO */}
-        <DialogContent className="max-w-6xl w-[96vw] max-h-[90vh] p-6">
+        {/* sobrescrevendo o max-width padrão do shadcn */}
+        <DialogContent
+          className="!w-[96vw] sm:!max-w-[96vw] lg:!max-w-[1200px] max-h-[90vh] p-6 rounded-xl"
+        >
           <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
             <DialogTitle>Detalhes do Log</DialogTitle>
-            <DialogDescription>
-              Informações completas do registro selecionado.
-            </DialogDescription>
+            <DialogDescription>Informações completas do registro selecionado.</DialogDescription>
           </DialogHeader>
 
-          {/* Corpo rolável independentemente do cabeçalho */}
           <div className="overflow-y-auto max-h-[74vh] pr-1">
             {selected && (
               <div className="space-y-3">
-                {/* Linha 1: data, usuário, ip */}
+                {/* Linha 1 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Data/Hora</div>
-                    <div className="font-medium">{fmtDate(selected.timestamp)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Usuário</div>
-                    <div className="font-medium">{userDisplay(selected)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">IP</div>
-                    <div className="font-medium">{selected.ip || "—"}</div>
-                  </div>
+                  <div><div className="text-xs text-muted-foreground">Data/Hora</div><div className="font-medium">{fmtDate(selected.timestamp)}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Usuário</div><div className="font-medium">{userDisplay(selected)}</div></div>
+                  <div><div className="text-xs text-muted-foreground">IP</div><div className="font-medium">{selected.ip || "—"}</div></div>
                 </div>
 
-                {/* Linha 2: método, status, ação */}
+                {/* Linha 2 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Método</div>
-                    <div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>
-                      {selected.method}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Status</div>
-                    <div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>
-                      {selected.status_code ?? "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Ação</div>
-                    <div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>
-                      {selected.action}
-                    </div>
-                  </div>
+                  <div><div className="text-xs text-muted-foreground">Método</div><div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Status</div><div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Ação</div><div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div></div>
                 </div>
 
                 {/* Path, Modelo, Objeto */}
@@ -414,35 +289,20 @@ export default function LogsAuditoria() {
                     <div className="text-xs text-muted-foreground">Path</div>
                     <div className="font-mono text-xs bg-muted/30 rounded px-2 py-1 overflow-x-auto">{selected.path}</div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Modelo</div>
-                    <div className="font-medium">{selected.model || "—"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Objeto (PK)</div>
-                    <div className="font-medium">{selected.object_pk || "—"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">User-Agent</div>
-                    <div className="text-xs break-words">{selected.user_agent || "—"}</div>
-                  </div>
+                  <div><div className="text-xs text-muted-foreground">Modelo</div><div className="font-medium">{selected.model || "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Objeto (PK)</div><div className="font-medium">{selected.object_pk || "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">User-Agent</div><div className="text-xs break-words">{selected.user_agent || "—"}</div></div>
                 </div>
 
-                {/* Motivo + Observação (quando houver) */}
+                {/* Motivo/Obs */}
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
                   if (!reason && !note) return null
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Motivo</div>
-                        <div className="font-medium">{label}</div>
-                      </div>
-                      <div className="md:col-span-2">
-                        <div className="text-xs text-muted-foreground">Observação</div>
-                        <div className="text-sm">{note || "—"}</div>
-                      </div>
+                      <div><div className="text-xs text-muted-foreground">Motivo</div><div className="font-medium">{label}</div></div>
+                      <div className="md:col-span-2"><div className="text-xs text-muted-foreground">Observação</div><div className="text-sm">{note || "—"}</div></div>
                     </div>
                   )
                 })()}
@@ -451,15 +311,11 @@ export default function LogsAuditoria() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Changes</div>
-                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">
-                      {JSON.stringify(selected.changes || {}, null, 2)}
-                    </pre>
+                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">{JSON.stringify(selected.changes || {}, null, 2)}</pre>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Extra</div>
-                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">
-                      {JSON.stringify(selected.extra || {}, null, 2)}
-                    </pre>
+                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">{JSON.stringify(selected.extra || {}, null, 2)}</pre>
                   </div>
                 </div>
               </div>
