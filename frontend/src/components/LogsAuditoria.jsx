@@ -28,8 +28,8 @@ const initialFilters = {
   model: "",
   user: "",
   path: "",
-  start: "",   // aceita dd/mm/aaaa ou yyyy-mm-dd
-  end: "",     // idem
+  start: "",
+  end: "",
   ordering: "-timestamp",
   reason: "",
 }
@@ -58,14 +58,6 @@ const statusClass = (s) => {
   if (s >= 400) return "bg-amber-50 text-amber-700"
   if (s >= 200) return "bg-green-50 text-green-700"
   return "bg-gray-50 text-gray-600"
-}
-
-// --- validações/conversões das datas ---
-const isIso = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || "")
-const isPt = (v) => /^\d{2}\/\d{2}\/\d{4}$/.test(v || "")
-const ptToIso = (v) => {
-  const [d, m, y] = (v || "").split("/")
-  return y && m && d ? `${y}-${m}-${d}` : ""
 }
 
 export default function LogsAuditoria() {
@@ -124,20 +116,8 @@ export default function LogsAuditoria() {
         if (filters[k]) cleaned[k] = filters[k]
       }
 
-      // datas para ISO
-      let startIso = ""
-      let endIso = ""
-      if (isPt(filters.start)) startIso = ptToIso(filters.start)
-      else if (isIso(filters.start)) startIso = filters.start
-
-      if (isPt(filters.end)) endIso = ptToIso(filters.end)
-      else if (isIso(filters.end)) endIso = filters.end
-
-      if (startIso && endIso && startIso > endIso) {
-        const tmp = startIso; startIso = endIso; endIso = tmp
-      }
-      if (startIso) cleaned.start = startIso
-      if (endIso) cleaned.end = endIso
+      if (filters.start) cleaned.start = filters.start
+      if (filters.end) cleaned.end = filters.end
 
       const resp = await listarLogs({ filters: cleaned, page: pg })
       let results = resp?.results || []
@@ -169,7 +149,6 @@ export default function LogsAuditoria() {
 
   return (
     <div className="space-y-4">
-      {/* Filtros */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle>Logs de Auditoria</CardTitle>
@@ -177,12 +156,10 @@ export default function LogsAuditoria() {
 
         <CardContent className="space-y-4">
           <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-8 gap-4">
-            {/* Busca livre */}
             <div className="md:col-span-8">
-              <Label htmlFor="q" className="mb-1 block">Busca</Label>
+              <Label className="mb-1 block">Busca</Label>
               <div className="flex items-center gap-2">
                 <Input
-                  id="q"
                   placeholder="path, modelo, objeto, UA…"
                   value={filters.q}
                   onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
@@ -193,7 +170,6 @@ export default function LogsAuditoria() {
               </div>
             </div>
 
-            {/* Ação */}
             <div className="md:col-span-2">
               <Label className="mb-1 block">Ação</Label>
               <Select value={filters.action || undefined} onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}>
@@ -205,7 +181,6 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
-            {/* Método */}
             <div className="md:col-span-2">
               <Label className="mb-1 block">Método</Label>
               <Select value={filters.method || undefined} onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}>
@@ -217,67 +192,51 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
-            {/* Modelo */}
             <div className="md:col-span-2">
-              <Label htmlFor="model" className="mb-1 block">Modelo</Label>
+              <Label className="mb-1 block">Modelo</Label>
               <Input
-                id="model"
                 placeholder="ex.: Pesagem"
                 value={filters.model}
                 onChange={e => setFilters(f => ({ ...f, model: e.target.value }))}
               />
             </div>
 
-            {/* Usuário */}
             <div className="md:col-span-2">
-              <Label htmlFor="user" className="mb-1 block">Usuário</Label>
+              <Label className="mb-1 block">Usuário</Label>
               <Input
-                id="user"
                 placeholder="id ou nome"
                 value={filters.user}
                 onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
               />
             </div>
 
-            {/* Datas */}
             <div className="md:col-span-2">
-              <Label htmlFor="start" className="mb-1 block">Data inicial</Label>
+              <Label className="mb-1 block">Data inicial</Label>
               <Input
-                id="start"
-                type="text"
-                inputMode="numeric"
-                maxLength={10}
-                placeholder="dd/mm/aaaa"
+                type="date"
                 value={filters.start}
                 onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
               />
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="end" className="mb-1 block">Data final</Label>
+              <Label className="mb-1 block">Data final</Label>
               <Input
-                id="end"
-                type="text"
-                inputMode="numeric"
-                maxLength={10}
-                placeholder="dd/mm/aaaa"
+                type="date"
                 value={filters.end}
                 onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
               />
             </div>
 
-            {/* Path */}
             <div className="md:col-span-4">
-              <Label htmlFor="path" className="mb-1 block">Rota (opcional)</Label>
+              <Label className="mb-1 block">Path exato (opcional)</Label>
               <Input
-                id="path"
                 placeholder="/api/registro/…"
                 value={filters.path}
                 onChange={e => setFilters(f => ({ ...f, path: e.target.value }))}
               />
             </div>
 
-            {/* Motivo */}
             <div className="md:col-span-2">
               <Label className="mb-1 block">Motivo</Label>
               <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
@@ -291,7 +250,6 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
-            {/* Ordenação */}
             <div className="md:col-span-2">
               <Label className="mb-1 block">Ordenação</Label>
               <Select value={filters.ordering} onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}>
@@ -303,7 +261,6 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
-            {/* Botões */}
             <div className="md:col-span-8 flex justify-end flex-wrap gap-2">
               <Button type="submit" disabled={loading}>Aplicar</Button>
               <Button type="button" variant="outline" onClick={onClearFilters} disabled={loading}>
