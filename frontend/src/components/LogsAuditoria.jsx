@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
 import { Download, RefreshCcw, Search, XCircle } from "lucide-react"
-import { Label } from "@/components/ui/label"
 
 const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -21,7 +20,6 @@ const mapAll = (v) => (v === "__ALL__" ? "" : v)
 const tz = 'America/Fortaleza'
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) } catch { return "-" } }
 
-// filtros ESSENCIAIS (sem status_code e sem avançados)
 const initialFilters = {
   q: "",
   action: "",
@@ -29,8 +27,8 @@ const initialFilters = {
   model: "",
   user: "",
   path: "",
-  start: "",   // agora espera "YYYY-MM-DD"
-  end: "",     // agora espera "YYYY-MM-DD"
+  start: "",
+  end: "",
   ordering: "-timestamp",
   reason: "",
 }
@@ -78,7 +76,6 @@ export default function LogsAuditoria() {
   }, [motivosEdit, motivosDelete])
 
   const [usersMap, setUsersMap] = useState(new Map())
-
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
@@ -120,9 +117,7 @@ export default function LogsAuditoria() {
       })
 
       let results = resp?.results || []
-      if (reason) {
-        results = results.filter(r => extractReason(r).reason === reason)
-      }
+      if (reason) results = results.filter(r => extractReason(r).reason === reason)
 
       setData({ count: resp?.count ?? results.length, results })
       setPage(pg)
@@ -208,26 +203,20 @@ export default function LogsAuditoria() {
               />
             </div>
 
-            {/* Período (apenas data) + Path */}
+            {/* Período + Path */}
             <div className="md:col-span-4 grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="start-date">Data inicial</Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={filters.start}
-                  onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="end-date">Data final</Label>
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={filters.end}
-                  onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
-                />
-              </div>
+              <Input
+                type="date"
+                placeholder="Data inicial"
+                value={filters.start}
+                onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
+              />
+              <Input
+                type="date"
+                placeholder="Data final"
+                value={filters.end}
+                onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
+              />
             </div>
 
             <div className="md:col-span-4">
@@ -238,7 +227,7 @@ export default function LogsAuditoria() {
               />
             </div>
 
-            {/* Motivo + Ordenação + Botões (à direita) */}
+            {/* Motivo + Ordenação + Botões */}
             <div className="md:col-span-2">
               <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Motivo" /></SelectTrigger>
