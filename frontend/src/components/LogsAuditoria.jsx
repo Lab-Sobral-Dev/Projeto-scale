@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
 import { Download, RefreshCcw, Search, XCircle } from "lucide-react"
 
@@ -27,8 +28,8 @@ const initialFilters = {
   model: "",
   user: "",
   path: "",
-  start: "",
-  end: "",
+  start: "",   // aceita dd/mm/aaaa ou yyyy-mm-dd
+  end: "",     // idem
   ordering: "-timestamp",
   reason: "",
 }
@@ -57,6 +58,14 @@ const statusClass = (s) => {
   if (s >= 400) return "bg-amber-50 text-amber-700"
   if (s >= 200) return "bg-green-50 text-green-700"
   return "bg-gray-50 text-gray-600"
+}
+
+// --- validações/conversões das datas ---
+const isIso = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || "")
+const isPt = (v) => /^\d{2}\/\d{2}\/\d{4}$/.test(v || "")
+const ptToIso = (v) => {
+  const [d, m, y] = (v || "").split("/")
+  return y && m && d ? `${y}-${m}-${d}` : ""
 }
 
 export default function LogsAuditoria() {
@@ -110,14 +119,32 @@ export default function LogsAuditoria() {
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
-      const { q, action, method, model, user, path, start, end, ordering, reason } = filters
-      const resp = await listarLogs({
-        filters: { q, action, method, model, user, path, start, end, ordering },
-        page: pg
-      })
+      const cleaned = {}
+      for (const k of ["q", "action", "method", "model", "user", "path", "ordering"]) {
+        if (filters[k]) cleaned[k] = filters[k]
+      }
 
+      // datas para ISO
+      let startIso = ""
+      let endIso = ""
+      if (isPt(filters.start)) startIso = ptToIso(filters.start)
+      else if (isIso(filters.start)) startIso = filters.start
+
+      if (isPt(filters.end)) endIso = ptToIso(filters.end)
+      else if (isIso(filters.end)) endIso = filters.end
+
+      if (startIso && endIso && startIso > endIso) {
+        const tmp = startIso; startIso = endIso; endIso = tmp
+      }
+      if (startIso) cleaned.start = startIso
+      if (endIso) cleaned.end = endIso
+
+      const resp = await listarLogs({ filters: cleaned, page: pg })
       let results = resp?.results || []
-      if (reason) results = results.filter(r => extractReason(r).reason === reason)
+
+      if (filters.reason) {
+        results = results.filter(r => extractReason(r).reason === filters.reason)
+      }
 
       setData({ count: resp?.count ?? results.length, results })
       setPage(pg)
@@ -128,8 +155,6 @@ export default function LogsAuditoria() {
 
   function onApplyFilters(e) { e?.preventDefault?.(); fetchData(1) }
   function onClearFilters() { setFilters(initialFilters); fetchData(1) }
-
-  const totalPages = Math.max(1, Math.ceil((data?.count || 0) / 50))
 
   const userDisplay = (r) => {
     const direct = r.user_name || r.user_display || r.username
@@ -154,9 +179,11 @@ export default function LogsAuditoria() {
           <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-8 gap-4">
             {/* Busca livre */}
             <div className="md:col-span-8">
+              <Label htmlFor="q" className="mb-1 block">Busca</Label>
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder="Busca (path, modelo, objeto, UA)…"
+                  id="q"
+                  placeholder="path, modelo, objeto, UA…"
                   value={filters.q}
                   onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
                 />
@@ -166,10 +193,11 @@ export default function LogsAuditoria() {
               </div>
             </div>
 
-            {/* Ação / Método / Modelo / Usuário */}
+            {/* Ação */}
             <div className="md:col-span-2">
+              <Label className="mb-1 block">Ação</Label>
               <Select value={filters.action || undefined} onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Ação" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="(todas)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__ALL__">(todas)</SelectItem>
                   {ACTIONS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
@@ -177,9 +205,11 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
+            {/* Método */}
             <div className="md:col-span-2">
+              <Label className="mb-1 block">Método</Label>
               <Select value={filters.method || undefined} onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Método" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="(todos)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__ALL__">(todos)</SelectItem>
                   {METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
@@ -187,60 +217,85 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
+            {/* Modelo */}
             <div className="md:col-span-2">
+              <Label htmlFor="model" className="mb-1 block">Modelo</Label>
               <Input
-                placeholder="Modelo (ex.: Pesagem)"
+                id="model"
+                placeholder="ex.: Pesagem"
                 value={filters.model}
                 onChange={e => setFilters(f => ({ ...f, model: e.target.value }))}
               />
             </div>
 
+            {/* Usuário */}
             <div className="md:col-span-2">
+              <Label htmlFor="user" className="mb-1 block">Usuário</Label>
               <Input
-                placeholder="Usuário (id/nome)"
+                id="user"
+                placeholder="id ou nome"
                 value={filters.user}
                 onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
               />
             </div>
 
-            {/* Período + Path */}
-            <div className="md:col-span-4 grid grid-cols-2 gap-4">
+            {/* Datas */}
+            <div className="md:col-span-2">
+              <Label htmlFor="start" className="mb-1 block">Data inicial</Label>
               <Input
-                type="date"
-                placeholder="Data inicial"
+                id="start"
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="dd/mm/aaaa"
                 value={filters.start}
                 onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
               />
+            </div>
+
+            <div className="md:col-span-2">
+              <Label htmlFor="end" className="mb-1 block">Data final</Label>
               <Input
-                type="date"
-                placeholder="Data final"
+                id="end"
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="dd/mm/aaaa"
                 value={filters.end}
                 onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
               />
             </div>
 
+            {/* Path */}
             <div className="md:col-span-4">
+              <Label htmlFor="path" className="mb-1 block">Rota (opcional)</Label>
               <Input
-                placeholder="Path exato (opcional)"
+                id="path"
+                placeholder="/api/registro/…"
                 value={filters.path}
                 onChange={e => setFilters(f => ({ ...f, path: e.target.value }))}
               />
             </div>
 
-            {/* Motivo + Ordenação + Botões */}
+            {/* Motivo */}
             <div className="md:col-span-2">
+              <Label className="mb-1 block">Motivo</Label>
               <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Motivo" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="(todos)" /></SelectTrigger>
                 <SelectContent className="max-h-72">
                   <SelectItem value="__ALL__">(todos)</SelectItem>
-                  {motivoOptions.map(([key, label]) => (<SelectItem key={key} value={key}>{label}</SelectItem>))}
+                  {Object.entries({ ...motivosEdit, ...motivosDelete }).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Ordenação */}
             <div className="md:col-span-2">
+              <Label className="mb-1 block">Ordenação</Label>
               <Select value={filters.ordering} onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Ordenação" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Escolha" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="-timestamp">Mais recentes</SelectItem>
                   <SelectItem value="timestamp">Mais antigos</SelectItem>
@@ -248,7 +303,8 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
-            <div className="md:col-span-4 flex justify-end flex-wrap gap-2">
+            {/* Botões */}
+            <div className="md:col-span-8 flex justify-end flex-wrap gap-2">
               <Button type="submit" disabled={loading}>Aplicar</Button>
               <Button type="button" variant="outline" onClick={onClearFilters} disabled={loading}>
                 <XCircle className="w-4 h-4 mr-1" /> Limpar
@@ -320,25 +376,11 @@ export default function LogsAuditoria() {
 
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-muted-foreground">
-              {data?.count ?? 0} registro(s) • página {page} de {totalPages}
+              {data?.count ?? 0} registro(s) • página {page} de {Math.max(1, Math.ceil((data?.count || 0) / 50))}
             </span>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fetchData(Math.max(1, page - 1))}
-                disabled={loading || page <= 1}
-              >
-                Anterior
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fetchData(page + 1)}
-                disabled={loading || (page * 50) >= (data?.count || 0)}
-              >
-                Próxima
-              </Button>
+              <Button type="button" variant="outline" onClick={() => fetchData(Math.max(1, page - 1))} disabled={loading || page <= 1}>Anterior</Button>
+              <Button type="button" variant="outline" onClick={() => fetchData(page + 1)} disabled={loading || (page * 50) >= (data?.count || 0)}>Próxima</Button>
             </div>
           </div>
         </CardContent>
@@ -356,33 +398,15 @@ export default function LogsAuditoria() {
             {selected && (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Data/Hora</div>
-                    <div className="font-medium">{fmtDate(selected.timestamp)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Usuário</div>
-                    <div className="font-medium">{userDisplay(selected)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">IP</div>
-                    <div className="font-medium">{selected.ip || "—"}</div>
-                  </div>
+                  <div><div className="text-xs text-muted-foreground">Data/Hora</div><div className="font-medium">{fmtDate(selected.timestamp)}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Usuário</div><div className="font-medium">{userDisplay(selected)}</div></div>
+                  <div><div className="text-xs text-muted-foreground">IP</div><div className="font-medium">{selected.ip || "—"}</div></div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Método</div>
-                    <div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Status</div>
-                    <div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Ação</div>
-                    <div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div>
-                  </div>
+                  <div><div className="text-xs text-muted-foreground">Método</div><div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Status</div><div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Ação</div><div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div></div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -390,18 +414,9 @@ export default function LogsAuditoria() {
                     <div className="text-xs text-muted-foreground">Path</div>
                     <div className="font-mono text-xs bg-muted/30 rounded px-2 py-1 overflow-x-auto">{selected.path}</div>
                   </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Modelo</div>
-                    <div className="font-medium">{selected.model || "—"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Objeto (PK)</div>
-                    <div className="font-medium">{selected.object_pk || "—"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">User-Agent</div>
-                    <div className="text-xs break-words">{selected.user_agent || "—"}</div>
-                  </div>
+                  <div><div className="text-xs text-muted-foreground">Modelo</div><div className="font-medium">{selected.model || "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Objeto (PK)</div><div className="font-medium">{selected.object_pk || "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">User-Agent</div><div className="text-xs break-words">{selected.user_agent || "—"}</div></div>
                 </div>
 
                 {(() => {
