@@ -14,7 +14,7 @@ import { ArrowLeft, Save, Printer, Package2, Layers, Factory, Scale, QrCode, Wei
 import { cn } from '@/lib/utils'
 import api from '@/services/api'
 
-// ---------- Constantes/Formatadores (iguais aos da NovaPesagem) ----------
+// ---------- Constantes/Formatadores (alinhados à NovaPesagem) ----------
 const KG_IN_G = 1000
 const TOLERANCIA_PERCENTUAL = 0.05 // 5%
 const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)
@@ -23,9 +23,23 @@ const fmtG = (v) => {
   const n = Math.round(Number(v) || 0)
   return n.toLocaleString('pt-BR') + ' g'
 }
+
+// Conversor robusto: aceita "11,000" (pt-BR) e "11.000" como 11.000 (se não houver vírgula, ponto vira decimal)
 const toNumber = (v) => {
   if (typeof v !== 'string') return Number(v) || 0
-  const s = v.replace(/\s/g, '')
+  const s = v.trim()
+  if (!s) return 0
+  const hasComma = s.includes(',')
+  const hasDot = s.includes('.')
+  if (hasComma && !hasDot) {
+    // pt-BR clássico: 1.234,567
+    return Number(s.replace(/\./g, '').replace(',', '.')) || 0
+  }
+  if (!hasComma && hasDot) {
+    // só ponto: tratar como decimal (11.000 => 11.000)
+    return Number(s) || 0
+  }
+  // ambos ou nenhum: fallback pt-BR
   return Number(s.replace(/\./g, '').replace(',', '.')) || 0
 }
 
@@ -41,19 +55,16 @@ export default function PesagemEditar() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  // estado básico
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // dados carregados
   const [pesagem, setPesagem] = useState(null)
   const [ops, setOps] = useState([])
   const [itensOP, setItensOP] = useState([])
   const [balancas, setBalancas] = useState([])
 
-  // motivos edição
   const [motivosEditMap, setMotivosEditMap] = useState({})
   const motivosEditList = useMemo(
     () => Object.entries(motivosEditMap).map(([value, label]) => ({ value, label })),
@@ -62,28 +73,21 @@ export default function PesagemEditar() {
   const [motivo, setMotivo] = useState('')
   const [motivoObs, setMotivoObs] = useState('')
 
-  // formulário
   const [form, setForm] = useState({
-    // vínculos
-    op: '',          // string para Select/Popover
-    itemOp: '',      // string
-    // exibidos (somente leitura)
+    op: '',
+    itemOp: '',
     pesador: '',
     data_hora: '',
-    // dados editáveis
     produtoNome: '',
     mpNome: '',
     lote_mp: '',
-    liquido: '',     // kg (string para input)
-    tara: '',        // kg (string para input)
-    balanca: '',     // string id
+    liquido: '',
+    tara: '',
+    balanca: '',
     codigoInterno: '',
   })
 
-  // refs
   const liquidoRef = useRef(null)
-
-  // helpers
   const normalizeList = (data) => Array.isArray(data) ? data : (data?.results ?? [])
   const handleChange = (name, value) => {
     setForm(prev => ({ ...prev, [name]: value }))
@@ -91,13 +95,11 @@ export default function PesagemEditar() {
     setSuccess('')
   }
 
-  // carregar tudo
   useEffect(() => {
     let alive = true
       ; (async () => {
         try {
           setLoading(true); setError('')
-          // carrega pesagem + listas
           const [p, opsRes, balsRes] = await Promise.all([
             api.getPesagem(id),
             api.getOPs({ ordering: '-criada_em' }),
@@ -119,7 +121,6 @@ export default function PesagemEditar() {
           const balsNorm = normalizeList(balsRes).map(b => ({ id: b.id, nome: b.nome }))
           setBalancas(balsNorm)
 
-          // monta form
           const opId = p?.op?.id ?? ''
           const itemId = p?.item_op?.id ?? ''
           const liquidoKg =
@@ -141,7 +142,6 @@ export default function PesagemEditar() {
             codigoInterno: p?.codigo_interno || '',
           }))
 
-          // carrega itens da OP atual, se houver
           if (opId) {
             const itens = await api.getOPItems(opId)
             const itensNorm = normalizeList(itens).map(it => ({
@@ -156,15 +156,13 @@ export default function PesagemEditar() {
             if (alive) setItensOP(itensNorm)
           }
 
-          // motivos
           try {
             const res = await fetch(MOTIVOS_URL, { headers: { Authorization: `Bearer ${localStorage.getItem('access') || ''}` } })
             if (res.ok) {
               const data = await res.json()
               setMotivosEditMap(data?.edit || {})
             }
-          } catch { /* ignore */ }
-
+          } catch { }
         } catch (e) {
           console.error(e)
           setError('Não foi possível carregar a pesagem para edição.')
@@ -175,12 +173,10 @@ export default function PesagemEditar() {
     return () => { alive = false }
   }, [id])
 
-  // quando troca OP, recarrega itens e limpa dependentes
   const handleOPChange = async (opId) => {
     handleChange('op', opId)
     handleChange('itemOp', '')
     handleChange('codigoInterno', '')
-    // atualiza campos exibidos (produto, op/lote)
     const sel = ops.find(o => o.id.toString() === String(opId))
     handleChange('produtoNome', sel?.produtoNome || '')
     try {
@@ -189,9 +185,9 @@ export default function PesagemEditar() {
         id: it.id,
         mpNome: it.materia_prima?.nome ?? '',
         mpCodigo: it.materia_prima?.codigo_interno ?? '',
-        quantidade_necessaria: it.quantidade_necessaria, // g
-        quantidade_pesada: it.quantidade_pesada,         // g
-        quantidade_restante: it.quantidade_restante,     // g
+        quantidade_necessaria: it.quantidade_necessaria,
+        quantidade_pesada: it.quantidade_pesada,
+        quantidade_restante: it.quantidade_restante,
         unidade: it.unidade,
       }))
       setItensOP(itens)
@@ -201,7 +197,6 @@ export default function PesagemEditar() {
     }
   }
 
-  // quando seleciona item, preenche mp/código
   const itemSelecionado = useMemo(() => {
     if (!form.itemOp) return null
     return itensOP.find(i => i.id.toString() === form.itemOp.toString()) || null
@@ -215,29 +210,30 @@ export default function PesagemEditar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemSelecionado?.id])
 
-  // ---- Unidades/Calculos (iguais à NovaPesagem) ----
+  // ---- Cálculos (corrigidos) ----
   const liquidoKg = useMemo(() => toNumber(form.liquido), [form.liquido])
   const taraKg = useMemo(() => toNumber(form.tara), [form.tara])
-  const brutoCalcKg = useMemo(() => {
-    const val = liquidoKg + taraKg
-    return val > 0 ? val : 0
-  }, [liquidoKg, taraKg])
-  const pesoLiquidoG = useMemo(() => kgToG(liquidoKg), [liquidoKg])
 
+  // Soma sempre números reais (aceita , ou . como decimal)
+  const brutoCalcKg = useMemo(() => {
+    const l = toNumber(form.liquido)
+    const t = toNumber(form.tara)
+    const val = l + t
+    return Number.isFinite(val) && val > 0 ? val : 0
+  }, [form.liquido, form.tara])
+
+  const pesoLiquidoG = useMemo(() => kgToG(liquidoKg), [liquidoKg])
   const necessarioG = itemSelecionado ? Number(itemSelecionado.quantidade_necessaria || 0) : 0
   const pesadoG = itemSelecionado ? Number(itemSelecionado.quantidade_pesada || 0) : 0
   const restanteG = Math.max(necessarioG - pesadoG, 0)
-
   const limiteMinG = necessarioG * (1 - TOLERANCIA_PERCENTUAL)
   const limiteMaxG = necessarioG * (1 + TOLERANCIA_PERCENTUAL)
-
   const novoTotalG = pesadoG + pesoLiquidoG
   const excedeMaximo = novoTotalG > limiteMaxG
   const abaixoDoMinimo = novoTotalG < limiteMinG
   const faltaParaMinG = Math.max(limiteMinG - novoTotalG, 0)
   const margemAteMaxG = Math.max(limiteMaxG - novoTotalG, 0)
 
-  // OP e Lote para exibição
   const opSelecionada = useMemo(() => {
     if (!form.op) return null
     return ops.find(o => o.id.toString() === String(form.op)) || null
@@ -248,17 +244,14 @@ export default function PesagemEditar() {
     return `OP ${opSelecionada.numero} • Lote ${opSelecionada.lote}`
   }, [opSelecionada])
 
-  // auto limpar mensagem de sucesso
   useEffect(() => {
     if (!success) return
     const t = setTimeout(() => setSuccess(''), 3500)
     return () => clearTimeout(t)
   }, [success])
 
-  // salvar
   const onSave = async () => {
     setError(''); setSuccess('')
-    // validações de UI
     if (!form.op) return setError('Selecione a OP.')
     if (!form.itemOp) return setError('Selecione o Item da OP (Matéria-prima).')
     if (!form.lote_mp?.trim()) return setError('Informe o Lote MP.')
@@ -266,30 +259,21 @@ export default function PesagemEditar() {
     if (taraKg < 0) return setError('Tara (kg) deve ser ≥ 0.')
     if (!motivo) return setError('Selecione o motivo da edição.')
     if (motivo === 'outro' && !motivoObs.trim()) return setError('Descreva o motivo no campo de observação.')
-    if (excedeMaximo) {
-      return setError(`Ultrapassa o limite superior (+5%). Máximo: ${fmtG(limiteMaxG)}. Total projetado: ${fmtG(novoTotalG)}.`)
-    }
+    if (excedeMaximo) return setError(`Ultrapassa o limite superior (+5%). Máximo: ${fmtG(limiteMaxG)}. Total projetado: ${fmtG(novoTotalG)}.`)
 
     try {
       setSaving(true)
-
       const payload = {
-        // vínculos (agora editáveis)
         op_id: Number(form.op),
         item_op_id: Number(form.itemOp),
-
-        // dados
         lote_mp: form.lote_mp.trim(),
-        liquido: Number(liquidoKg.toFixed(3)), // kg (back converte para g e calcula bruto)
+        liquido: Number(liquidoKg.toFixed(3)), // kg
         tara: Number(taraKg.toFixed(3)),       // kg
         balanca_id: form.balanca ? Number(form.balanca) : null,
         codigo_interno: form.codigoInterno?.trim() || null,
-
-        // auditoria
         motivo_edicao: motivo,
         motivo_observacao: motivoObs?.trim() || null,
       }
-
       await api.updatePesagem(id, payload)
       setSuccess('Pesagem atualizada com sucesso!')
     } catch (e) {
@@ -322,7 +306,6 @@ export default function PesagemEditar() {
     }
   }
 
-  // UI helpers
   const itemLabel = (it) => {
     const code = it.mpCodigo ? `${it.mpCodigo} — ` : ''
     const necG = Number(it.quantidade_necessaria || 0)
@@ -416,7 +399,7 @@ export default function PesagemEditar() {
             </div>
           </div>
 
-          {/* Item da OP — Combobox estilo NovaPesagem */}
+          {/* Item da OP — Combobox */}
           <div className="space-y-2">
             <Label>Item da OP (Matéria-prima)</Label>
             <Popover>
@@ -464,7 +447,7 @@ export default function PesagemEditar() {
             </Popover>
           </div>
 
-          {/* Código Interno (editável agora) */}
+          {/* Código Interno (editável) */}
           <div className="space-y-2">
             <Label>Código Interno (MP)</Label>
             <div className="flex items-center gap-2">
@@ -533,7 +516,7 @@ export default function PesagemEditar() {
             />
           </div>
 
-          {/* Bruto (auto) */}
+          {/* Bruto (auto) no card de dados */}
           <div className="space-y-2">
             <Label>Bruto (auto)</Label>
             <div className="rounded border px-3 py-2 bg-blue-50 flex items-center gap-2 text-blue-900">
@@ -561,7 +544,7 @@ export default function PesagemEditar() {
         </CardContent>
       </Card>
 
-      {/* Bloco de cálculo e saldo (igual à NovaPesagem) */}
+      {/* Blocos de cálculo (iguais à NovaPesagem) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-blue-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
