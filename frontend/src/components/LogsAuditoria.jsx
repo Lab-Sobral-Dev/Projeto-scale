@@ -357,110 +357,114 @@ export default function LogsAuditoria() {
 
       {/* Modal de detalhes */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
+        {/* 🔧 LARGURA/ALTURA AUMENTADAS + CABEÇALHO FIXO */}
+        <DialogContent className="max-w-6xl w-[96vw] max-h-[90vh] p-6">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
             <DialogTitle>Detalhes do Log</DialogTitle>
             <DialogDescription>
               Informações completas do registro selecionado.
             </DialogDescription>
           </DialogHeader>
 
-          {selected && (
-            <div className="space-y-3">
-              {/* Linha 1: data, usuário, ip */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Data/Hora</div>
-                  <div className="font-medium">{fmtDate(selected.timestamp)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Usuário</div>
-                  <div className="font-medium">{userDisplay(selected)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">IP</div>
-                  <div className="font-medium">{selected.ip || "—"}</div>
-                </div>
-              </div>
-
-              {/* Linha 2: método, status, ação */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Método</div>
-                  <div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>
-                    {selected.method}
+          {/* Corpo rolável independentemente do cabeçalho */}
+          <div className="overflow-y-auto max-h-[74vh] pr-1">
+            {selected && (
+              <div className="space-y-3">
+                {/* Linha 1: data, usuário, ip */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Data/Hora</div>
+                    <div className="font-medium">{fmtDate(selected.timestamp)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Usuário</div>
+                    <div className="font-medium">{userDisplay(selected)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">IP</div>
+                    <div className="font-medium">{selected.ip || "—"}</div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Status</div>
-                  <div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>
-                    {selected.status_code ?? "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Ação</div>
-                  <div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>
-                    {selected.action}
-                  </div>
-                </div>
-              </div>
 
-              {/* Path, Modelo, Objeto */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="md:col-span-3">
-                  <div className="text-xs text-muted-foreground">Path</div>
-                  <div className="font-mono text-xs bg-muted/30 rounded px-2 py-1 overflow-x-auto">{selected.path}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Modelo</div>
-                  <div className="font-medium">{selected.model || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Objeto (PK)</div>
-                  <div className="font-medium">{selected.object_pk || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">User-Agent</div>
-                  <div className="text-xs break-words">{selected.user_agent || "—"}</div>
-                </div>
-              </div>
-
-              {/* Motivo + Observação (quando houver) */}
-              {(() => {
-                const { reason, note } = extractReason(selected)
-                const label = reasonLabel(reason)
-                if (!reason && !note) return null
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Motivo</div>
-                      <div className="font-medium">{label}</div>
-                    </div>
-                    <div className="md:col-span-2">
-                      <div className="text-xs text-muted-foreground">Observação</div>
-                      <div className="text-sm">{note || "—"}</div>
+                {/* Linha 2: método, status, ação */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Método</div>
+                    <div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>
+                      {selected.method}
                     </div>
                   </div>
-                )
-              })()}
-
-              {/* Changes / Extra */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Changes</div>
-                  <pre className="text-xs bg-muted/30 rounded p-2 max-h-72 overflow-auto">
-                    {JSON.stringify(selected.changes || {}, null, 2)}
-                  </pre>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Status</div>
+                    <div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>
+                      {selected.status_code ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Ação</div>
+                    <div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>
+                      {selected.action}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Extra</div>
-                  <pre className="text-xs bg-muted/30 rounded p-2 max-h-72 overflow-auto">
-                    {JSON.stringify(selected.extra || {}, null, 2)}
-                  </pre>
+
+                {/* Path, Modelo, Objeto */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-3">
+                    <div className="text-xs text-muted-foreground">Path</div>
+                    <div className="font-mono text-xs bg-muted/30 rounded px-2 py-1 overflow-x-auto">{selected.path}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Modelo</div>
+                    <div className="font-medium">{selected.model || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Objeto (PK)</div>
+                    <div className="font-medium">{selected.object_pk || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">User-Agent</div>
+                    <div className="text-xs break-words">{selected.user_agent || "—"}</div>
+                  </div>
+                </div>
+
+                {/* Motivo + Observação (quando houver) */}
+                {(() => {
+                  const { reason, note } = extractReason(selected)
+                  const label = reasonLabel(reason)
+                  if (!reason && !note) return null
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Motivo</div>
+                        <div className="font-medium">{label}</div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-xs text-muted-foreground">Observação</div>
+                        <div className="text-sm">{note || "—"}</div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Changes / Extra */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Changes</div>
+                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">
+                      {JSON.stringify(selected.changes || {}, null, 2)}
+                    </pre>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Extra</div>
+                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">
+                      {JSON.stringify(selected.extra || {}, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
