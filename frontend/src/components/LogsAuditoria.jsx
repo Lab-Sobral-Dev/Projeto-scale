@@ -259,7 +259,7 @@ export default function LogsAuditoria() {
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         {/* sobrescrevendo o max-width padrão do shadcn */}
         <DialogContent
-          className="!w-[96vw] sm:!max-w-[96vw] lg:!max-w-[1200px] max-h-[90vh] p-6 rounded-xl"
+          className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1600px] max-h-[95vh] p-8 rounded-xl"
         >
           <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
             <DialogTitle>Detalhes do Log</DialogTitle>
