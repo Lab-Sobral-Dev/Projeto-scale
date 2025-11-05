@@ -26,7 +26,6 @@ const fmtG = (v) => {
   const n = Math.round(Number(v) || 0)
   return n.toLocaleString('pt-BR') + ' g'
 }
-// Conversor robusto pt-BR / en-US
 const toNumber = (v) => {
   if (typeof v !== 'string') return Number(v) || 0
   const s = v.trim()
@@ -142,9 +141,9 @@ export default function PesagemEditar() {
               id: it.id,
               mpNome: it.materia_prima?.nome ?? '',
               mpCodigo: it.materia_prima?.codigo_interno ?? '',
-              quantidade_necessaria: it.quantidade_necessaria, // g
-              quantidade_pesada: it.quantidade_pesada,         // g (inclui a pesagem atual)
-              quantidade_restante: it.quantidade_restante,     // g
+              quantidade_necessaria: it.quantidade_necessaria,
+              quantidade_pesada: it.quantidade_pesada,         // inclui a pesagem atual
+              quantidade_restante: it.quantidade_restante,
               unidade: it.unidade,
             }))
             if (alive) setItensOP(itensNorm)
@@ -208,7 +207,7 @@ export default function PesagemEditar() {
   const liquidoKg = useMemo(() => toNumber(form.liquido), [form.liquido])
   const taraKg = useMemo(() => toNumber(form.tara), [form.tara])
 
-  // Bruto (auto) — LIQ + TARA (só para exibição)
+  // Bruto (auto) — LIQ + TARA (exibição)
   const brutoCalcKg = useMemo(() => {
     const l = toNumber(form.liquido)
     const t = toNumber(form.tara)
@@ -216,23 +215,23 @@ export default function PesagemEditar() {
     return Number.isFinite(val) && val > 0 ? val : 0
   }, [form.liquido, form.tara])
 
-  // Para SALDO/VALIDAÇÃO: usa somente o LÍQUIDO (em g)
+  // SALDO/VALIDAÇÃO: usa somente o LÍQUIDO (em g)
   const pesoLiquidoG = useMemo(() => kgToG(liquidoKg), [liquidoKg])
 
   // Valores do item selecionado
   const necessarioG = itemSelecionado ? Number(itemSelecionado.quantidade_necessaria || 0) : 0
   const pesadoG = itemSelecionado ? Number(itemSelecionado.quantidade_pesada || 0) : 0
 
-  // >>> Pesagem atual original (g), para não "contar duas vezes" na edição
+  // Pesagem atual original (g), para não “contar duas vezes”
   const liquidoOriginalG = useMemo(
     () => Math.round(Number(pesagem?.liquido || 0)),
     [pesagem?.liquido]
   )
 
-  // "Já pesado" sem considerar esta pesagem (acumulado real anterior)
+  // Já pesado sem esta pesagem
   const pesadoSemEstaG = Math.max(pesadoG - liquidoOriginalG, 0)
 
-  // Total projetado após salvar a edição
+  // Total projetado após salvar
   const novoTotalG = pesadoSemEstaG + pesoLiquidoG
 
   // Limites e indicadores
@@ -243,7 +242,7 @@ export default function PesagemEditar() {
   const faltaParaMinG = Math.max(limiteMinG - novoTotalG, 0)
   const margemAteMaxG = Math.max(limiteMaxG - novoTotalG, 0)
 
-  // Para exibir "restante" (antes de aplicar a edição, como na criação)
+  // Exibição do “restante” com base no acumulado real atual
   const restanteG = Math.max(necessarioG - pesadoSemEstaG, 0)
 
   const opSelecionada = useMemo(() => {
@@ -279,8 +278,8 @@ export default function PesagemEditar() {
         op_id: Number(form.op),
         item_op_id: Number(form.itemOp),
         lote_mp: form.lote_mp.trim(),
-        liquido: Number(liquidoKg.toFixed(3)), // kg (backend converte para g)
-        tara: Number(taraKg.toFixed(3)),       // kg (bruto é calculado no backend)
+        liquido: Number(liquidoKg.toFixed(3)), // kg
+        tara: Number(taraKg.toFixed(3)),       // kg
         balanca_id: form.balanca ? Number(form.balanca) : null,
         codigo_interno: form.codigoInterno?.trim() || null,
         motivo_edicao: motivo,
@@ -576,8 +575,9 @@ export default function PesagemEditar() {
           <Label className="font-semibold text-amber-900">Saldo do Item</Label>
           <div className="mt-2 text-amber-900">
             Necessário: <b>{fmtG(necessarioG)}</b><br />
-            Pesado: <b>{fmtG(pesadoSemEstaG)}</b><br />
+            <span>Pesado (antes desta edição): </span><b>{fmtG(pesadoSemEstaG)}</b><br />
             Restante: <b>{fmtG(restanteG)}</b><br />
+            Projetado: <b>{fmtG(novoTotalG)}</b><br />
             Limites (±5%): <b>{fmtG(limiteMinG)}</b> a <b>{fmtG(limiteMaxG)}</b>
           </div>
 
