@@ -46,6 +46,7 @@ const statusClass = (s) => {
   return "bg-gray-50 text-gray-600"
 }
 
+// filtros ESSENCIAIS (sem status_code e sem avançados)
 const initialFilters = {
   q: "",
   action: "",
@@ -61,15 +62,13 @@ const initialFilters = {
 
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState(initialFilters)
+
   const [data, setData] = useState({ count: 0, results: [] })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+
   const [motivosEdit, setMotivosEdit] = useState({})
   const [motivosDelete, setMotivosDelete] = useState({})
-  const [usersMap, setUsersMap] = useState(new Map())
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [selected, setSelected] = useState(null)
-
   const motivoOptions = useMemo(() => {
     const merged = { ...motivosEdit, ...motivosDelete }
     const entries = Object.entries(merged).filter(([k]) => k && k !== "outro")
@@ -78,10 +77,16 @@ export default function LogsAuditoria() {
     return entries
   }, [motivosEdit, motivosDelete])
 
+  const [usersMap, setUsersMap] = useState(new Map())
+
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
 
+  // re-carrega quando muda ordenação
   useEffect(() => { fetchData(1) }, [filters.ordering])
 
+  // carrega motivos e usuários
   useEffect(() => {
     (async () => {
       try {
@@ -110,8 +115,20 @@ export default function LogsAuditoria() {
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
-      const resp = await listarLogs({ filters, page: pg })
-      setData({ count: resp?.count ?? 0, results: resp?.results ?? [] })
+      // envia apenas os filtros suportados pelo backend
+      const { q, action, method, model, user, path, start, end, ordering, reason } = filters
+      const resp = await listarLogs({
+        filters: { q, action, method, model, user, path, start, end, ordering },
+        page: pg
+      })
+
+      // pós-processa motivo no frontend (chave interna)
+      let results = resp?.results || []
+      if (reason) {
+        results = results.filter(r => extractReason(r).reason === reason)
+      }
+
+      setData({ count: resp?.count ?? results.length, results })
       setPage(pg)
     } finally {
       setLoading(false)
@@ -144,7 +161,7 @@ export default function LogsAuditoria() {
 
         <CardContent className="space-y-4">
           <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-8 gap-4">
-            {/* Busca */}
+            {/* Busca livre */}
             <div className="md:col-span-8">
               <div className="flex items-center gap-2">
                 <Input
@@ -158,7 +175,7 @@ export default function LogsAuditoria() {
               </div>
             </div>
 
-            {/* Linha 2 */}
+            {/* Linha 2: Ação / Método / Modelo / Usuário */}
             <div className="md:col-span-2">
               <Select value={filters.action || undefined} onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Ação" /></SelectTrigger>
@@ -180,24 +197,46 @@ export default function LogsAuditoria() {
             </div>
 
             <div className="md:col-span-2">
-              <Input placeholder="Modelo (ex.: Pesagem)" value={filters.model} onChange={e => setFilters(f => ({ ...f, model: e.target.value }))} />
+              <Input
+                placeholder="Modelo (ex.: Pesagem)"
+                value={filters.model}
+                onChange={e => setFilters(f => ({ ...f, model: e.target.value }))}
+              />
             </div>
 
             <div className="md:col-span-2">
-              <Input placeholder="Usuário (id/nome)" value={filters.user} onChange={e => setFilters(f => ({ ...f, user: e.target.value }))} />
+              <Input
+                placeholder="Usuário (id/nome)"
+                value={filters.user}
+                onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
+              />
             </div>
 
-            {/* Linha 3 */}
-            <div className="md:col-span-4 grid grid-cols-2 gap-3">
-              <Input type="datetime-local" value={filters.start} onChange={e => setFilters(f => ({ ...f, start: e.target.value }))} title="Início" />
-              <Input type="datetime-local" value={filters.end} onChange={e => setFilters(f => ({ ...f, end: e.target.value }))} title="Fim" />
+            {/* Linha 3: Data Início/Fim + Path */}
+            <div className="md:col-span-4 grid grid-cols-2 gap-4">
+              <Input
+                type="datetime-local"
+                value={filters.start}
+                onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
+                title="Início"
+              />
+              <Input
+                type="datetime-local"
+                value={filters.end}
+                onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
+                title="Fim"
+              />
             </div>
 
             <div className="md:col-span-4">
-              <Input placeholder="Path exato (opcional)" value={filters.path} onChange={e => setFilters(f => ({ ...f, path: e.target.value }))} />
+              <Input
+                placeholder="Path exato (opcional)"
+                value={filters.path}
+                onChange={e => setFilters(f => ({ ...f, path: e.target.value }))}
+              />
             </div>
 
-            {/* Linha 4 */}
+            {/* Linha 4: Motivo + Ordenação + Botões (à direita) */}
             <div className="md:col-span-2">
               <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Motivo" /></SelectTrigger>
@@ -218,13 +257,17 @@ export default function LogsAuditoria() {
               </Select>
             </div>
 
-            {/* Botões alinhados à direita */}
             <div className="md:col-span-4 flex justify-end flex-wrap gap-2">
               <Button type="submit" disabled={loading}>Aplicar</Button>
               <Button type="button" variant="outline" onClick={onClearFilters} disabled={loading}>
                 <XCircle className="w-4 h-4 mr-1" /> Limpar
               </Button>
-              <Button type="button" variant="outline" onClick={() => exportarCsv(data?.results || [])} disabled={loading || (data?.results || []).length === 0}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => exportarCsv(data?.results || [])}
+                disabled={loading || (data?.results || []).length === 0}
+              >
                 <Download className="w-4 h-4 mr-1" /> CSV
               </Button>
               <Button type="button" variant="ghost" onClick={() => fetchData(page)} disabled={loading}>
@@ -232,6 +275,81 @@ export default function LogsAuditoria() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Lista + Modal */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            {loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b text-center">
+                <th className="px-2 py-2">Data/Hora</th>
+                <th className="px-2 py-2">Usuário</th>
+                <th className="px-2 py-2">Método</th>
+                <th className="px-2 py-2">Path</th>
+                <th className="px-2 py-2">Status</th>
+                <th className="px-2 py-2">Ação</th>
+                <th className="px-2 py-2">Detalhes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.results || []).map((r, idx) => {
+                const key = `${r.timestamp}-${r.model}-${r.object_pk}-${idx}`
+                return (
+                  <tr key={key} className="border-b hover:bg-muted/40">
+                    <td className="px-2 py-2 whitespace-nowrap text-center">{fmtDate(r.timestamp)}</td>
+                    <td className="px-2 py-2 text-center">{userDisplay(r)}</td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method}</span>
+                    </td>
+                    <td className="px-2 py-2">{r.path}</td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span>
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{r.action}</span>
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)}>Ver</Button>
+                    </td>
+                  </tr>
+                )
+              })}
+              {!loading && (data?.results || []).length === 0 && (
+                <tr><td className="px-2 py-6 text-center" colSpan={7}>Sem registros</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          <div className="flex items-center justify-between mt-3">
+            <span className="text-xs text-muted-foreground">
+              {data?.count ?? 0} registro(s) • página {page} de {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fetchData(Math.max(1, page - 1))}
+                disabled={loading || page <= 1}
+              >
+                Anterior
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fetchData(page + 1)}
+                disabled={loading || (page * 50) >= (data?.count || 0)}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -246,28 +364,59 @@ export default function LogsAuditoria() {
           <div className="overflow-y-auto max-h-[74vh] pr-1">
             {selected && (
               <div className="space-y-3">
+                {/* Linha 1 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div><div className="text-xs text-muted-foreground">Data/Hora</div><div className="font-medium">{fmtDate(selected.timestamp)}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Usuário</div><div className="font-medium">{userDisplay(selected)}</div></div>
-                  <div><div className="text-xs text-muted-foreground">IP</div><div className="font-medium">{selected.ip || "—"}</div></div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Data/Hora</div>
+                    <div className="font-medium">{fmtDate(selected.timestamp)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Usuário</div>
+                    <div className="font-medium">{userDisplay(selected)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">IP</div>
+                    <div className="font-medium">{selected.ip || "—"}</div>
+                  </div>
                 </div>
 
+                {/* Linha 2 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div><div className="text-xs text-muted-foreground">Método</div><div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Status</div><div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Ação</div><div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div></div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Método</div>
+                    <div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Status</div>
+                    <div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Ação</div>
+                    <div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div>
+                  </div>
                 </div>
 
+                {/* Path, Modelo, Objeto */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-3">
                     <div className="text-xs text-muted-foreground">Path</div>
                     <div className="font-mono text-xs bg-muted/30 rounded px-2 py-1 overflow-x-auto">{selected.path}</div>
                   </div>
-                  <div><div className="text-xs text-muted-foreground">Modelo</div><div className="font-medium">{selected.model || "—"}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Objeto (PK)</div><div className="font-medium">{selected.object_pk || "—"}</div></div>
-                  <div><div className="text-xs text-muted-foreground">User-Agent</div><div className="text-xs break-words">{selected.user_agent || "—"}</div></div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Modelo</div>
+                    <div className="font-medium">{selected.model || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Objeto (PK)</div>
+                    <div className="font-medium">{selected.object_pk || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">User-Agent</div>
+                    <div className="text-xs break-words">{selected.user_agent || "—"}</div>
+                  </div>
                 </div>
 
+                {/* Motivo/Obs */}
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
@@ -286,6 +435,7 @@ export default function LogsAuditoria() {
                   )
                 })()}
 
+                {/* Changes / Extra */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Changes</div>
