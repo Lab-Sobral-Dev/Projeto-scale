@@ -186,6 +186,34 @@ class PesagemSerializer(serializers.ModelSerializer):
     
 
 class AuditLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+
     class Meta:
         model = AuditLog
-        fields = "__all__"
+        fields = [
+            "id",
+            "timestamp",
+            "user",
+            "ip",
+            "user_agent",
+            "path",
+            "method",
+            "status_code",
+            "action",
+            "model",
+            "object_pk",
+            "changes",
+            "extra",
+            "user_name",
+        ]
+        read_only_fields = fields
+
+    def get_user_name(self, obj):
+        # melhor esforço para exibir um display name consistente com o frontend
+        if getattr(obj, "user", None) and getattr(obj.user, "get_full_name", None):
+            name = (obj.user.get_full_name() or "").strip()
+            if name:
+                return name
+        if getattr(obj, "user", None) and getattr(obj.user, "username", None):
+            return obj.user.username
+        return getattr(obj, "username", None) or ""

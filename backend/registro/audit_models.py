@@ -44,6 +44,15 @@ class AuditLog(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["timestamp"]),
+            models.Index(fields=["-timestamp"]),
+            models.Index(fields=["action"]),
+            models.Index(fields=["method"]),
+            models.Index(fields=["model"]),
+            models.Index(fields=["status_code"]),
+            models.Index(fields=["path"]),
+            models.Index(fields=["user"]),
+            models.Index(fields=["object_pk"]),
+            models.Index(fields=["ip"]),
             models.Index(fields=["model", "object_pk"]),
         ]
         ordering = ["-timestamp"]

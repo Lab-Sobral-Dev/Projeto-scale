@@ -11,18 +11,18 @@ from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 from decimal import Decimal, ROUND_HALF_UP
 import os
-# imports adicionais no topo do arquivo
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+
 from registro.audit_models import AuditLog
 from .serializers import AuditLogSerializer
 
-# registro/views.py (no topo, junto aos imports existentes)
 from usuarios.permissions import IsSupervisorOrAdminOrReadOnly, IsAdmin
 from django.forms.models import model_to_dict
-
 
 from .models import (
     Produto, MateriaPrima, Balanca,
@@ -36,7 +36,9 @@ from .serializers import (
     PesagemSerializer
 )
 from registro.permissions import IsAdminOrReadOnly
-from rest_framework.permissions import IsAuthenticated
+
+# >>> novo: filtros avançados para auditoria
+from registro.audit_filters import AuditLogFilter
 
 
 # ======================
@@ -155,7 +157,6 @@ class OrdemProducaoViewSet(viewsets.ModelViewSet):
     def itens(self, request, pk=None):
         op = self.get_object()
         qs = ItemOP.objects.select_related("materia_prima").filter(op=op).all()
-        # anota quantidade_restante (já existe property; aqui só devolvemos o serializer)
         serializer = ItemOPSerializer(qs, many=True)
         return Response(serializer.data)
 
@@ -174,15 +175,6 @@ class ItemOPViewSet(viewsets.ModelViewSet):
     search_fields = ['op__numero', 'op__lote', 'materia_prima__nome', 'materia_prima__codigo_interno']
     ordering_fields = ['op__criada_em', 'materia_prima__nome']
 
-
-# ======================
-# Pesagem
-# ======================
-
-# registro/views.py
-from rest_framework.decorators import action
-from usuarios.permissions import IsSupervisorOrAdminOrReadOnly, IsAdmin
-from django.forms.models import model_to_dict
 
 # ======================
 # Pesagem
@@ -238,10 +230,8 @@ class PesagemViewSet(viewsets.ModelViewSet):
         try:
             serializer.save()
         except DjangoValidationError as e:
-            # e.messages já vem “bonitinho” do model.clean()/save()
             msgs = getattr(e, "messages", None)
             detail = " ".join(msgs) if msgs else str(e)
-            # levanta DRF ValidationError -> HTTP 400 para o frontend
             raise DRFValidationError({"detail": detail})
 
     # ====== Edição (supervisor/admin, com motivo) ======
@@ -327,8 +317,6 @@ class PesagemViewSet(viewsets.ModelViewSet):
         return response
 
 
-
-
 # ======================
 # Etiqueta PDF (g)
 # ======================
@@ -376,33 +364,31 @@ def gerar_etiqueta_pdf(request, pk):
     def fmt_g3_ptbr(value):
         """
         Ex.: 282000 -> 282.000,000 g
-            1234.5 -> 1.234,500 g
-            1000   -> 1.000,000 g
+             1234.5 -> 1.234,500 g
+             1000   -> 1.000,000 g
         """
         if value is None:
             return "- g"
-        d = Decimal(value).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)  # garante 3 casas
-        s = f"{d:.3f}"                 # '282000.000'
-        inteiro, frac = s.split(".")   # ('282000', '000')
-        inteiro = f"{int(inteiro):,}".replace(",", ".")  # '282.000'
+        d = Decimal(value).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+        s = f"{d:.3f}"
+        inteiro, frac = s.split(".")
+        inteiro = f"{int(inteiro):,}".replace(",", ".")
         return f"{inteiro},{frac} g"
-    
+
     from django.utils import timezone
 
     def dt_local_fmt(dt):
         if not dt:
             return ""
-        # garante consciente e converte para o fuso atual (settings.TIME_ZONE)
         if timezone.is_naive(dt):
             dt = timezone.make_aware(dt, timezone.get_current_timezone())
-        dt = timezone.localtime(dt)  # usa settings.TIME_ZONE
+        dt = timezone.localtime(dt)
         return dt.strftime('%d/%m/%Y %H:%M')
-
 
     # Converte kg -> g para exibição
     KG_TO_G = Decimal('1000')
     bruto_g = Decimal(pesagem.bruto or 0) * KG_TO_G
-    tara_g  = Decimal(pesagem.tara or 0)  * KG_TO_G
+    tara_g = Decimal(pesagem.tara or 0) * KG_TO_G
     liquido_g = Decimal(pesagem.liquido or 0)  # já em g no banco
 
     # Conteúdo
@@ -427,10 +413,6 @@ def gerar_etiqueta_pdf(request, pk):
         pular_linha()
 
     def escrever_ajustado(label, valor):
-        """
-        Desenha 'Label: Valor' e reduz a fonte gradualmente (até min_size)
-        se o texto exceder a largura máxima disponível.
-        """
         nonlocal linha
         txt = f"{label}: {valor}" if valor else f"{label}:"
         font_size = base_size
@@ -443,7 +425,6 @@ def gerar_etiqueta_pdf(request, pk):
         p.setFont(base_font, font_size)
         p.drawString(margem_esq, linha, txt)
         pular_linha()
-        # restaura para os próximos campos
         p.setFont(base_font, base_size)
 
     produto_nome = pesagem.op.produto.nome if pesagem.op and pesagem.op.produto else ""
@@ -451,11 +432,9 @@ def gerar_etiqueta_pdf(request, pk):
     balanca_txt = pesagem.balanca.nome if pesagem.balanca else ""
     lote_mp_txt = getattr(pesagem, "lote_mp", "") or ""
 
-    # Campos com ajuste dinâmico
     escrever_ajustado("Produto", produto_nome)
     escrever_ajustado("Matéria-prima", mp_nome)
 
-    # Demais campos com fonte padrão
     escrever(f"Cód. Interno: {pesagem.codigo_interno}")
     escrever(f"OP: {pesagem.op.numero if pesagem.op else ''}   Lote: {pesagem.op.lote if pesagem.op else ''}")
     if lote_mp_txt:
@@ -476,12 +455,21 @@ class IsAdminOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_staff
 
+
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AuditLog.objects.all()
+    """
+    /api/auditoria/?q=...&action=...&method=...&model=...&status_code=...
+    &user=...&path=...&start=...&end=...&ordering=-timestamp
+    &reason=...&action_group=...&status_group=...&anon=sim|nao
+    &has_reason=sim|nao&has_changes=sim|nao&has_extra=sim|nao
+    &path_contains=...&ua_contains=...&ip=...&object_pk=...
+    """
+    queryset = AuditLog.objects.all().select_related("user").order_by("-timestamp")
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdminOnly]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["action","model","status_code","user","path","method","object_pk"]
-    search_fields = ["user_agent","path","model","object_pk"]
-    ordering_fields = ["timestamp","status_code","model","action"]
+
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = AuditLogFilter
+    search_fields = ["path", "model", "object_pk", "user_agent", "ip", "username"]
+    ordering_fields = ["timestamp", "status_code", "model", "action"]
     ordering = ["-timestamp"]
