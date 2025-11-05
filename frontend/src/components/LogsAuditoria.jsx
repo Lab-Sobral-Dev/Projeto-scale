@@ -229,7 +229,7 @@ export default function LogsAuditoria() {
             </div>
 
             <div className="md:col-span-4">
-              <Label className="mb-1 block">Path exato (opcional)</Label>
+              <Label className="mb-1 block">Rota</Label>
               <Input
                 placeholder="/api/registro/…"
                 value={filters.path}
