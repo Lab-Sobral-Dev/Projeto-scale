@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
-import { Download, RefreshCcw, Search, Filter } from "lucide-react"
+import { Download, RefreshCcw, Search, Filter, XCircle } from "lucide-react"
 
 const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -45,23 +45,17 @@ const statusClass = (s) => {
   return "bg-gray-50 text-gray-600"
 }
 
+// --- estado inicial de filtros ---
+const initialFilters = {
+  q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
+  start: "", end: "", ordering: "-timestamp", reason: "",
+  action_group: "", status_group: "", anon: "",
+  has_reason: "", has_changes: "", has_extra: "",
+  path_contains: "", ua_contains: "", ip: "", object_pk: ""
+}
+
 export default function LogsAuditoria() {
-  const [filters, setFilters] = useState({
-    // básicos
-    q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
-    start: "", end: "", ordering: "-timestamp", reason: "",
-    // avançados (agora suportados pelo backend)
-    action_group: "",          // seguranca, dados, request, impressao, erro
-    status_group: "",          // 2xx, 4xx, 5xx, none
-    anon: "",                  // sim, nao
-    has_reason: "",            // sim, nao
-    has_changes: "",           // sim, nao
-    has_extra: "",             // sim, nao
-    path_contains: "",         // substring
-    ua_contains: "",           // substring user agent
-    ip: "",                    // exato
-    object_pk: "",             // exato
-  })
+  const [filters, setFilters] = useState(initialFilters)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const [data, setData] = useState({ count: 0, results: [] })
@@ -79,7 +73,6 @@ export default function LogsAuditoria() {
   }, [motivosEdit, motivosDelete])
 
   const [usersMap, setUsersMap] = useState(new Map())
-
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
@@ -90,14 +83,12 @@ export default function LogsAuditoria() {
     (async () => {
       try {
         const headers = { Authorization: `Bearer ${localStorage.getItem('access') || ''}` }
-        // Motivos
         const res = await fetch(MOTIVOS_URL, { headers })
         if (res.ok) {
           const json = await res.json()
           setMotivosEdit(json?.edit || {})
           setMotivosDelete(json?.delete || {})
         }
-        // Usuários (map id->nome)
         const ur = await fetch(USERS_URL, { headers })
         if (ur.ok) {
           const uj = await ur.json()
@@ -109,14 +100,13 @@ export default function LogsAuditoria() {
           }
           setUsersMap(mp)
         }
-      } catch { /* silencioso */ }
+      } catch { }
     })()
   }, [])
 
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
-      // Agora o backend filtra tudo. Só encaminhamos os filtros “as is”.
       const resp = await listarLogs({ filters, page: pg })
       setData({ count: resp?.count ?? 0, results: resp?.results ?? [] })
       setPage(pg)
@@ -126,6 +116,11 @@ export default function LogsAuditoria() {
   }
 
   function onApplyFilters(e) { e?.preventDefault?.(); fetchData(1) }
+
+  function onClearFilters() {
+    setFilters(initialFilters)
+    fetchData(1)
+  }
 
   const totalPages = useMemo(() => {
     const pageSize = 50
@@ -155,14 +150,9 @@ export default function LogsAuditoria() {
             {/* Linha 1 */}
             <div className="md:col-span-2">
               <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Busca livre (path, model, objeto, UA)…"
-                  value={filters.q}
-                  onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
-                />
-                <Button type="submit" variant="secondary" disabled={loading}>
-                  <Search className="w-4 h-4" />
-                </Button>
+                <Input placeholder="Busca livre (path, model, objeto, UA)…"
+                  value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
+                <Button type="submit" variant="secondary" disabled={loading}><Search className="w-4 h-4" /></Button>
                 <Button type="button" variant="outline" onClick={() => setShowAdvanced(v => !v)}>
                   <Filter className="w-4 h-4 mr-1" /> {showAdvanced ? "Ocultar" : "Avançados"}
                 </Button>
@@ -283,14 +273,14 @@ export default function LogsAuditoria() {
               </>
             )}
 
-            <div className="flex gap-2 md:col-span-2">
+            <div className="flex flex-wrap gap-2 md:col-span-3">
               <Button type="submit" disabled={loading}>Aplicar</Button>
-              <Button
-                type="button"
-                variant="outline"
+              <Button type="button" variant="outline" onClick={onClearFilters} disabled={loading}>
+                <XCircle className="w-4 h-4 mr-1" /> Limpar filtros
+              </Button>
+              <Button type="button" variant="outline"
                 onClick={() => exportarCsv(data?.results || [])}
-                disabled={loading || (data?.results || []).length === 0}
-              >
+                disabled={loading || (data?.results || []).length === 0}>
                 <Download className="w-4 h-4 mr-1" /> CSV
               </Button>
               <Button type="button" variant="ghost" onClick={() => fetchData(page)} disabled={loading}>
