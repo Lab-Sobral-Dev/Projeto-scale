@@ -11,6 +11,10 @@ from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 from decimal import Decimal, ROUND_HALF_UP
 import os
+# imports adicionais no topo do arquivo
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError as DRFValidationError
+
 from django_filters.rest_framework import DjangoFilterBackend
 from registro.audit_models import AuditLog
 from .serializers import AuditLogSerializer
@@ -229,6 +233,17 @@ class PesagemViewSet(viewsets.ModelViewSet):
             return [IsAdmin()]
         return [IsSupervisorOrAdminOrReadOnly()]
 
+    # >>> Converte ValidationError do Django em 400 (DRF) durante UPDATE <<<
+    def perform_update(self, serializer):
+        try:
+            serializer.save()
+        except DjangoValidationError as e:
+            # e.messages já vem “bonitinho” do model.clean()/save()
+            msgs = getattr(e, "messages", None)
+            detail = " ".join(msgs) if msgs else str(e)
+            # levanta DRF ValidationError -> HTTP 400 para o frontend
+            raise DRFValidationError({"detail": detail})
+
     # ====== Edição (supervisor/admin, com motivo) ======
     def update(self, request, *args, **kwargs):
         motivo = (request.data.get("motivo_edicao") or "").strip()
@@ -246,8 +261,10 @@ class PesagemViewSet(viewsets.ModelViewSet):
         try:
             instance.refresh_from_db()
             after = model_to_dict(instance)
-            diff = {k: {"old": before.get(k), "new": after.get(k)}
-                    for k in after.keys() if before.get(k) != after.get(k)}
+            diff = {
+                k: {"old": before.get(k), "new": after.get(k)}
+                for k in after.keys() if before.get(k) != after.get(k)
+            }
 
             AuditLog.objects.create(
                 user=request.user if request.user.is_authenticated else None,
@@ -308,6 +325,7 @@ class PesagemViewSet(viewsets.ModelViewSet):
         except Exception:
             pass
         return response
+
 
 
 
