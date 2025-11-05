@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
-import { Download, RefreshCcw, Search } from "lucide-react"
+import { Download, RefreshCcw, Search, Filter } from "lucide-react"
 
 const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -48,9 +48,23 @@ const statusClass = (s) => {
 
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState({
+    // básicos
     q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
-    start: "", end: "", ordering: "-timestamp", reason: ""
+    start: "", end: "", ordering: "-timestamp", reason: "",
+    // novos (avançados)
+    action_group: "",          // seguranca, dados, request, impressao, erro
+    status_group: "",          // 2xx, 4xx, 5xx, none
+    anon: "",                  // sim, nao (sem/with user)
+    has_reason: "",            // sim, nao
+    has_changes: "",           // sim, nao
+    has_extra: "",             // sim, nao
+    path_contains: "",         // substring
+    ua_contains: "",           // substring do user agent
+    ip: "",                    // ip exato
+    object_pk: "",             // pk exata
   })
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
   const [data, setData] = useState({ count: 0, results: [] })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -71,7 +85,7 @@ export default function LogsAuditoria() {
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
 
-  useEffect(() => { fetchData(1) }, [filters.ordering])
+  useEffect(() => { fetchData(1) /* reordenação */ }, [filters.ordering])
 
   useEffect(() => {
     (async () => {
@@ -101,11 +115,104 @@ export default function LogsAuditoria() {
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
-      const resp = await listarLogs({ filters, page: pg })
+      // 1) busca bruta no backend com filtros "conhecidos"
+      const {
+        q, action, method, model, status_code, user, path, start, end, ordering, reason
+      } = filters
+      const resp = await listarLogs({
+        filters: { q, action, method, model, status_code, user, path, start, end, ordering },
+        page: pg
+      })
+
+      // 2) pós-processamento no frontend (entra tudo novo + reason)
       let results = resp?.results || []
-      if (filters.reason) {
-        results = results.filter(r => extractReason(r).reason === filters.reason)
+
+      // Motivo (igualdade pela chave interna)
+      if (reason) {
+        results = results.filter(r => extractReason(r).reason === reason)
       }
+
+      // Grupo de ação
+      if (filters.action_group) {
+        const byGroup = {
+          seguranca: new Set(["login", "logout", "token_refresh"]),
+          dados: new Set(["create", "update", "delete"]),
+          request: new Set(["request"]),
+          impressao: new Set(["label_print"]),
+          erro: new Set(["error"]),
+        }[filters.action_group] || new Set()
+        results = results.filter(r => byGroup.has(r.action))
+      }
+
+      // Faixas de status
+      if (filters.status_group) {
+        results = results.filter(r => {
+          const s = r?.status_code
+          if (filters.status_group === "none") return s == null
+          if (s == null) return false
+          if (filters.status_group === "2xx") return s >= 200 && s < 300
+          if (filters.status_group === "4xx") return s >= 400 && s < 500
+          if (filters.status_group === "5xx") return s >= 500
+          return true
+        })
+      }
+
+      // Anônimo / autenticado
+      if (filters.anon === "sim") {
+        results = results.filter(r => r.user == null && !r.username && !r.user_name && !r.user_display)
+      } else if (filters.anon === "nao") {
+        results = results.filter(r => (r.user != null) || r.username || r.user_name || r.user_display)
+      }
+
+      // Com/sem motivo
+      if (filters.has_reason) {
+        results = results.filter(r => {
+          const { reason, note } = extractReason(r)
+          const has = Boolean((reason && reason !== "null" && reason !== "undefined") || (note && note.trim()))
+          return filters.has_reason === "sim" ? has : !has
+        })
+      }
+
+      // Com/sem changes
+      if (filters.has_changes) {
+        results = results.filter(r => {
+          const ch = r?.changes
+          const has = ch && Object.keys(ch).length > 0
+          return filters.has_changes === "sim" ? has : !has
+        })
+      }
+
+      // Com/sem extra
+      if (filters.has_extra) {
+        results = results.filter(r => {
+          const ex = r?.extra
+          const has = ex && Object.keys(ex).length > 0
+          return filters.has_extra === "sim" ? has : !has
+        })
+      }
+
+      // Path contém
+      if (filters.path_contains) {
+        const q = filters.path_contains.toLowerCase()
+        results = results.filter(r => (r.path || "").toLowerCase().includes(q))
+      }
+
+      // UA contém
+      if (filters.ua_contains) {
+        const q = filters.ua_contains.toLowerCase()
+        results = results.filter(r => (r.user_agent || "").toLowerCase().includes(q))
+      }
+
+      // IP exato
+      if (filters.ip) {
+        results = results.filter(r => String(r.ip || "").trim() === filters.ip.trim())
+      }
+
+      // Objeto (PK) exato
+      if (filters.object_pk) {
+        results = results.filter(r => String(r.object_pk ?? "") === String(filters.object_pk))
+      }
+
       setData({ count: resp?.count ?? results.length, results })
       setPage(pg)
     } finally { setLoading(false) }
@@ -133,14 +240,20 @@ export default function LogsAuditoria() {
     <div className="space-y-4">
       {/* Filtros */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle>Logs de Auditoria</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle>Logs de Auditoria</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-6 gap-3">
+            {/* Linha 1 */}
             <div className="md:col-span-2">
               <div className="flex items-center gap-2">
                 <Input placeholder="Busca livre (path, model, objeto, UA)…"
                   value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
                 <Button type="submit" variant="secondary" disabled={loading}><Search className="w-4 h-4" /></Button>
+                <Button type="button" variant="outline" onClick={() => setShowAdvanced(v => !v)}>
+                  <Filter className="w-4 h-4 mr-1" /> {showAdvanced ? "Ocultar" : "Avançados"}
+                </Button>
               </div>
             </div>
 
@@ -189,7 +302,76 @@ export default function LogsAuditoria() {
               </SelectContent>
             </Select>
 
-            <div className="flex gap-2">
+            {/* -------- Filtros Avançados (colapsáveis) -------- */}
+            {showAdvanced && (
+              <>
+                <Select value={filters.action_group || undefined} onValueChange={v => setFilters(f => ({ ...f, action_group: mapAll(v) }))}>
+                  <SelectTrigger><SelectValue placeholder="Grupo de ação" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">(todos)</SelectItem>
+                    <SelectItem value="seguranca">Segurança (login/logout/token)</SelectItem>
+                    <SelectItem value="dados">Dados (create/update/delete)</SelectItem>
+                    <SelectItem value="request">Request</SelectItem>
+                    <SelectItem value="impressao">Impressão</SelectItem>
+                    <SelectItem value="erro">Erro</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.status_group || undefined} onValueChange={v => setFilters(f => ({ ...f, status_group: mapAll(v) }))}>
+                  <SelectTrigger><SelectValue placeholder="Faixa de status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">(todas)</SelectItem>
+                    <SelectItem value="2xx">2xx</SelectItem>
+                    <SelectItem value="4xx">4xx</SelectItem>
+                    <SelectItem value="5xx">5xx</SelectItem>
+                    <SelectItem value="none">Sem status</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.anon || undefined} onValueChange={v => setFilters(f => ({ ...f, anon: mapAll(v) }))}>
+                  <SelectTrigger><SelectValue placeholder="Anonimato" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">(todos)</SelectItem>
+                    <SelectItem value="sim">Somente anônimo</SelectItem>
+                    <SelectItem value="nao">Somente autenticado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.has_reason || undefined} onValueChange={v => setFilters(f => ({ ...f, has_reason: mapAll(v) }))}>
+                  <SelectTrigger><SelectValue placeholder="Possui motivo?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">(todos)</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.has_changes || undefined} onValueChange={v => setFilters(f => ({ ...f, has_changes: mapAll(v) }))}>
+                  <SelectTrigger><SelectValue placeholder="Possui changes?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">(todos)</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.has_extra || undefined} onValueChange={v => setFilters(f => ({ ...f, has_extra: mapAll(v) }))}>
+                  <SelectTrigger><SelectValue placeholder="Possui extra?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ALL__">(todos)</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Input placeholder="Path contém…" value={filters.path_contains} onChange={e => setFilters(f => ({ ...f, path_contains: e.target.value }))} />
+                <Input placeholder="User-Agent contém…" value={filters.ua_contains} onChange={e => setFilters(f => ({ ...f, ua_contains: e.target.value }))} />
+                <Input placeholder="IP (exato)" value={filters.ip} onChange={e => setFilters(f => ({ ...f, ip: e.target.value }))} />
+                <Input placeholder="Objeto (PK)" value={filters.object_pk} onChange={e => setFilters(f => ({ ...f, object_pk: e.target.value }))} />
+              </>
+            )}
+
+            <div className="flex gap-2 md:col-span-2">
               <Button type="submit" disabled={loading}>Aplicar</Button>
               <Button type="button" variant="outline"
                 onClick={() => exportarCsv(data?.results || [])}
@@ -206,7 +388,9 @@ export default function LogsAuditoria() {
 
       {/* Lista + Modal */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">{loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}</CardTitle>
+        </CardHeader>
         <CardContent className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -257,10 +441,7 @@ export default function LogsAuditoria() {
 
       {/* Modal de detalhes */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        {/* sobrescrevendo o max-width padrão do shadcn */}
-        <DialogContent
-          className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1600px] max-h-[95vh] p-8 rounded-xl"
-        >
+        <DialogContent className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1600px] max-h-[95vh] p-8 rounded-xl">
           <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
             <DialogTitle>Detalhes do Log</DialogTitle>
             <DialogDescription>Informações completas do registro selecionado.</DialogDescription>
@@ -269,21 +450,18 @@ export default function LogsAuditoria() {
           <div className="overflow-y-auto max-h-[74vh] pr-1">
             {selected && (
               <div className="space-y-3">
-                {/* Linha 1 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div><div className="text-xs text-muted-foreground">Data/Hora</div><div className="font-medium">{fmtDate(selected.timestamp)}</div></div>
                   <div><div className="text-xs text-muted-foreground">Usuário</div><div className="font-medium">{userDisplay(selected)}</div></div>
                   <div><div className="text-xs text-muted-foreground">IP</div><div className="font-medium">{selected.ip || "—"}</div></div>
                 </div>
 
-                {/* Linha 2 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div><div className="text-xs text-muted-foreground">Método</div><div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div></div>
                   <div><div className="text-xs text-muted-foreground">Status</div><div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div></div>
                   <div><div className="text-xs text-muted-foreground">Ação</div><div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div></div>
                 </div>
 
-                {/* Path, Modelo, Objeto */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-3">
                     <div className="text-xs text-muted-foreground">Path</div>
@@ -294,7 +472,6 @@ export default function LogsAuditoria() {
                   <div><div className="text-xs text-muted-foreground">User-Agent</div><div className="text-xs break-words">{selected.user_agent || "—"}</div></div>
                 </div>
 
-                {/* Motivo/Obs */}
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
@@ -307,7 +484,6 @@ export default function LogsAuditoria() {
                   )
                 })()}
 
-                {/* Changes / Extra */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Changes</div>
