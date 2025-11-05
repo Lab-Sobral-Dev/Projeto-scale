@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
 import { Download, RefreshCcw, Search, XCircle } from "lucide-react"
+import { Label } from "@/components/ui/label"
 
 const ACTIONS = ["request", "create", "update", "delete", "login", "logout", "token_refresh", "label_print", "error"]
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -19,6 +20,20 @@ const mapAll = (v) => (v === "__ALL__" ? "" : v)
 
 const tz = 'America/Fortaleza'
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) } catch { return "-" } }
+
+// filtros ESSENCIAIS (sem status_code e sem avançados)
+const initialFilters = {
+  q: "",
+  action: "",
+  method: "",
+  model: "",
+  user: "",
+  path: "",
+  start: "",   // agora espera "YYYY-MM-DD"
+  end: "",     // agora espera "YYYY-MM-DD"
+  ordering: "-timestamp",
+  reason: "",
+}
 
 function extractReason(record) {
   const c = record?.changes || {}
@@ -46,23 +61,8 @@ const statusClass = (s) => {
   return "bg-gray-50 text-gray-600"
 }
 
-// filtros ESSENCIAIS (sem status_code e sem avançados)
-const initialFilters = {
-  q: "",
-  action: "",
-  method: "",
-  model: "",
-  user: "",
-  path: "",
-  start: "",
-  end: "",
-  ordering: "-timestamp",
-  reason: "",
-}
-
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState(initialFilters)
-
   const [data, setData] = useState({ count: 0, results: [] })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -83,10 +83,8 @@ export default function LogsAuditoria() {
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
 
-  // re-carrega quando muda ordenação
   useEffect(() => { fetchData(1) }, [filters.ordering])
 
-  // carrega motivos e usuários
   useEffect(() => {
     (async () => {
       try {
@@ -115,14 +113,12 @@ export default function LogsAuditoria() {
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
-      // envia apenas os filtros suportados pelo backend
       const { q, action, method, model, user, path, start, end, ordering, reason } = filters
       const resp = await listarLogs({
         filters: { q, action, method, model, user, path, start, end, ordering },
         page: pg
       })
 
-      // pós-processa motivo no frontend (chave interna)
       let results = resp?.results || []
       if (reason) {
         results = results.filter(r => extractReason(r).reason === reason)
@@ -175,7 +171,7 @@ export default function LogsAuditoria() {
               </div>
             </div>
 
-            {/* Linha 2: Ação / Método / Modelo / Usuário */}
+            {/* Ação / Método / Modelo / Usuário */}
             <div className="md:col-span-2">
               <Select value={filters.action || undefined} onValueChange={v => setFilters(f => ({ ...f, action: mapAll(v) }))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Ação" /></SelectTrigger>
@@ -212,20 +208,26 @@ export default function LogsAuditoria() {
               />
             </div>
 
-            {/* Linha 3: Data Início/Fim + Path */}
+            {/* Período (apenas data) + Path */}
             <div className="md:col-span-4 grid grid-cols-2 gap-4">
-              <Input
-                type="datetime-local"
-                value={filters.start}
-                onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
-                title="Início"
-              />
-              <Input
-                type="datetime-local"
-                value={filters.end}
-                onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
-                title="Fim"
-              />
+              <div className="space-y-1">
+                <Label htmlFor="start-date">Data inicial</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={filters.start}
+                  onChange={e => setFilters(f => ({ ...f, start: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="end-date">Data final</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={filters.end}
+                  onChange={e => setFilters(f => ({ ...f, end: e.target.value }))}
+                />
+              </div>
             </div>
 
             <div className="md:col-span-4">
@@ -236,7 +238,7 @@ export default function LogsAuditoria() {
               />
             </div>
 
-            {/* Linha 4: Motivo + Ordenação + Botões (à direita) */}
+            {/* Motivo + Ordenação + Botões (à direita) */}
             <div className="md:col-span-2">
               <Select value={filters.reason || undefined} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="Motivo" /></SelectTrigger>
@@ -364,7 +366,6 @@ export default function LogsAuditoria() {
           <div className="overflow-y-auto max-h-[74vh] pr-1">
             {selected && (
               <div className="space-y-3">
-                {/* Linha 1 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Data/Hora</div>
@@ -380,7 +381,6 @@ export default function LogsAuditoria() {
                   </div>
                 </div>
 
-                {/* Linha 2 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Método</div>
@@ -396,7 +396,6 @@ export default function LogsAuditoria() {
                   </div>
                 </div>
 
-                {/* Path, Modelo, Objeto */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-3">
                     <div className="text-xs text-muted-foreground">Path</div>
@@ -416,7 +415,6 @@ export default function LogsAuditoria() {
                   </div>
                 </div>
 
-                {/* Motivo/Obs */}
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
@@ -435,7 +433,6 @@ export default function LogsAuditoria() {
                   )
                 })()}
 
-                {/* Changes / Extra */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Changes</div>
