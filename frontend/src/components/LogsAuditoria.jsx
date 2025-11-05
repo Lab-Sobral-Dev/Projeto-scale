@@ -1,4 +1,3 @@
-// src/pages/LogsAuditoria.jsx
 import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -51,17 +50,17 @@ export default function LogsAuditoria() {
     // básicos
     q: "", action: "", method: "", model: "", status_code: "", user: "", path: "",
     start: "", end: "", ordering: "-timestamp", reason: "",
-    // novos (avançados)
+    // avançados (agora suportados pelo backend)
     action_group: "",          // seguranca, dados, request, impressao, erro
     status_group: "",          // 2xx, 4xx, 5xx, none
-    anon: "",                  // sim, nao (sem/with user)
+    anon: "",                  // sim, nao
     has_reason: "",            // sim, nao
     has_changes: "",           // sim, nao
     has_extra: "",             // sim, nao
     path_contains: "",         // substring
-    ua_contains: "",           // substring do user agent
-    ip: "",                    // ip exato
-    object_pk: "",             // pk exata
+    ua_contains: "",           // substring user agent
+    ip: "",                    // exato
+    object_pk: "",             // exato
   })
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -85,18 +84,20 @@ export default function LogsAuditoria() {
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
 
-  useEffect(() => { fetchData(1) /* reordenação */ }, [filters.ordering])
+  useEffect(() => { fetchData(1) }, [filters.ordering])
 
   useEffect(() => {
     (async () => {
       try {
         const headers = { Authorization: `Bearer ${localStorage.getItem('access') || ''}` }
+        // Motivos
         const res = await fetch(MOTIVOS_URL, { headers })
         if (res.ok) {
           const json = await res.json()
           setMotivosEdit(json?.edit || {})
           setMotivosDelete(json?.delete || {})
         }
+        // Usuários (map id->nome)
         const ur = await fetch(USERS_URL, { headers })
         if (ur.ok) {
           const uj = await ur.json()
@@ -108,114 +109,20 @@ export default function LogsAuditoria() {
           }
           setUsersMap(mp)
         }
-      } catch { }
+      } catch { /* silencioso */ }
     })()
   }, [])
 
   async function fetchData(pg = 1) {
     setLoading(true)
     try {
-      // 1) busca bruta no backend com filtros "conhecidos"
-      const {
-        q, action, method, model, status_code, user, path, start, end, ordering, reason
-      } = filters
-      const resp = await listarLogs({
-        filters: { q, action, method, model, status_code, user, path, start, end, ordering },
-        page: pg
-      })
-
-      // 2) pós-processamento no frontend (entra tudo novo + reason)
-      let results = resp?.results || []
-
-      // Motivo (igualdade pela chave interna)
-      if (reason) {
-        results = results.filter(r => extractReason(r).reason === reason)
-      }
-
-      // Grupo de ação
-      if (filters.action_group) {
-        const byGroup = {
-          seguranca: new Set(["login", "logout", "token_refresh"]),
-          dados: new Set(["create", "update", "delete"]),
-          request: new Set(["request"]),
-          impressao: new Set(["label_print"]),
-          erro: new Set(["error"]),
-        }[filters.action_group] || new Set()
-        results = results.filter(r => byGroup.has(r.action))
-      }
-
-      // Faixas de status
-      if (filters.status_group) {
-        results = results.filter(r => {
-          const s = r?.status_code
-          if (filters.status_group === "none") return s == null
-          if (s == null) return false
-          if (filters.status_group === "2xx") return s >= 200 && s < 300
-          if (filters.status_group === "4xx") return s >= 400 && s < 500
-          if (filters.status_group === "5xx") return s >= 500
-          return true
-        })
-      }
-
-      // Anônimo / autenticado
-      if (filters.anon === "sim") {
-        results = results.filter(r => r.user == null && !r.username && !r.user_name && !r.user_display)
-      } else if (filters.anon === "nao") {
-        results = results.filter(r => (r.user != null) || r.username || r.user_name || r.user_display)
-      }
-
-      // Com/sem motivo
-      if (filters.has_reason) {
-        results = results.filter(r => {
-          const { reason, note } = extractReason(r)
-          const has = Boolean((reason && reason !== "null" && reason !== "undefined") || (note && note.trim()))
-          return filters.has_reason === "sim" ? has : !has
-        })
-      }
-
-      // Com/sem changes
-      if (filters.has_changes) {
-        results = results.filter(r => {
-          const ch = r?.changes
-          const has = ch && Object.keys(ch).length > 0
-          return filters.has_changes === "sim" ? has : !has
-        })
-      }
-
-      // Com/sem extra
-      if (filters.has_extra) {
-        results = results.filter(r => {
-          const ex = r?.extra
-          const has = ex && Object.keys(ex).length > 0
-          return filters.has_extra === "sim" ? has : !has
-        })
-      }
-
-      // Path contém
-      if (filters.path_contains) {
-        const q = filters.path_contains.toLowerCase()
-        results = results.filter(r => (r.path || "").toLowerCase().includes(q))
-      }
-
-      // UA contém
-      if (filters.ua_contains) {
-        const q = filters.ua_contains.toLowerCase()
-        results = results.filter(r => (r.user_agent || "").toLowerCase().includes(q))
-      }
-
-      // IP exato
-      if (filters.ip) {
-        results = results.filter(r => String(r.ip || "").trim() === filters.ip.trim())
-      }
-
-      // Objeto (PK) exato
-      if (filters.object_pk) {
-        results = results.filter(r => String(r.object_pk ?? "") === String(filters.object_pk))
-      }
-
-      setData({ count: resp?.count ?? results.length, results })
+      // Agora o backend filtra tudo. Só encaminhamos os filtros “as is”.
+      const resp = await listarLogs({ filters, page: pg })
+      setData({ count: resp?.count ?? 0, results: resp?.results ?? [] })
       setPage(pg)
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }
 
   function onApplyFilters(e) { e?.preventDefault?.(); fetchData(1) }
@@ -248,9 +155,14 @@ export default function LogsAuditoria() {
             {/* Linha 1 */}
             <div className="md:col-span-2">
               <div className="flex items-center gap-2">
-                <Input placeholder="Busca livre (path, model, objeto, UA)…"
-                  value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
-                <Button type="submit" variant="secondary" disabled={loading}><Search className="w-4 h-4" /></Button>
+                <Input
+                  placeholder="Busca livre (path, model, objeto, UA)…"
+                  value={filters.q}
+                  onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
+                />
+                <Button type="submit" variant="secondary" disabled={loading}>
+                  <Search className="w-4 h-4" />
+                </Button>
                 <Button type="button" variant="outline" onClick={() => setShowAdvanced(v => !v)}>
                   <Filter className="w-4 h-4 mr-1" /> {showAdvanced ? "Ocultar" : "Avançados"}
                 </Button>
@@ -373,9 +285,12 @@ export default function LogsAuditoria() {
 
             <div className="flex gap-2 md:col-span-2">
               <Button type="submit" disabled={loading}>Aplicar</Button>
-              <Button type="button" variant="outline"
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => exportarCsv(data?.results || [])}
-                disabled={loading || (data?.results || []).length === 0}>
+                disabled={loading || (data?.results || []).length === 0}
+              >
                 <Download className="w-4 h-4 mr-1" /> CSV
               </Button>
               <Button type="button" variant="ghost" onClick={() => fetchData(page)} disabled={loading}>
@@ -389,7 +304,9 @@ export default function LogsAuditoria() {
       {/* Lista + Modal */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">{loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}</CardTitle>
+          <CardTitle className="text-base">
+            {loading ? "Carregando…" : `Resultados (${data?.count ?? 0})`}
+          </CardTitle>
         </CardHeader>
         <CardContent className="overflow-auto">
           <table className="min-w-full text-sm">
@@ -411,10 +328,16 @@ export default function LogsAuditoria() {
                   <tr key={key} className="border-b hover:bg-muted/40">
                     <td className="px-2 py-2 whitespace-nowrap text-center">{fmtDate(r.timestamp)}</td>
                     <td className="px-2 py-2 text-center">{userDisplay(r)}</td>
-                    <td className="px-2 py-2 text-center"><span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method}</span></td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method}</span>
+                    </td>
                     <td className="px-2 py-2">{r.path}</td>
-                    <td className="px-2 py-2 text-center"><span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span></td>
-                    <td className="px-2 py-2 text-center"><span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{r.action}</span></td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span>
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{r.action}</span>
+                    </td>
                     <td className="px-2 py-2 text-center">
                       <Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)}>Ver</Button>
                     </td>
@@ -450,18 +373,21 @@ export default function LogsAuditoria() {
           <div className="overflow-y-auto max-h-[74vh] pr-1">
             {selected && (
               <div className="space-y-3">
+                {/* Linha 1 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div><div className="text-xs text-muted-foreground">Data/Hora</div><div className="font-medium">{fmtDate(selected.timestamp)}</div></div>
                   <div><div className="text-xs text-muted-foreground">Usuário</div><div className="font-medium">{userDisplay(selected)}</div></div>
                   <div><div className="text-xs text-muted-foreground">IP</div><div className="font-medium">{selected.ip || "—"}</div></div>
                 </div>
 
+                {/* Linha 2 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div><div className="text-xs text-muted-foreground">Método</div><div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div></div>
                   <div><div className="text-xs text-muted-foreground">Status</div><div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div></div>
                   <div><div className="text-xs text-muted-foreground">Ação</div><div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{selected.action}</div></div>
                 </div>
 
+                {/* Path, Modelo, Objeto */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-3">
                     <div className="text-xs text-muted-foreground">Path</div>
@@ -472,26 +398,38 @@ export default function LogsAuditoria() {
                   <div><div className="text-xs text-muted-foreground">User-Agent</div><div className="text-xs break-words">{selected.user_agent || "—"}</div></div>
                 </div>
 
+                {/* Motivo + Observação (quando houver) */}
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
                   if (!reason && !note) return null
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div><div className="text-xs text-muted-foreground">Motivo</div><div className="font-medium">{label}</div></div>
-                      <div className="md:col-span-2"><div className="text-xs text-muted-foreground">Observação</div><div className="text-sm">{note || "—"}</div></div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Motivo</div>
+                        <div className="font-medium">{label}</div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-xs text-muted-foreground">Observação</div>
+                        <div className="text-sm">{note || "—"}</div>
+                      </div>
                     </div>
                   )
                 })()}
 
+                {/* Changes / Extra */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <div className="text-xs text-muted-foreground">Changes</div>
-                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">{JSON.stringify(selected.changes || {}, null, 2)}</pre>
+                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">
+                      {JSON.stringify(selected.changes || {}, null, 2)}
+                    </pre>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Extra</div>
-                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">{JSON.stringify(selected.extra || {}, null, 2)}</pre>
+                    <pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">
+                      {JSON.stringify(selected.extra || {}, null, 2)}
+                    </pre>
                   </div>
                 </div>
               </div>
