@@ -10,11 +10,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList
 } from '@/components/ui/command'
-import { ArrowLeft, Save, Printer, Package2, Layers, Factory, Scale, QrCode, Weight, Calculator, ChevronsUpDown, Check } from 'lucide-react'
+import {
+  ArrowLeft, Save, Printer, Package2, Factory, Scale, QrCode,
+  Weight, Calculator, ChevronsUpDown, Check
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/services/api'
 
-// ---------- Constantes/Formatadores (alinhados à NovaPesagem) ----------
+// ---------- Constantes/Formatadores ----------
 const KG_IN_G = 1000
 const TOLERANCIA_PERCENTUAL = 0.05 // 5%
 const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)
@@ -23,26 +26,17 @@ const fmtG = (v) => {
   const n = Math.round(Number(v) || 0)
   return n.toLocaleString('pt-BR') + ' g'
 }
-
-// Conversor robusto: aceita "11,000" (pt-BR) e "11.000" como 11.000 (se não houver vírgula, ponto vira decimal)
+// Conversor robusto pt-BR / en-US
 const toNumber = (v) => {
   if (typeof v !== 'string') return Number(v) || 0
   const s = v.trim()
   if (!s) return 0
   const hasComma = s.includes(',')
   const hasDot = s.includes('.')
-  if (hasComma && !hasDot) {
-    // pt-BR clássico: 1.234,567
-    return Number(s.replace(/\./g, '').replace(',', '.')) || 0
-  }
-  if (!hasComma && hasDot) {
-    // só ponto: tratar como decimal (11.000 => 11.000)
-    return Number(s) || 0
-  }
-  // ambos ou nenhum: fallback pt-BR
+  if (hasComma && !hasDot) return Number(s.replace(/\./g, '').replace(',', '.')) || 0
+  if (!hasComma && hasDot) return Number(s) || 0
   return Number(s.replace(/\./g, '').replace(',', '.')) || 0
 }
-
 const nf3 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 const tz = 'America/Fortaleza'
 const fmtDT = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) : '-')
@@ -149,7 +143,7 @@ export default function PesagemEditar() {
               mpNome: it.materia_prima?.nome ?? '',
               mpCodigo: it.materia_prima?.codigo_interno ?? '',
               quantidade_necessaria: it.quantidade_necessaria, // g
-              quantidade_pesada: it.quantidade_pesada,         // g
+              quantidade_pesada: it.quantidade_pesada,         // g (inclui a pesagem atual)
               quantidade_restante: it.quantidade_restante,     // g
               unidade: it.unidade,
             }))
@@ -210,11 +204,11 @@ export default function PesagemEditar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemSelecionado?.id])
 
-  // ---- Cálculos (corrigidos) ----
+  // ---- Cálculos ----
   const liquidoKg = useMemo(() => toNumber(form.liquido), [form.liquido])
   const taraKg = useMemo(() => toNumber(form.tara), [form.tara])
 
-  // Soma sempre números reais (aceita , ou . como decimal)
+  // Bruto (auto) — LIQ + TARA (só para exibição)
   const brutoCalcKg = useMemo(() => {
     const l = toNumber(form.liquido)
     const t = toNumber(form.tara)
@@ -222,17 +216,35 @@ export default function PesagemEditar() {
     return Number.isFinite(val) && val > 0 ? val : 0
   }, [form.liquido, form.tara])
 
+  // Para SALDO/VALIDAÇÃO: usa somente o LÍQUIDO (em g)
   const pesoLiquidoG = useMemo(() => kgToG(liquidoKg), [liquidoKg])
+
+  // Valores do item selecionado
   const necessarioG = itemSelecionado ? Number(itemSelecionado.quantidade_necessaria || 0) : 0
   const pesadoG = itemSelecionado ? Number(itemSelecionado.quantidade_pesada || 0) : 0
-  const restanteG = Math.max(necessarioG - pesadoG, 0)
+
+  // >>> Pesagem atual original (g), para não "contar duas vezes" na edição
+  const liquidoOriginalG = useMemo(
+    () => Math.round(Number(pesagem?.liquido || 0)),
+    [pesagem?.liquido]
+  )
+
+  // "Já pesado" sem considerar esta pesagem (acumulado real anterior)
+  const pesadoSemEstaG = Math.max(pesadoG - liquidoOriginalG, 0)
+
+  // Total projetado após salvar a edição
+  const novoTotalG = pesadoSemEstaG + pesoLiquidoG
+
+  // Limites e indicadores
   const limiteMinG = necessarioG * (1 - TOLERANCIA_PERCENTUAL)
   const limiteMaxG = necessarioG * (1 + TOLERANCIA_PERCENTUAL)
-  const novoTotalG = pesadoG + pesoLiquidoG
   const excedeMaximo = novoTotalG > limiteMaxG
   const abaixoDoMinimo = novoTotalG < limiteMinG
   const faltaParaMinG = Math.max(limiteMinG - novoTotalG, 0)
   const margemAteMaxG = Math.max(limiteMaxG - novoTotalG, 0)
+
+  // Para exibir "restante" (antes de aplicar a edição, como na criação)
+  const restanteG = Math.max(necessarioG - pesadoSemEstaG, 0)
 
   const opSelecionada = useMemo(() => {
     if (!form.op) return null
@@ -267,8 +279,8 @@ export default function PesagemEditar() {
         op_id: Number(form.op),
         item_op_id: Number(form.itemOp),
         lote_mp: form.lote_mp.trim(),
-        liquido: Number(liquidoKg.toFixed(3)), // kg
-        tara: Number(taraKg.toFixed(3)),       // kg
+        liquido: Number(liquidoKg.toFixed(3)), // kg (backend converte para g)
+        tara: Number(taraKg.toFixed(3)),       // kg (bruto é calculado no backend)
         balanca_id: form.balanca ? Number(form.balanca) : null,
         codigo_interno: form.codigoInterno?.trim() || null,
         motivo_edicao: motivo,
@@ -381,7 +393,7 @@ export default function PesagemEditar() {
             </Select>
           </div>
 
-          {/* Produto (read-only visual) */}
+          {/* Produto (somente leitura visual) */}
           <div className="space-y-2">
             <Label>Produto</Label>
             <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
@@ -390,7 +402,7 @@ export default function PesagemEditar() {
             </div>
           </div>
 
-          {/* OP / Lote (read-only visual) */}
+          {/* OP / Lote (somente leitura visual) */}
           <div className="space-y-2">
             <Label>OP / Lote</Label>
             <div className="rounded border px-3 py-2 bg-muted/30 flex items-center gap-2">
@@ -410,6 +422,7 @@ export default function PesagemEditar() {
                   role="combobox"
                   className="w-full justify-between"
                   title={form.itemOp && itemSelecionado ? itemLabel(itemSelecionado) : undefined}
+                  disabled={!form.op}
                 >
                   <span className="w-full truncate text-left">
                     {form.itemOp
@@ -544,7 +557,7 @@ export default function PesagemEditar() {
         </CardContent>
       </Card>
 
-      {/* Blocos de cálculo (iguais à NovaPesagem) */}
+      {/* Blocos de cálculo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-blue-50 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
@@ -563,7 +576,7 @@ export default function PesagemEditar() {
           <Label className="font-semibold text-amber-900">Saldo do Item</Label>
           <div className="mt-2 text-amber-900">
             Necessário: <b>{fmtG(necessarioG)}</b><br />
-            Pesado: <b>{fmtG(pesadoG)}</b><br />
+            Pesado: <b>{fmtG(pesadoSemEstaG)}</b><br />
             Restante: <b>{fmtG(restanteG)}</b><br />
             Limites (±5%): <b>{fmtG(limiteMinG)}</b> a <b>{fmtG(limiteMaxG)}</b>
           </div>
