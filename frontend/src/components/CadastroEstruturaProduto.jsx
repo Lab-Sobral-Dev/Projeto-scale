@@ -324,38 +324,38 @@ const CadastroEstruturaProduto = () => {
     }
 
     // Confirma exclusão enviando motivo_exclusao + motivo_observacao
-    const handleConfirmarExclusaoEstrutura = async () => {
-        if (!deleteEstruturaId) return
-        const motivo = (deleteReason || '').trim()
-        const obs = (deleteNote || '').trim()
+    const handleExcluirEstrutura = async (id) => {
+        if (!window.confirm('Tem certeza que deseja excluir esta estrutura?')) return
 
-        if (!motivo) {
-            setError('Selecione um motivo para a exclusão.')
+        // Coleta um motivo válido (default: 'outro')
+        const motivosValidos = ['cadastro_duplicado', 'revisao_estrutura', 'erro_cadastro', 'outro']
+        let motivo = window.prompt(
+            `Informe o motivo da exclusão:\n- cadastro_duplicado\n- revisao_estrutura\n- erro_cadastro\n- outro`,
+            'outro'
+        ) || 'outro'
+        motivo = motivo.trim()
+
+        if (!motivosValidos.includes(motivo)) {
+            alert('Motivo inválido. Use uma das opções listadas.')
             return
         }
 
-        setLoading(true)
-        setError(''); setSuccess('')
+        const obs = window.prompt('Observação (opcional):', '') || ''
+        const qs = new URLSearchParams({
+            motivo_exclusao: motivo,
+            motivo_observacao: obs.trim(),
+        }).toString()
 
         try {
-            // Envia motivo_exclusao e motivo_observacao NA QUERY (mais confiável que body em DELETE)
-            const qs = new URLSearchParams({
-                motivo_exclusao: motivo,
-                motivo_observacao: obs,
-            }).toString()
-
-            const res = await fetchHttps(`${API_BASE}/estruturas/${deleteEstruturaId}/?${qs}`, {
+            setLoading(true)
+            setError(''); setSuccess('')
+            const res = await fetchHttps(`${API_BASE}/estruturas/${id}/?${qs}`, {
                 method: 'DELETE',
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
-                // sem body em DELETE por compatibilidade com proxies/serv
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
             })
 
-            if (res.status === 400 || res.status === 409) {
-                const data = await res.json().catch(() => ({}))
-                throw new Error(data?.detail || 'Requisição inválida ao excluir estrutura.')
-            }
+            // tenta extrair mensagem detalhada do backend
             if (![200, 204].includes(res.status)) {
-                // tenta extrair a mensagem do backend, senão mostra o status
                 let msg = `DELETE estrutura: ${res.status}`
                 try {
                     const data = await res.json()
@@ -364,14 +364,12 @@ const CadastroEstruturaProduto = () => {
                 throw new Error(msg)
             }
 
-            // sucesso
-            setEstruturas(prev => prev.filter(x => x.id !== deleteEstruturaId))
-            if (estruturaSelecionada?.id === deleteEstruturaId) {
+            setEstruturas(prev => prev.filter(x => x.id !== id))
+            if (estruturaSelecionada?.id === id) {
                 setEstruturaSelecionada(null)
                 setItens([])
             }
             setSuccess('Estrutura excluída com sucesso.')
-            cancelarExclusaoEstrutura()
         } catch (e) {
             console.error(e)
             setError(typeof e?.message === 'string' ? e.message : 'Erro ao excluir estrutura.')
@@ -379,6 +377,7 @@ const CadastroEstruturaProduto = () => {
             setLoading(false)
         }
     }
+
 
     const limparFormularioEstrutura = () => {
         setEditingId(null)
