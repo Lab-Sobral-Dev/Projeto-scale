@@ -1,7 +1,7 @@
 # apps/reports/services/exporters.py
 import csv
 from django.http import StreamingHttpResponse, HttpResponse
-from pdf_base import table_to_pdf
+from .pdf_base import table_to_pdf
 
 class Echo:
     def write(self, value): return value
