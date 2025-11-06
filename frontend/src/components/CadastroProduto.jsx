@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Package, Save, X, Plus, Edit, Trash2, Search, FlaskConical } from 'lucide-react'
+import { Package, Save, X, Plus, Edit, Trash2, Search } from 'lucide-react'
 
 /**
  * Base da API — mantenha SEMPRE https por padrão.
@@ -36,6 +36,15 @@ const fixToHttps = (u) => {
  */
 const fetchHttps = (url, options = {}) => fetch(fixToHttps(url), options)
 
+/** Motivos válidos no backend (ProdutoViewSet.DELETE_MOTIVOS) */
+const DELETE_MOTIVOS = [
+  { key: 'cadastro_duplicado', label: 'Cadastro duplicado' },
+  { key: 'descontinuacao', label: 'Descontinuação do produto' },
+  { key: 'substituicao', label: 'Substituição do SKU' },
+  { key: 'erro_cadastro', label: 'Erro de cadastro' },
+  { key: 'outro', label: 'Outro motivo' },
+]
+
 const CadastroProduto = () => {
   const [produtos, setProdutos] = useState([])
   const [loading, setLoading] = useState(false)
@@ -44,11 +53,17 @@ const CadastroProduto = () => {
   const [editingId, setEditingId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
+  // Estados do formulário principal
   const [formData, setFormData] = useState({
     nome: '',
     codigoInterno: '',
     ativo: true
   })
+
+  // Estados para exclusão com motivo (fluxo em duas etapas)
+  const [deleteTargetId, setDeleteTargetId] = useState(null)
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleteNote, setDeleteNote] = useState('')
 
   const token = useMemo(() => localStorage.getItem('access') || '', [])
   const headers = useMemo(() => ({
@@ -130,7 +145,7 @@ const CadastroProduto = () => {
 
       // Duplicidades locais
       const codigoExiste = produtos.some(p =>
-        p.codigoInterno.toLowerCase() === formData.codigoInterno.toLowerCase() && p.id !== editingId
+        (p.codigoInterno || '').toLowerCase() === formData.codigoInterno.toLowerCase() && p.id !== editingId
       )
       if (codigoExiste) {
         setError('Código interno já existe.')
@@ -149,6 +164,7 @@ const CadastroProduto = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
+            if (j?.detail) msg = j.detail
           } catch { }
           throw new Error(msg)
         }
@@ -169,6 +185,7 @@ const CadastroProduto = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
+            if (j?.detail) msg = j.detail
           } catch { }
           throw new Error(msg)
         }
@@ -209,13 +226,40 @@ const CadastroProduto = () => {
     setSuccess('')
   }
 
-  const handleExcluir = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir este produto?')) return
+  // Fluxo de exclusão com motivo (passo 1: abrir painel)
+  const handleExcluirClick = (id) => {
+    setDeleteTargetId(id)
+    setDeleteReason('')
+    setDeleteNote('')
+    setError('')
+    setSuccess('')
+  }
+
+  // Cancelar exclusão
+  const handleCancelarExclusao = () => {
+    setDeleteTargetId(null)
+    setDeleteReason('')
+    setDeleteNote('')
+  }
+
+  // Confirmar exclusão (envia motivo_exclusao e motivo_observacao)
+  const handleConfirmarExclusao = async () => {
+    if (!deleteTargetId) return
+    if (!deleteReason) {
+      setError('Selecione um motivo para a exclusão.')
+      return
+    }
+
     try {
       setLoading(true)
-      const res = await fetchHttps(`${API_BASE}/produtos/${id}/`, {
+      setError('')
+      const res = await fetchHttps(`${API_BASE}/produtos/${deleteTargetId}/`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          motivo_exclusao: deleteReason,
+          motivo_observacao: deleteNote || ''
+        })
       })
 
       if (res.status === 400 || res.status === 409) {
@@ -225,22 +269,24 @@ const CadastroProduto = () => {
       }
 
       if (res.status !== 204 && res.status !== 200) {
-        throw new Error(`DELETE produto: ${res.status}`)
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.detail || `DELETE produto: ${res.status}`)
       }
 
-      setProdutos(prev => prev.filter(p => p.id !== id))
+      setProdutos(prev => prev.filter(p => p.id !== deleteTargetId))
       setSuccess('Produto excluído com sucesso!')
+      handleCancelarExclusao()
     } catch (err) {
       console.error(err)
-      setError('Erro ao excluir produto. Tente novamente.')
+      setError(typeof err?.message === 'string' ? err.message : 'Erro ao excluir produto. Tente novamente.')
     } finally {
       setLoading(false)
     }
   }
 
   const produtosFiltrados = produtos.filter(produto =>
-    produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    produto.codigoInterno.toLowerCase().includes(searchTerm.toLowerCase())
+    (produto.nome || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (produto.codigoInterno || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   )
 
   return (
@@ -289,8 +335,6 @@ const CadastroProduto = () => {
                   required
                 />
               </div>
-
-
 
               <div className="flex items-center space-x-2">
                 <Switch
@@ -368,42 +412,109 @@ const CadastroProduto = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
-                  {produtosFiltrados.map((produto) => (
-                    <div key={produto.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-gray-900">{produto.nome}</h3>
-                            <Badge variant={produto.ativo ? "default" : "secondary"}>
-                              {produto.ativo ? 'Ativo' : 'Inativo'}
-                            </Badge>
+                  {produtosFiltrados.map((produto) => {
+                    const isDeleting = deleteTargetId === produto.id
+                    return (
+                      <div key={produto.id} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-medium text-gray-900">{produto.nome}</h3>
+                              <Badge variant={produto.ativo ? "default" : "secondary"}>
+                                {produto.ativo ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              Código: <span className="font-mono">{produto.codigoInterno}</span>
+                            </p>
                           </div>
-                          <p className="text-sm text-gray-500">
-                            Código: <span className="font-mono">{produto.codigoInterno}</span>
-                          </p>
 
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditar(produto)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+
+                            {!isDeleting ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleExcluirClick(produto.id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCancelarExclusao}
+                                className="text-gray-700"
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditar(produto)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleExcluir(produto.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+
+                        {/* Painel inline de exclusão com motivo */}
+                        {isDeleting && (
+                          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                            <p className="text-sm font-medium text-red-800 mb-3">
+                              Para excluir este produto, informe o motivo.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                              <div className="space-y-1 md:col-span-1">
+                                <Label htmlFor={`motivo-${produto.id}`}>Motivo *</Label>
+                                <select
+                                  id={`motivo-${produto.id}`}
+                                  className="w-full border rounded-md h-9 px-3 text-sm bg-white"
+                                  value={deleteReason}
+                                  onChange={(e) => setDeleteReason(e.target.value)}
+                                >
+                                  <option value="">Selecione...</option>
+                                  {DELETE_MOTIVOS.map((m) => (
+                                    <option key={m.key} value={m.key}>{m.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1 md:col-span-2">
+                                <Label htmlFor={`obs-${produto.id}`}>Observação (opcional)</Label>
+                                <Input
+                                  id={`obs-${produto.id}`}
+                                  value={deleteNote}
+                                  onChange={(e) => setDeleteNote(e.target.value)}
+                                  placeholder="Ex.: SKU substituído por nova versão"
+                                />
+                              </div>
+
+                              <div className="md:col-span-3 flex gap-2">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={loading || !deleteReason}
+                                  onClick={handleConfirmarExclusao}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  {loading ? 'Excluindo...' : 'Confirmar exclusão'}
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={handleCancelarExclusao}>
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
