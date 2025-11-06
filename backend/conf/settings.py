@@ -37,8 +37,29 @@ SECRET_KEY = env("SECRET_KEY", "change-me-in-prod")
 DEBUG = env_bool("DEBUG", True)
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
+# CORS/CSRF (com protocolo) vindos do .env
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
+
+# --- CORS (com credenciais) ---
+# Não usar wildcard quando for trocar cookies/credenciais
+CORS_ALLOW_ALL_ORIGINS = False
+# Necessário quando o front usa fetch com credentials:'include'
+CORS_ALLOW_CREDENTIALS = True
+# Cabeçalhos aceitos
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+# Cabeçalhos expostos ao browser (útil para downloads com filename)
+CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -56,7 +77,7 @@ INSTALLED_APPS = [
     # Apps do projeto
     "registro",
     "usuarios",
-    'reports',
+    "reports",
 ]
 
 MIDDLEWARE = [
@@ -153,9 +174,11 @@ else:
 # =========================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    # mínimo configurável por env, default 10
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-     "OPTIONS": {"min_length": int(env("PASSWORD_MIN_LENGTH", "8"))}},
+    # mínimo configurável por env, default 8
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": int(env("PASSWORD_MIN_LENGTH", "8"))},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
     # Validador de complexidade (maiúscula, minúscula, dígito e símbolo)
@@ -193,6 +216,10 @@ if AUDIT_ENABLED:
             "console": {"class": "logging.StreamHandler"},
         },
         "loggers": {
-            "django.request": {"handlers": ["audit_file", "console"], "level": "INFO", "propagate": True},
+            "django.request": {
+                "handlers": ["audit_file", "console"],
+                "level": "INFO",
+                "propagate": True,
+            },
         },
     }
