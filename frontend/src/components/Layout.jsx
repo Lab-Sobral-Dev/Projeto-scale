@@ -16,6 +16,7 @@ import {
   Factory,
   ListChecks,
   Boxes,
+  ClipboardList, // 👈 adicionado (para Relatórios)
 } from 'lucide-react'
 
 /** Base deve apontar para .../api */
@@ -101,7 +102,6 @@ const Layout = ({ user, onLogout }) => {
     (Array.isArray(effectiveUser?.allowed_screens) && effectiveUser.allowed_screens) ||
     []
   const allowedFromStorage = getAllowedFromStorage()
-
   const allowedList = mergeAllowed(allowedFromProp, allowedFromStorage)
   const allowed = useMemo(() => new Set(allowedList), [allowedList])
 
@@ -109,6 +109,14 @@ const Layout = ({ user, onLogout }) => {
     effectiveUser?.tipo === 'admin' ||
     effectiveUser?.is_staff === true ||
     effectiveUser?.is_superuser === true
+
+  // Nome bonito para topbar
+  const displayName =
+    effectiveUser?.nome ||
+    [effectiveUser?.first_name, effectiveUser?.last_name].filter(Boolean).join(' ') ||
+    effectiveUser?.username ||
+    user?.nome ||
+    'Usuário'
 
   // Mapeie cada item para o code da Screen no backend (iguais ao seed)
   const navigation = [
@@ -121,28 +129,30 @@ const Layout = ({ user, onLogout }) => {
     { name: 'Nova Pesagem', href: '/nova-pesagem', icon: Scale, requiredScreen: 'nova_pesagem' },
     { name: 'Histórico', href: '/historico', icon: History, requiredScreen: 'historico_pesagens' },
     { name: 'Balanças', href: '/balancas', icon: Weight, requiredScreen: 'balancas' },
+
+    // 🔎 Relatórios (habilite a tela 'relatorios' para admin/supervisor)
+    { name: 'Relatórios', href: '/relatorios', icon: ClipboardList, requiredScreen: 'relatorios' },
+
     // 🔒 Auditoria: só admin
     { name: 'Auditoria', href: '/auditoria', icon: ScrollText, requiredScreen: 'auditoria', adminOnly: true },
+
     // 🔸 Sobre sempre visível
-    //{ name: 'Relatórios', href: '/relatorios', icon: ClipboardList, code: 'relatorios' },
     { name: 'Sobre', href: '/sobre', icon: ScrollText },
   ]
 
-
   const canSee = (item) => {
-    // Se item é exclusivo de admin, só mostra para admin
+    // Itens sem requiredScreen (ex.: Sobre) ficam sempre visíveis (exceto adminOnly)
+    if (!item.requiredScreen) return item.adminOnly ? isAdmin : true
+
+    // Exclusivo admin?
     if (item.adminOnly) return isAdmin
 
     // Admin vê tudo
     if (isAdmin) return true
 
-    // Itens sem requiredScreen (ex.: Sobre) ficam sempre visíveis
-    if (!item.requiredScreen) return true
-
-    // Caso contrário, depende das permissões permitidas
+    // Demais: depende das permissões
     return allowed.has(String(item.requiredScreen).trim().toLowerCase())
   }
-
 
   const visibleNav = navigation.filter(canSee)
 
@@ -185,8 +195,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -195,8 +205,10 @@ const Layout = ({ user, onLogout }) => {
                 </Link>
               )
             })}
-            {visibleNav.length === 0 && loadingMe && (
-              <div className="px-2 text-sm text-gray-500">Carregando permissões…</div>
+            {visibleNav.length === 0 && (
+              <div className="px-2 text-sm text-gray-500">
+                {loadingMe ? 'Carregando permissões…' : 'Nenhuma tela disponível.'}
+              </div>
             )}
           </nav>
         </div>
@@ -219,8 +231,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
@@ -228,8 +240,10 @@ const Layout = ({ user, onLogout }) => {
                 </Link>
               )
             })}
-            {visibleNav.length === 0 && loadingMe && (
-              <div className="px-2 text-sm text-gray-500">Carregando permissões…</div>
+            {visibleNav.length === 0 && (
+              <div className="px-2 text-sm text-gray-500">
+                {loadingMe ? 'Carregando permissões…' : 'Nenhuma tela disponível.'}
+              </div>
             )}
           </nav>
         </div>
@@ -263,7 +277,7 @@ const Layout = ({ user, onLogout }) => {
                 className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
               >
                 <User className="h-5 w-5" />
-                <span className="hidden sm:block">{effectiveUser?.nome || user?.nome || 'Usuário'}</span>
+                <span className="hidden sm:block">{displayName}</span>
               </Link>
               <Button
                 variant="ghost"
