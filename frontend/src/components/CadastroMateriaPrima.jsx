@@ -27,6 +27,15 @@ const fixToHttps = (u) => {
 /** Wrapper de fetch que usa fixToHttps */
 const fetchHttps = (url, options = {}) => fetch(fixToHttps(url), options)
 
+/** Motivos válidos no backend (MateriasPrimasViewSet.DELETE_MOTIVOS) */
+const DELETE_MOTIVOS = [
+  { key: 'cadastro_duplicado', label: 'Cadastro duplicado' },
+  { key: 'descontinuacao', label: 'Descontinuação da MP' },
+  { key: 'substituicao', label: 'Substituição por outra MP' },
+  { key: 'erro_cadastro', label: 'Erro de cadastro' },
+  { key: 'outro', label: 'Outro motivo' },
+]
+
 const CadastroMateriaPrima = () => {
   const [materiasPrimas, setMateriasPrimas] = useState([])
   const [loading, setLoading] = useState(false)
@@ -34,6 +43,11 @@ const CadastroMateriaPrima = () => {
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+
+  // Estados para exclusão com motivo
+  const [deleteTargetId, setDeleteTargetId] = useState(null)
+  const [deleteReason, setDeleteReason] = useState('') // deve ser uma das keys de DELETE_MOTIVOS
+  const [deleteNote, setDeleteNote] = useState('')
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -146,7 +160,8 @@ const CadastroMateriaPrima = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch {}
+            if (j?.detail) msg = j.detail
+          } catch { }
           throw new Error(msg)
         }
         const atualizado = apiToUi(await res.json())
@@ -166,7 +181,8 @@ const CadastroMateriaPrima = () => {
             const j = await res.json()
             if (j?.codigo_interno?.[0]) msg = j.codigo_interno[0]
             if (j?.nome?.[0]) msg = j.nome[0]
-          } catch {}
+            if (j?.detail) msg = j.detail
+          } catch { }
           throw new Error(msg)
         }
         const criado = apiToUi(await res.json())
@@ -202,13 +218,40 @@ const CadastroMateriaPrima = () => {
     setSuccess('')
   }
 
-  const handleExcluir = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta matéria-prima?')) return
+  // Inicia fluxo de exclusão solicitando motivo
+  const handleExcluirClick = (id) => {
+    setDeleteTargetId(id)
+    setDeleteReason('')
+    setDeleteNote('')
+    setError('')
+    setSuccess('')
+  }
+
+  // Cancela fluxo de exclusão
+  const handleCancelarExclusao = () => {
+    setDeleteTargetId(null)
+    setDeleteReason('')
+    setDeleteNote('')
+  }
+
+  // Confirma exclusão com motivo
+  const handleConfirmarExclusao = async () => {
+    if (!deleteTargetId) return
+    if (!deleteReason) {
+      setError('Selecione um motivo para a exclusão.')
+      return
+    }
+
     try {
       setLoading(true)
-      const res = await fetchHttps(`${API_BASE}/materias-primas/${id}/`, {
+      setError('')
+      const res = await fetchHttps(`${API_BASE}/materias-primas/${deleteTargetId}/`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          motivo_exclusao: deleteReason,
+          motivo_observacao: deleteNote || ''
+        })
       })
 
       if (res.status === 400 || res.status === 409) {
@@ -222,11 +265,12 @@ const CadastroMateriaPrima = () => {
         throw new Error(data?.detail || `DELETE matéria-prima: ${res.status}`)
       }
 
-      setMateriasPrimas(prev => prev.filter(mp => mp.id !== id))
+      setMateriasPrimas(prev => prev.filter(mp => mp.id !== deleteTargetId))
       setSuccess('Matéria-prima excluída com sucesso!')
+      handleCancelarExclusao()
     } catch (err) {
       console.error(err)
-      setError('Erro ao excluir matéria-prima. Tente novamente.')
+      setError(typeof err?.message === 'string' ? err.message : 'Erro ao excluir matéria-prima. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -361,41 +405,105 @@ const CadastroMateriaPrima = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
-                  {materiasPrimasFiltradas.map((materiaPrima) => (
-                    <div key={materiaPrima.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-gray-900">{materiaPrima.nome}</h3>
-                            <Badge variant={materiaPrima.ativo ? "default" : "secondary"}>
-                              {materiaPrima.ativo ? 'Ativa' : 'Inativa'}
-                            </Badge>
+                  {materiasPrimasFiltradas.map((materiaPrima) => {
+                    const isDeleting = deleteTargetId === materiaPrima.id
+                    return (
+                      <div key={materiaPrima.id} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-medium text-gray-900">{materiaPrima.nome}</h3>
+                              <Badge variant={materiaPrima.ativo ? "default" : "secondary"}>
+                                {materiaPrima.ativo ? 'Ativa' : 'Inativa'}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              Código: <span className="font-mono">{materiaPrima.codigoInterno || '-'}</span>
+                            </p>
                           </div>
-                          <p className="text-sm text-gray-500">
-                            Código: <span className="font-mono">{materiaPrima.codigoInterno || '-'}</span>
-                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditar(materiaPrima)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {!isDeleting ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleExcluirClick(materiaPrima.id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCancelarExclusao}
+                                className="text-gray-700"
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditar(materiaPrima)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleExcluir(materiaPrima.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+
+                        {/* Painel inline para exclusão com motivo */}
+                        {isDeleting && (
+                          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                            <p className="text-sm font-medium text-red-800 mb-3">
+                              Para excluir esta matéria-prima, informe o motivo.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                              <div className="space-y-1 md:col-span-1">
+                                <Label htmlFor={`motivo-${materiaPrima.id}`}>Motivo *</Label>
+                                <select
+                                  id={`motivo-${materiaPrima.id}`}
+                                  className="w-full border rounded-md h-9 px-3 text-sm bg-white"
+                                  value={deleteReason}
+                                  onChange={(e) => setDeleteReason(e.target.value)}
+                                >
+                                  <option value="">Selecione...</option>
+                                  {DELETE_MOTIVOS.map((m) => (
+                                    <option key={m.key} value={m.key}>{m.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1 md:col-span-2">
+                                <Label htmlFor={`obs-${materiaPrima.id}`}>Observação (opcional)</Label>
+                                <Input
+                                  id={`obs-${materiaPrima.id}`}
+                                  value={deleteNote}
+                                  onChange={(e) => setDeleteNote(e.target.value)}
+                                  placeholder="Ex.: MP substituída pela nova especificação"
+                                />
+                              </div>
+                              <div className="md:col-span-3 flex gap-2">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={loading || !deleteReason}
+                                  onClick={handleConfirmarExclusao}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  {loading ? 'Excluindo...' : 'Confirmar exclusão'}
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={handleCancelarExclusao}>
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
