@@ -72,14 +72,22 @@ export default function ReportShell({ report }) {
                         {report.filters?.map((f) => (
                             <div key={f.name} className="space-y-1">
                                 <Label htmlFor={f.name}>{f.label}</Label>
+
                                 {f.type === 'select' ? (
-                                    <Select value={params[f.name] ?? ''} onValueChange={v => setParam(f.name, v)}>
+                                    <Select
+                                        // Exibe "__all__" quando param está vazio/indefinido
+                                        value={params[f.name] ?? '__all__'}
+                                        // Converte "__all__" -> '' ao gravar nos params (API recebe vazio)
+                                        onValueChange={(v) => setParam(f.name, v === '__all__' ? '' : v)}
+                                    >
                                         <SelectTrigger id={f.name}>
                                             <SelectValue placeholder="Selecione" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {(f.options || []).map(opt => (
-                                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                            {(f.options || []).map((opt) => (
+                                                <SelectItem key={String(opt.value)} value={String(opt.value)}>
+                                                    {opt.label}
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -88,7 +96,7 @@ export default function ReportShell({ report }) {
                                         id={f.name}
                                         type={f.type}
                                         value={params[f.name] ?? ''}
-                                        onChange={e => setParam(f.name, e.target.value)}
+                                        onChange={(e) => setParam(f.name, e.target.value)}
                                         placeholder={f.placeholder || ''}
                                     />
                                 )}
@@ -98,7 +106,11 @@ export default function ReportShell({ report }) {
 
                     <div className="flex justify-between mb-3">
                         <div className="text-sm text-muted-foreground">
-                            {loading ? 'Carregando…' : isPaginated ? `Total: ${data.count || rows.length}` : `Registros: ${rows.length}`}
+                            {loading
+                                ? 'Carregando…'
+                                : isPaginated
+                                    ? `Total: ${data.count || rows.length}`
+                                    : `Registros: ${rows.length}`}
                         </div>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={clearFilters}>Limpar</Button>
@@ -113,24 +125,36 @@ export default function ReportShell({ report }) {
                         <table className="min-w-full text-sm">
                             <thead>
                                 <tr className="bg-muted">
-                                    {report.columns.map(col => (
-                                        <th key={col.key} className="text-left px-3 py-2 font-medium">{col.header}</th>
+                                    {report.columns?.map((col) => (
+                                        <th key={col.key} className="text-left px-3 py-2 font-medium">
+                                            {col.header}
+                                        </th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {rows.length === 0 && !loading ? (
-                                    <tr><td className="px-3 py-3 text-muted-foreground" colSpan={report.columns.length}>Nenhum registro.</td></tr>
-                                ) : rows.map((row, idx) => (
-                                    <tr key={idx} className="border-t">
-                                        {report.columns.map(col => {
-                                            let val = row[col.key];
-                                            if (typeof val === 'boolean') val = val ? 'Sim' : 'Não';
-                                            if (val === null || val === undefined) val = '';
-                                            return <td key={col.key} className="px-3 py-2">{String(val)}</td>
-                                        })}
+                                    <tr>
+                                        <td className="px-3 py-3 text-muted-foreground" colSpan={report.columns.length}>
+                                            Nenhum registro.
+                                        </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    rows.map((row, idx) => (
+                                        <tr key={idx} className="border-t">
+                                            {report.columns.map((col) => {
+                                                let val = row[col.key]
+                                                if (typeof val === 'boolean') val = val ? 'Sim' : 'Não'
+                                                if (val === null || val === undefined) val = ''
+                                                return (
+                                                    <td key={col.key} className="px-3 py-2">
+                                                        {String(val)}
+                                                    </td>
+                                                )
+                                            })}
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -138,9 +162,21 @@ export default function ReportShell({ report }) {
                     {/* Paginação simples (quando houver results/count) */}
                     {isPaginated && (
                         <div className="flex items-center justify-end gap-2 mt-3">
-                            <Button variant="outline" disabled={!data.previous || loading} onClick={() => load(Math.max(1, page - 1))}>Anterior</Button>
+                            <Button
+                                variant="outline"
+                                disabled={!data.previous || loading}
+                                onClick={() => load(Math.max(1, page - 1))}
+                            >
+                                Anterior
+                            </Button>
                             <span className="text-sm">Página {page}</span>
-                            <Button variant="outline" disabled={!data.next || loading} onClick={() => load(page + 1)}>Próxima</Button>
+                            <Button
+                                variant="outline"
+                                disabled={!data.next || loading}
+                                onClick={() => load(page + 1)}
+                            >
+                                Próxima
+                            </Button>
                         </div>
                     )}
                 </CardContent>

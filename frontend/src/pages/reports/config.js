@@ -1,5 +1,8 @@
 // src/pages/reports/config.js
-import { Calendar, FileDown, Printer, Search, User, Weight, ShieldAlert, ClipboardList, Network, Package, Layers, Users, MonitorCog } from 'lucide-react'
+import {
+  Calendar, FileDown, Printer, Search, User, Weight, ShieldAlert,
+  ClipboardList, Network, Package, Layers, Users, MonitorCog
+} from 'lucide-react'
 
 /**
  * Cada entrada descreve:
@@ -28,20 +31,25 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
-      { name: 'data_final',   label: 'Data final',   type: 'date', icon: Calendar },
-      { name: 'produto',      label: 'Produto',      type: 'text', icon: Package },
-      { name: 'materia_prima',label: 'Matéria-Prima',type: 'text', icon: Layers },
-      { name: 'op',           label: 'OP',           type: 'text', icon: ClipboardList },
-      { name: 'lote',         label: 'Lote',         type: 'text', icon: ClipboardList },
-      { name: 'operador',     label: 'Operador',     type: 'text', icon: User },
-      { name: 'status',       label: 'Status da OP', type: 'select', options: [
-        { value: '', label: 'Todos' },
-        { value: 'aberta', label: 'Aberta' },
-        { value: 'em_andamento', label: 'Em andamento' },
-        { value: 'concluida', label: 'Concluída' },
-        { value: 'cancelada', label: 'Cancelada' },
-      ]},
-      { name: 'balanca',      label: 'Balança',      type: 'text', icon: Network },
+      { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
+      { name: 'produto', label: 'Produto', type: 'text', icon: Package },
+      { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
+      { name: 'op', label: 'OP', type: 'text', icon: ClipboardList },
+      { name: 'lote', label: 'Lote', type: 'text', icon: ClipboardList },
+      { name: 'operador', label: 'Operador', type: 'text', icon: User },
+      {
+        name: 'status',
+        label: 'Status da OP',
+        type: 'select',
+        options: [
+          { value: '__all__', label: 'Todos' },
+          { value: 'aberta', label: 'Aberta' },
+          { value: 'em_andamento', label: 'Em andamento' },
+          { value: 'concluida', label: 'Concluída' },
+          { value: 'cancelada', label: 'Cancelada' },
+        ]
+      },
+      { name: 'balanca', label: 'Balança', type: 'text', icon: Network },
     ],
     primaryIcon: Weight
   },
@@ -60,10 +68,10 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
-      { name: 'data_final',   label: 'Data final',   type: 'date', icon: Calendar },
-      { name: 'produto',      label: 'Produto',      type: 'text', icon: Package },
-      { name: 'materia_prima',label: 'Matéria-Prima',type: 'text', icon: Layers },
-      { name: 'op',           label: 'OP',           type: 'text', icon: ClipboardList },
+      { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
+      { name: 'produto', label: 'Produto', type: 'text', icon: Package },
+      { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
+      { name: 'op', label: 'OP', type: 'text', icon: ClipboardList },
     ],
     primaryIcon: ClipboardList
   },
@@ -79,11 +87,11 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
-      { name: 'data_final',   label: 'Data final',   type: 'date', icon: Calendar },
-      { name: 'balanca',      label: 'Balança',      type: 'text', icon: Network },
-      { name: 'operador',     label: 'Operador',     type: 'text', icon: User },
-      { name: 'produto',      label: 'Produto',      type: 'text', icon: Package },
-      { name: 'materia_prima',label: 'Matéria-Prima',type: 'text', icon: Layers },
+      { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
+      { name: 'balanca', label: 'Balança', type: 'text', icon: Network },
+      { name: 'operador', label: 'Operador', type: 'text', icon: User },
+      { name: 'produto', label: 'Produto', type: 'text', icon: Package },
+      { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
     ],
     primaryIcon: Network
   },
@@ -98,9 +106,16 @@ export const REPORTS = {
       { key: 'ativo', header: 'Ativo' },
     ],
     filters: [
-      { name: 'status', label: 'Ativo?', type: 'select', options: [
-        { value: '', label: 'Todos' }, { value: 'true', label: 'Sim' }, { value: 'false', label: 'Não' }
-      ]},
+      {
+        name: 'status',
+        label: 'Ativo?',
+        type: 'select',
+        options: [
+          { value: '__all__', label: 'Todos' },
+          { value: 'true', label: 'Sim' },
+          { value: 'false', label: 'Não' },
+        ]
+      },
       { name: 'codigo_interno', label: 'Cód. Interno', type: 'text', icon: MonitorCog },
       { name: 'descricao', label: 'Descrição/Nome', type: 'text', icon: Package },
     ],
@@ -117,9 +132,16 @@ export const REPORTS = {
       { key: 'ativo', header: 'Ativo' },
     ],
     filters: [
-      { name: 'status', label: 'Ativo?', type: 'select', options: [
-        { value: '', label: 'Todos' }, { value: 'true', label: 'Sim' }, { value: 'false', label: 'Não' }
-      ]},
+      {
+        name: 'status',
+        label: 'Ativo?',
+        type: 'select',
+        options: [
+          { value: '__all__', label: 'Todos' },
+          { value: 'true', label: 'Sim' },
+          { value: 'false', label: 'Não' },
+        ]
+      },
       { name: 'codigo_interno', label: 'Cód. Interno', type: 'text', icon: MonitorCog },
       { name: 'nome', label: 'Nome', type: 'text', icon: Layers },
     ],
@@ -138,9 +160,16 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'produto', label: 'Produto', type: 'text', icon: Package },
-      { name: 'status_mp', label: 'MP Ativa?', type: 'select', options: [
-        { value: '', label: 'Todas' }, { value: 'true', label: 'Sim' }, { value: 'false', label: 'Não' }
-      ]},
+      {
+        name: 'status_mp',
+        label: 'MP Ativa?',
+        type: 'select',
+        options: [
+          { value: '__all__', label: 'Todas' },
+          { value: 'true', label: 'Sim' },
+          { value: 'false', label: 'Não' },
+        ]
+      },
     ],
     primaryIcon: Layers
   },
@@ -159,17 +188,29 @@ export const REPORTS = {
       { key: 'perfil', header: 'Perfil' },
     ],
     filters: [
-      { name: 'perfil', label: 'Perfil', type: 'select', options: [
-        { value: '', label: 'Todos' },
-        { value: 'operador', label: 'Operador' },
-        { value: 'supervisor', label: 'Supervisor' },
-        { value: 'admin', label: 'Administrador' },
-      ]},
+      {
+        name: 'perfil',
+        label: 'Perfil',
+        type: 'select',
+        options: [
+          { value: '__all__', label: 'Todos' },
+          { value: 'operador', label: 'Operador' },
+          { value: 'supervisor', label: 'Supervisor' },
+          { value: 'admin', label: 'Administrador' },
+        ]
+      },
       { name: 'nome', label: 'Nome/Usuário', type: 'text', icon: Users },
       { name: 'email', label: 'E-mail', type: 'text', icon: Users },
-      { name: 'status', label: 'Ativo?', type: 'select', options: [
-        { value: '', label: 'Todos' }, { value: 'true', label: 'Sim' }, { value: 'false', label: 'Não' }
-      ]},
+      {
+        name: 'status',
+        label: 'Ativo?',
+        type: 'select',
+        options: [
+          { value: '__all__', label: 'Todos' },
+          { value: 'true', label: 'Sim' },
+          { value: 'false', label: 'Não' },
+        ]
+      },
     ],
     primaryIcon: Users
   },
@@ -183,12 +224,17 @@ export const REPORTS = {
       { key: 'telas', header: 'Telas permitidas' },
     ],
     filters: [
-      { name: 'perfil', label: 'Perfil', type: 'select', options: [
-        { value: '', label: 'Todos' },
-        { value: 'operador', label: 'Operador' },
-        { value: 'supervisor', label: 'Supervisor' },
-        { value: 'admin', label: 'Administrador' },
-      ]},
+      {
+        name: 'perfil',
+        label: 'Perfil',
+        type: 'select',
+        options: [
+          { value: '__all__', label: 'Todos' },
+          { value: 'operador', label: 'Operador' },
+          { value: 'supervisor', label: 'Supervisor' },
+          { value: 'admin', label: 'Administrador' },
+        ]
+      },
       { name: 'usuario', label: 'Usuário', type: 'text', icon: Users },
     ],
     primaryIcon: MonitorCog
@@ -210,10 +256,10 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
-      { name: 'data_final',   label: 'Data final',   type: 'date', icon: Calendar },
-      { name: 'usuario',      label: 'Usuário',      type: 'text', icon: Users },
-      { name: 'action',       label: 'Ação',         type: 'text', icon: ShieldAlert },
-      { name: 'model',        label: 'Modelo',       type: 'text', icon: ClipboardList },
+      { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
+      { name: 'usuario', label: 'Usuário', type: 'text', icon: Users },
+      { name: 'action', label: 'Ação', type: 'text', icon: ShieldAlert },
+      { name: 'model', label: 'Modelo', type: 'text', icon: ClipboardList },
     ],
     primaryIcon: ShieldAlert
   },
@@ -231,9 +277,9 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
-      { name: 'data_final',   label: 'Data final',   type: 'date', icon: Calendar },
-      { name: 'usuario',      label: 'Usuário',      type: 'text' },
-      { name: 'model',        label: 'Modelo',       type: 'text' },
+      { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
+      { name: 'usuario', label: 'Usuário', type: 'text' },
+      { name: 'model', label: 'Modelo', type: 'text' },
     ],
     primaryIcon: ShieldAlert
   },
@@ -251,8 +297,8 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },
-      { name: 'data_final',   label: 'Data final',   type: 'date' },
-      { name: 'usuario',      label: 'Usuário',      type: 'text' },
+      { name: 'data_final', label: 'Data final', type: 'date' },
+      { name: 'usuario', label: 'Usuário', type: 'text' },
     ],
     primaryIcon: ShieldAlert
   },
@@ -270,7 +316,7 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },
-      { name: 'data_final',   label: 'Data final',   type: 'date' },
+      { name: 'data_final', label: 'Data final', type: 'date' },
     ],
     primaryIcon: FileDown
   },
@@ -287,8 +333,8 @@ export const REPORTS = {
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },
-      { name: 'data_final',   label: 'Data final',   type: 'date' },
+      { name: 'data_final', label: 'Data final', type: 'date' },
     ],
     primaryIcon: Printer
   }
-};
+}
