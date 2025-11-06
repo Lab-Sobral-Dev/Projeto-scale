@@ -895,7 +895,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     &has_reason=sim|nao&has_changes=sim|nao&has_extra=sim|nao
     &path_contains=...&ua_contains=...&ip=...&object_pk=...
     """
-    queryset = AuditLog.objects.all().seleFct_related("user").order_by("-timestamp")
+    queryset = AuditLog.objects.all().select_related("user").order_by("-timestamp")
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdminOnly]
 
