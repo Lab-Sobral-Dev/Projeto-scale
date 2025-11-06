@@ -326,30 +326,45 @@ const CadastroEstruturaProduto = () => {
     // Confirma exclusão enviando motivo_exclusao + motivo_observacao
     const handleConfirmarExclusaoEstrutura = async () => {
         if (!deleteEstruturaId) return
-        if (!deleteReason) {
+        const motivo = (deleteReason || '').trim()
+        const obs = (deleteNote || '').trim()
+
+        if (!motivo) {
             setError('Selecione um motivo para a exclusão.')
             return
         }
+
         setLoading(true)
         setError(''); setSuccess('')
+
         try {
-            const res = await fetchHttps(`${API_BASE}/estruturas/${deleteEstruturaId}/`, {
+            // Envia motivo_exclusao e motivo_observacao NA QUERY (mais confiável que body em DELETE)
+            const qs = new URLSearchParams({
+                motivo_exclusao: motivo,
+                motivo_observacao: obs,
+            }).toString()
+
+            const res = await fetchHttps(`${API_BASE}/estruturas/${deleteEstruturaId}/?${qs}`, {
                 method: 'DELETE',
-                headers: token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    motivo_exclusao: deleteReason,
-                    motivo_observacao: deleteNote || ''
-                })
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+                // sem body em DELETE por compatibilidade com proxies/serv
             })
+
             if (res.status === 400 || res.status === 409) {
                 const data = await res.json().catch(() => ({}))
-                setError(data?.detail || 'Não é possível excluir esta estrutura.')
-                return
+                throw new Error(data?.detail || 'Requisição inválida ao excluir estrutura.')
             }
-            if (res.status !== 204 && res.status !== 200) {
-                const data = await res.json().catch(() => ({}))
-                throw new Error(data?.detail || `DELETE estrutura: ${res.status}`)
+            if (![200, 204].includes(res.status)) {
+                // tenta extrair a mensagem do backend, senão mostra o status
+                let msg = `DELETE estrutura: ${res.status}`
+                try {
+                    const data = await res.json()
+                    if (data?.detail) msg = data.detail
+                } catch { }
+                throw new Error(msg)
             }
+
+            // sucesso
             setEstruturas(prev => prev.filter(x => x.id !== deleteEstruturaId))
             if (estruturaSelecionada?.id === deleteEstruturaId) {
                 setEstruturaSelecionada(null)
