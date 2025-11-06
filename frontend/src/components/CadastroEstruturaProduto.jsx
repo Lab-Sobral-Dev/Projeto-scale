@@ -9,11 +9,22 @@ import { Badge } from '@/components/ui/badge'
 import { Boxes, Edit, Trash2, Save, X, RefreshCw, Beaker, Link2 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
+// 🔔 shadcn/ui – modal
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+
 /**
  * Base da API — mantenha SEMPRE https por padrão.
  */
-const API_BASE =
-    (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
 
 /** Corrige qualquer URL para HTTPS, inclusive relativas. */
 const fixToHttps = (u) => {
@@ -47,13 +58,15 @@ const useDebounced = (value, ms = 250) => {
     return v
 }
 
-/** Motivos válidos para exclusão de estrutura (chaves aceitas pelo backend) */
-const DELETE_MOTIVOS_ESTRUTURA = [
-    { key: 'cadastro_duplicado', label: 'Cadastro duplicado' },
-    { key: 'descontinuacao', label: 'Descontinuação/obsolescência' },
-    { key: 'substituicao', label: 'Substituição por nova versão' },
-    { key: 'erro_cadastro', label: 'Erro de cadastro' },
-    { key: 'outro', label: 'Outro motivo' },
+/**
+ * Motivos de exclusão aceitos para ESTRUTURA (devem bater com o backend / RequireDeleteReasonAuditMixin):
+ * cadastro_duplicado | revisao_estrutura | erro_cadastro | outro
+ */
+const MOTIVOS_ESTRUTURA = [
+    { value: 'cadastro_duplicado', label: 'Cadastro duplicado' },
+    { value: 'revisao_estrutura', label: 'Revisão/Substituição da estrutura' },
+    { value: 'erro_cadastro', label: 'Erro de cadastro' },
+    { value: 'outro', label: 'Outro motivo' },
 ]
 
 const CadastroEstruturaProduto = () => {
@@ -100,10 +113,11 @@ const CadastroEstruturaProduto = () => {
     })
     const [editingItemId, setEditingItemId] = useState(null)
 
-    // ====== Exclusão com motivo (Estrutura) ======
-    const [deleteEstruturaId, setDeleteEstruturaId] = useState(null)
-    const [deleteReason, setDeleteReason] = useState('')
-    const [deleteNote, setDeleteNote] = useState('')
+    // ====== Modal de exclusão ======
+    const [deleteOpen, setDeleteOpen] = useState(false)
+    const [deleteId, setDeleteId] = useState(null)
+    const [deleteMotivo, setDeleteMotivo] = useState('outro')
+    const [deleteObs, setDeleteObs] = useState('')
 
     // ========== Helpers UI <-> API ==========
     const estruturaApiToUi = (e) => ({
@@ -208,7 +222,11 @@ const CadastroEstruturaProduto = () => {
     useEffect(() => {
         (async () => {
             try {
-                await Promise.all([carregarProdutos(), carregarMateriasPrimas(), carregarEstruturas()])
+                await Promise.all([
+                    carregarProdutos(),
+                    carregarMateriasPrimas(),
+                    carregarEstruturas()
+                ])
             } catch (e) {
                 console.error(e)
             }
@@ -221,7 +239,7 @@ const CadastroEstruturaProduto = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [estruturaSelecionada?.id])
 
-    // ========== Handlers Estrutura ==========
+    // ========== Handlers estrutura ==========
     const handleChangeEstrutura = (name, value) => {
         setFormEstrutura(prev => ({ ...prev, [name]: value }))
         setError(''); setSuccess('')
@@ -258,7 +276,6 @@ const CadastroEstruturaProduto = () => {
                         const j = await res.json()
                         if (j?.produto_id?.[0]) msg = j.produto_id[0]
                         if (j?.descricao?.[0]) msg = j.descricao[0]
-                        if (j?.detail) msg = j.detail
                     } catch { }
                     throw new Error(msg)
                 }
@@ -280,7 +297,6 @@ const CadastroEstruturaProduto = () => {
                         const j = await res.json()
                         if (j?.produto_id?.[0]) msg = j.produto_id[0]
                         if (j?.descricao?.[0]) msg = j.descricao[0]
-                        if (j?.detail) msg = j.detail
                     } catch { }
                     throw new Error(msg)
                 }
@@ -309,63 +325,58 @@ const CadastroEstruturaProduto = () => {
         setEstruturaSelecionada(e)
     }
 
-    // Fluxo de exclusão (passo 1: abrir painel inline)
-    const handleAbrirExclusaoEstrutura = (id) => {
-        setDeleteEstruturaId(id)
-        setDeleteReason('')
-        setDeleteNote('')
-        setError(''); setSuccess('')
+    // 👇 Abre modal em vez de alert/prompt
+    const handleExcluirEstrutura = (id) => {
+        setDeleteId(id)
+        setDeleteMotivo('outro')
+        setDeleteObs('')
+        setDeleteOpen(true)
     }
 
-    const cancelarExclusaoEstrutura = () => {
-        setDeleteEstruturaId(null)
-        setDeleteReason('')
-        setDeleteNote('')
-    }
-
-    // Confirma exclusão enviando motivo_exclusao + motivo_observacao
-    const handleExcluirEstrutura = async (id) => {
-        if (!window.confirm('Tem certeza que deseja excluir esta estrutura?')) return
-
-        // Coleta um motivo válido (default: 'outro')
-        const motivosValidos = ['cadastro_duplicado', 'revisao_estrutura', 'erro_cadastro', 'outro']
-        let motivo = window.prompt(
-            `Informe o motivo da exclusão:\n- cadastro_duplicado\n- revisao_estrutura\n- erro_cadastro\n- outro`,
-            'outro'
-        ) || 'outro'
-        motivo = motivo.trim()
-
-        if (!motivosValidos.includes(motivo)) {
-            alert('Motivo inválido. Use uma das opções listadas.')
+    // Confirma e executa o DELETE com motivo via query string
+    const confirmExcluirEstrutura = async () => {
+        if (!deleteId) return
+        // valida motivo
+        const valido = MOTIVOS_ESTRUTURA.some(m => m.value === deleteMotivo)
+        if (!valido) {
+            setError('Motivo inválido. Escolha uma das opções.')
             return
         }
 
-        const obs = window.prompt('Observação (opcional):', '') || ''
         const qs = new URLSearchParams({
-            motivo_exclusao: motivo,
-            motivo_observacao: obs.trim(),
+            motivo_exclusao: deleteMotivo,
+            motivo_observacao: deleteObs.trim(),
         }).toString()
 
         try {
             setLoading(true)
             setError(''); setSuccess('')
-            const res = await fetchHttps(`${API_BASE}/estruturas/${id}/?${qs}`, {
+
+            // ⚠️ Importante: não enviar 'Content-Type' sem body no DELETE
+            const headersDelete = token ? { Authorization: `Bearer ${token}` } : {}
+
+            const res = await fetchHttps(`${API_BASE}/estruturas/${deleteId}/?${qs}`, {
                 method: 'DELETE',
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                headers: headersDelete,
             })
 
-            // tenta extrair mensagem detalhada do backend
             if (![200, 204].includes(res.status)) {
+                // Tenta recuperar mensagem detalhada do backend
                 let msg = `DELETE estrutura: ${res.status}`
                 try {
                     const data = await res.json()
                     if (data?.detail) msg = data.detail
-                } catch { }
+                } catch {
+                    try {
+                        const txt = await res.text()
+                        if (txt) msg = txt
+                    } catch { }
+                }
                 throw new Error(msg)
             }
 
-            setEstruturas(prev => prev.filter(x => x.id !== id))
-            if (estruturaSelecionada?.id === id) {
+            setEstruturas(prev => prev.filter(x => x.id !== deleteId))
+            if (estruturaSelecionada?.id === deleteId) {
                 setEstruturaSelecionada(null)
                 setItens([])
             }
@@ -375,9 +386,10 @@ const CadastroEstruturaProduto = () => {
             setError(typeof e?.message === 'string' ? e.message : 'Erro ao excluir estrutura.')
         } finally {
             setLoading(false)
+            setDeleteOpen(false)
+            setDeleteId(null)
         }
     }
-
 
     const limparFormularioEstrutura = () => {
         setEditingId(null)
@@ -414,10 +426,9 @@ const CadastroEstruturaProduto = () => {
                     let msg = `PUT item: ${res.status}`
                     try {
                         const j = await res.json()
-                        const campos = ['estrutura_id', 'materia_prima_id', 'quantidade_por_lote', 'unidade', 'detail']
+                        const campos = ['estrutura_id', 'materia_prima_id', 'quantidade_por_lote', 'unidade']
                         for (const c of campos) {
                             if (j?.[c]?.[0]) { msg = j[c][0]; break }
-                            if (typeof j?.[c] === 'string') { msg = j[c]; break }
                         }
                     } catch { }
                     throw new Error(msg)
@@ -437,10 +448,9 @@ const CadastroEstruturaProduto = () => {
                     let msg = `POST item: ${res.status}`
                     try {
                         const j = await res.json()
-                        const campos = ['estrutura_id', 'materia_prima_id', 'quantidade_por_lote', 'unidade', 'detail']
+                        const campos = ['estrutura_id', 'materia_prima_id', 'quantidade_por_lote', 'unidade']
                         for (const c of campos) {
                             if (j?.[c]?.[0]) { msg = j[c][0]; break }
-                            if (typeof j?.[c] === 'string') { msg = j[c]; break }
                         }
                     } catch { }
                     throw new Error(msg)
@@ -472,9 +482,10 @@ const CadastroEstruturaProduto = () => {
         setLoadingItens(true)
         setError(''); setSuccess('')
         try {
+            const headersDelete = token ? { Authorization: `Bearer ${token}` } : {}
             const res = await fetchHttps(`${API_BASE}/itens-estrutura/${id}/`, {
                 method: 'DELETE',
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
+                headers: headersDelete
             })
             if (res.status === 409) {
                 const data = await res.json().catch(() => ({}))
@@ -482,8 +493,7 @@ const CadastroEstruturaProduto = () => {
                 return
             }
             if (res.status !== 204 && res.status !== 200) {
-                const data = await res.json().catch(() => ({}))
-                throw new Error(data?.detail || `DELETE item: ${res.status}`)
+                throw new Error(`DELETE item: ${res.status}`)
             }
             setItens(prev => prev.filter(x => x.id !== id))
             setSuccess('Item removido.')
@@ -514,9 +524,8 @@ const CadastroEstruturaProduto = () => {
     )
 
     return (
-        // Container principal
         <div className="h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
-            {/* Header da página */}
+            {/* Header */}
             <header className="flex items-center gap-4 border-b pb-4">
                 <Boxes className="h-9 w-9 text-emerald-600 shrink-0" />
                 <div className="min-w-0">
@@ -527,7 +536,6 @@ const CadastroEstruturaProduto = () => {
                 </div>
             </header>
 
-            {/* Grade principal: 2 linhas (topo auto, conteúdo 1fr) */}
             <div className="grid grid-cols-1 gap-6 min-h-0 grid-rows-[auto_minmax(0,1fr)] h-[calc(100dvh-170px)]">
                 {/* LINHA 1 — Formulário */}
                 <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-emerald-600">
@@ -543,7 +551,11 @@ const CadastroEstruturaProduto = () => {
                             </div>
                             <div className="shrink-0 flex gap-2">
                                 {editingId && (
-                                    <Button type="button" variant="outline" size="sm" onClick={limparFormularioEstrutura} className="gap-2">
+                                    <Button
+                                        type="button" variant="outline" size="sm"
+                                        onClick={limparFormularioEstrutura}
+                                        className="gap-2"
+                                    >
                                         <X className="h-4 w-4" />
                                         Cancelar Edição
                                     </Button>
@@ -556,7 +568,6 @@ const CadastroEstruturaProduto = () => {
                         </div>
                     </CardHeader>
 
-                    {/* Limite de altura + scroll interno para não "engolir" a linha 2 */}
                     <CardContent className="p-6 max-h-[38vh] overflow-y-auto min-h-0">
                         <form
                             id="form-estrutura"
@@ -628,7 +639,7 @@ const CadastroEstruturaProduto = () => {
                     </CardContent>
                 </Card>
 
-                {/* LINHA 2 — duas colunas, cada card com min-h-0 e listas roláveis */}
+                {/* LINHA 2 */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
                     {/* ESQUERDA: Catálogo */}
                     <Card className="flex flex-col overflow-hidden shadow-lg min-h-0">
@@ -674,126 +685,59 @@ const CadastroEstruturaProduto = () => {
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-100">
-                                    {estruturasFiltradas.map((e) => {
-                                        const isDeleting = deleteEstruturaId === e.id
-                                        return (
-                                            <div
-                                                key={e.id}
-                                                className={`relative p-4 cursor-pointer transition-colors hover:bg-emerald-50/30 
-                          ${estruturaSelecionada?.id === e.id ? 'bg-emerald-50 border-l-4 border-emerald-600' : 'border-l-4 border-transparent'}`}
-                                                onClick={() => setEstruturaSelecionada(e)}
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1 min-w-0">
-                                                            <h3 className="font-semibold text-gray-900 truncate">
-                                                                {e.produto?.nome}
-                                                            </h3>
-                                                            <Badge
-                                                                variant={e.ativo ? 'default' : 'secondary'}
-                                                                className={`shrink-0 text-xs font-medium ${e.ativo ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'}`}
-                                                            >
-                                                                {e.ativo ? 'Ativa' : 'Inativa'}
-                                                            </Badge>
-                                                        </div>
-                                                        <p className="text-xs text-gray-500">
-                                                            Cód. Produto: <span className="font-mono text-gray-700">{e.produto?.codigo_interno}</span>
-                                                        </p>
-                                                        {e.descricao && (
-                                                            <p className="text-xs text-gray-500 truncate mt-0.5">
-                                                                Descrição: {e.descricao}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex gap-1 shrink-0 mt-1">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={(ev) => { ev.stopPropagation(); handleEditarEstrutura(e) }}
-                                                            className="text-blue-600 hover:bg-blue-50 h-7 w-7"
-                                                            aria-label={`Editar estrutura de ${e.produto?.nome}`}
+                                    {estruturasFiltradas.map((e) => (
+                                        <div
+                                            key={e.id}
+                                            className={`relative p-4 cursor-pointer transition-colors hover:bg-emerald-50/30 
+                        ${estruturaSelecionada?.id === e.id
+                                                    ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                                    : 'border-l-4 border-transparent'
+                                                }`}
+                                            onClick={() => setEstruturaSelecionada(e)}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1 min-w-0">
+                                                        <h3 className="font-semibold text-gray-900 truncate">
+                                                            {e.produto?.nome}
+                                                        </h3>
+                                                        <Badge
+                                                            variant={e.ativo ? 'default' : 'secondary'}
+                                                            className={`shrink-0 text-xs font-medium ${e.ativo ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'}`}
                                                         >
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-
-                                                        {!isDeleting ? (
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={(ev) => { ev.stopPropagation(); handleAbrirExclusaoEstrutura(e.id) }}
-                                                                className="text-red-600 hover:bg-red-50 h-7 w-7"
-                                                                aria-label={`Excluir estrutura de ${e.produto?.nome}`}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        ) : (
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="icon"
-                                                                onClick={(ev) => { ev.stopPropagation(); cancelarExclusaoEstrutura() }}
-                                                                className="text-gray-700 h-7 w-7"
-                                                                aria-label="Cancelar exclusão"
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
+                                                            {e.ativo ? 'Ativa' : 'Inativa'}
+                                                        </Badge>
                                                     </div>
-                                                </div>
-
-                                                {/* Painel inline de exclusão com motivo */}
-                                                {isDeleting && (
-                                                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4" onClick={(ev) => ev.stopPropagation()}>
-                                                        <p className="text-sm font-medium text-red-800 mb-3">
-                                                            Para excluir esta estrutura, informe o motivo.
+                                                    <p className="text-xs text-gray-500">
+                                                        Cód. Produto: <span className="font-mono text-gray-700">{e.produto?.codigo_interno}</span>
+                                                    </p>
+                                                    {e.descricao && (
+                                                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                                                            Descrição: {e.descricao}
                                                         </p>
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                                                            <div className="space-y-1 md:col-span-1">
-                                                                <Label htmlFor={`motivo-${e.id}`}>Motivo *</Label>
-                                                                <select
-                                                                    id={`motivo-${e.id}`}
-                                                                    className="w-full border rounded-md h-9 px-3 text-sm bg-white"
-                                                                    value={deleteReason}
-                                                                    onChange={(ev) => setDeleteReason(ev.target.value)}
-                                                                >
-                                                                    <option value="">Selecione...</option>
-                                                                    {DELETE_MOTIVOS_ESTRUTURA.map((m) => (
-                                                                        <option key={m.key} value={m.key}>{m.label}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                            <div className="space-y-1 md:col-span-2">
-                                                                <Label htmlFor={`obs-${e.id}`}>Observação (opcional)</Label>
-                                                                <Input
-                                                                    id={`obs-${e.id}`}
-                                                                    value={deleteNote}
-                                                                    onChange={(ev) => setDeleteNote(ev.target.value)}
-                                                                    placeholder="Ex.: Estrutura substituída por nova versão"
-                                                                />
-                                                            </div>
-                                                            <div className="md:col-span-3 flex gap-2">
-                                                                <Button
-                                                                    variant="destructive"
-                                                                    size="sm"
-                                                                    disabled={loading || !deleteReason}
-                                                                    onClick={handleConfirmarExclusaoEstrutura}
-                                                                    className="flex items-center gap-2"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                    {loading ? 'Excluindo...' : 'Confirmar exclusão'}
-                                                                </Button>
-                                                                <Button variant="outline" size="sm" onClick={cancelarExclusaoEstrutura}>
-                                                                    Cancelar
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-1 shrink-0 mt-1">
+                                                    <Button
+                                                        type="button" variant="ghost" size="icon"
+                                                        onClick={(ev) => { ev.stopPropagation(); handleEditarEstrutura(e) }}
+                                                        className="text-blue-600 hover:bg-blue-50 h-7 w-7"
+                                                        aria-label={`Editar estrutura de ${e.produto?.nome}`}
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        type="button" variant="ghost" size="icon"
+                                                        onClick={(ev) => { ev.stopPropagation(); handleExcluirEstrutura(e.id) }}
+                                                        className="text-red-600 hover:bg-red-50 h-7 w-7"
+                                                        aria-label={`Excluir estrutura de ${e.produto?.nome}`}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
-                                        )
-                                    })}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -876,9 +820,7 @@ const CadastroEstruturaProduto = () => {
                                     </Button>
                                     {editingItemId && (
                                         <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
+                                            type="button" variant="outline" size="sm"
                                             onClick={() => {
                                                 setEditingItemId(null)
                                                 setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
@@ -925,9 +867,7 @@ const CadastroEstruturaProduto = () => {
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
+                                                        type="button" variant="ghost" size="icon"
                                                         aria-label={`Editar item ${i.materiaPrima?.nome || ''}`}
                                                         onClick={() => handleEditarItem(i)}
                                                         className="text-blue-600 hover:bg-blue-50 h-7 w-7"
@@ -935,9 +875,7 @@ const CadastroEstruturaProduto = () => {
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
                                                     <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
+                                                        type="button" variant="ghost" size="icon"
                                                         aria-label={`Excluir item ${i.materiaPrima?.nome || ''}`}
                                                         onClick={() => handleExcluirItem(i.id)}
                                                         className="text-red-600 hover:bg-red-50 h-7 w-7"
@@ -961,6 +899,53 @@ const CadastroEstruturaProduto = () => {
                     </Card>
                 </div>
             </div>
+
+            {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar exclusão da estrutura</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Para prosseguir, selecione o motivo da exclusão e (opcionalmente) adicione uma observação. Esta ação será registrada na auditoria.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-medium">Motivo *</Label>
+                            <Select value={deleteMotivo} onValueChange={setDeleteMotivo}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o motivo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {MOTIVOS_ESTRUTURA.map(m => (
+                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="obs" className="text-sm font-medium">Observação (opcional)</Label>
+                            <Input
+                                id="obs"
+                                value={deleteObs}
+                                onChange={(e) => setDeleteObs(e.target.value)}
+                                placeholder="Ex.: Estrutura obsoleta, migrada para nova versão…"
+                            />
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => { setDeleteId(null) }}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={confirmExcluirEstrutura}
+                        >
+                            Excluir
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
