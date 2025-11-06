@@ -1,5 +1,4 @@
-// src/App.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 
 import Login from './components/Login'
@@ -43,12 +42,23 @@ import Restores from '@/pages/reports/Restores'
 
 import './App.css'
 
-// Guard simples para admin|supervisor nos relatórios
-const RequireReportViewer = ({ children }) => {
+// ==== Guards específicos para a área de Relatórios ====
+
+// Guard simples baseado no papel local (admin|supervisor)
+const isReportViewer = () => {
   const userData = JSON.parse(localStorage.getItem('user') || 'null')
-  const papel = userData?.perfil?.papel || userData?.papel // dependendo de como você populou o objeto
-  if (papel === 'admin' || papel === 'supervisor') return children
-  return <Navigate to="/" replace />
+  const papel = userData?.perfil?.papel || userData?.papel
+  return papel === 'admin' || papel === 'supervisor'
+}
+
+// Outlet guard: se pode ver relatórios → renderiza os filhos
+function RequireReportViewerOutlet() {
+  return isReportViewer() ? <Outlet /> : <Navigate to="/" replace />
+}
+
+// Apenas um agrupador com Outlet para a família /relatorios
+function ReportsOutlet() {
+  return <Outlet />
 }
 
 function App() {
@@ -111,28 +121,25 @@ function App() {
           <Route path="/etiqueta/:id" element={<GeracaoEtiqueta />} />
           <Route path="/sobre" element={<Sobre />} />
 
-          {/* Relatórios (admin|supervisor) */}
-          <Route
-            element={
-              <RequireReportViewer>
-                <></>
-              </RequireReportViewer>
-            }
-          >
-            <Route path="/relatorios" element={<ReportsHome />} />
-            <Route path="/relatorios/pesagens" element={<Pesagens />} />
-            <Route path="/relatorios/lotes" element={<Lotes />} />
-            <Route path="/relatorios/balancas" element={<Balancas />} />
-            <Route path="/relatorios/produtos" element={<Produtos />} />
-            <Route path="/relatorios/mps" element={<MPs />} />
-            <Route path="/relatorios/estrutura" element={<Estrutura />} />
-            <Route path="/relatorios/usuarios" element={<Usuarios />} />
-            <Route path="/relatorios/permissoes" element={<Permissoes />} />
-            <Route path="/relatorios/auditoria/acoes" element={<AuditoriaAcoes />} />
-            <Route path="/relatorios/auditoria/exclusoes" element={<AuditoriaExclusoes />} />
-            <Route path="/relatorios/auditoria/auth" element={<AuditoriaAuthErros />} />
-            <Route path="/relatorios/backups" element={<Backups />} />
-            <Route path="/relatorios/restores" element={<Restores />} />
+          {/* ===== Área de Relatórios (apenas admin|supervisor) ===== */}
+          <Route element={<RequireReportViewerOutlet />}>
+            {/* Grupo /relatorios com index e filhos relativos */}
+            <Route path="/relatorios" element={<ReportsOutlet />}>
+              <Route index element={<ReportsHome />} /> {/* /relatorios */}
+              <Route path="pesagens" element={<Pesagens />} />
+              <Route path="lotes" element={<Lotes />} />
+              <Route path="balancas" element={<Balancas />} />
+              <Route path="produtos" element={<Produtos />} />
+              <Route path="mps" element={<MPs />} />
+              <Route path="estrutura" element={<Estrutura />} />
+              <Route path="usuarios" element={<Usuarios />} />
+              <Route path="permissoes" element={<Permissoes />} />
+              <Route path="auditoria/acoes" element={<AuditoriaAcoes />} />
+              <Route path="auditoria/exclusoes" element={<AuditoriaExclusoes />} />
+              <Route path="auditoria/auth" element={<AuditoriaAuthErros />} />
+              <Route path="backups" element={<Backups />} />
+              <Route path="restores" element={<Restores />} />
+            </Route>
           </Route>
         </Route>
 
