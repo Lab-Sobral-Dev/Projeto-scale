@@ -56,7 +56,7 @@ INSTALLED_APPS = [
     # Apps do projeto
     "registro",
     "usuarios",
-    "reports",
+    'reports',
 ]
 
 MIDDLEWARE = [
@@ -177,62 +177,22 @@ MEDIA_ROOT  = "/app/media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# =========================
-# Logging de Auditoria (portável e seguro)
-# =========================
+# (Opcional) LOGGING para HML — rotação de arquivo
 if AUDIT_ENABLED:
-    # Diretório dos logs: pode ser setado no .env (AUDIT_LOG_DIR).
-    # Em Windows, evite C:\var\... a menos que você tenha criado e dado permissão.
-    AUDIT_LOG_DIR = Path(env("AUDIT_LOG_DIR", str(BASE_DIR / "logs" / "scale_hml")))
-
-    # Garante a criação do diretório antes de o dictConfig rodar
-    try:
-        AUDIT_LOG_DIR.mkdir(parents=True, exist_ok=True)
-        AUDIT_LOG_PATH = AUDIT_LOG_DIR / "audit_app.log"
-        AUDIT_HANDLER_CLASS = "logging.handlers.RotatingFileHandler"
-    except Exception:
-        # Fallback: se por algum motivo não puder criar diretório, não quebre o Django.
-        AUDIT_LOG_PATH = None
-        AUDIT_HANDLER_CLASS = "logging.NullHandler"
-
     LOGGING = {
         "version": 1,
         "disable_existing_loggers": False,
-        "formatters": {
-            "audit_verbose": {
-                "format": "[{asctime}] {levelname} {name} {process:d} {thread:d} – {message}",
-                "style": "{",
-            },
-            "simple": {"format": "{levelname} {message}", "style": "{"},
-        },
         "handlers": {
             "audit_file": {
-                "class": AUDIT_HANDLER_CLASS,
-                # Só define filename se não estiver em NullHandler
-                **({"filename": str(AUDIT_LOG_PATH)} if AUDIT_LOG_PATH else {}),
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": "/var/log/scale_hml/audit_app.log",
                 "maxBytes": 5_000_000,
                 "backupCount": 5,
                 "encoding": "utf-8",
-                "delay": True,  # evita abrir arquivo no bootstrap
-                "formatter": "audit_verbose",
             },
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "simple",
-            },
+            "console": {"class": "logging.StreamHandler"},
         },
         "loggers": {
-            # Logger específico para sua trilha de auditoria (use-o nas views/middlewares)
-            "audit": {
-                "handlers": ["audit_file", "console"],
-                "level": "INFO",
-                "propagate": False,
-            },
-            # Se quiser também capturar requisições do Django
-            "django.request": {
-                "handlers": ["audit_file", "console"],
-                "level": "INFO",
-                "propagate": True,
-            },
+            "django.request": {"handlers": ["audit_file", "console"], "level": "INFO", "propagate": True},
         },
     }
