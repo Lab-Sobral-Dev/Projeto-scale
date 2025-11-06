@@ -1,42 +1,148 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+// src/pages/ReportsHome.jsx
 import { Link } from 'react-router-dom'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import {
+  Scale, History, Boxes, Network, Layers, Package, FlaskConical,
+  Users, ShieldCheck, ShieldAlert, FileWarning, Bug, DatabaseBackup,
+  RotateCcw, ListChecks
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
 
-const LINKS = [
-  ['Pesagens', '/relatorios/pesagens'],
-  ['Lotes', '/relatorios/lotes'],
-  ['Balanças', '/relatorios/balancas'],
-  ['Produtos', '/relatorios/produtos'],
-  ['Matérias-Primas', '/relatorios/mps'],
-  ['Estrutura', '/relatorios/estrutura'],
-  ['Usuários', '/relatorios/usuarios'],
-  ['Permissões', '/relatorios/permissoes'],
-  ['Auditoria — Ações', '/relatorios/auditoria/acoes'],
-  ['Auditoria — Exclusões', '/relatorios/auditoria/exclusoes'],
-  ['Auditoria — Erros/Login', '/relatorios/auditoria/auth'],
-  ['Backups', '/relatorios/backups'],
-  ['Restaurações', '/relatorios/restores'],
+const CATEGORIES = [
+  {
+    title: 'Produção',
+    descr: 'Relatórios operacionais do chão de fábrica.',
+    items: [
+      { label: 'Pesagens', href: '/relatorios/pesagens', icon: Scale, hint: 'Filtrar por OP, produto, período' },
+      { label: 'Lotes', href: '/relatorios/lotes', icon: History, hint: 'Rastrear lotes e vínculos' },
+      { label: 'Balanças', href: '/relatorios/balancas', icon: Network, hint: 'Conexões, status e leituras' },
+      { label: 'Estrutura', href: '/relatorios/estrutura', icon: Layers, hint: 'BOM, itens e versões' },
+    ],
+  },
+  {
+    title: 'Cadastros',
+    descr: 'Visões e conferências de catálogos.',
+    items: [
+      { label: 'Produtos', href: '/relatorios/produtos', icon: Package, hint: 'Lista, status e códigos internos' },
+      { label: 'Matérias-Primas', href: '/relatorios/mps', icon: FlaskConical, hint: 'Ativos, códigos e vínculos' },
+      { label: 'Usuários', href: '/relatorios/usuarios', icon: Users, hint: 'Perfis, acessos e atividade' },
+      { label: 'Permissões', href: '/relatorios/permissoes', icon: ShieldCheck, hint: 'Papeis e telas liberadas' },
+    ],
+  },
+  {
+    title: 'Auditoria',
+    descr: 'Rastreabilidade de ações e segurança.',
+    items: [
+      { label: 'Auditoria — Ações', href: '/relatorios/auditoria/acoes', icon: ListChecks, hint: 'Create/Update/Delete com diffs' },
+      { label: 'Auditoria — Exclusões', href: '/relatorios/auditoria/exclusoes', icon: ShieldAlert, hint: 'Hard/soft delete e motivo' },
+      { label: 'Auditoria — Erros/Login', href: '/relatorios/auditoria/auth', icon: FileWarning, hint: 'Falhas, lockouts e tentativas' },
+    ],
+  },
+  {
+    title: 'Segurança & Continuidade',
+    descr: 'Backup, restore e recuperação.',
+    items: [
+      { label: 'Backups', href: '/relatorios/backups', icon: DatabaseBackup, hint: 'Agendamentos e integridade' },
+      { label: 'Restaurações', href: '/relatorios/restores', icon: RotateCcw, hint: 'Histórico de restores e origem' },
+    ],
+  },
 ]
 
-export default function ReportsHome() {
+function Section({ title, descr, items }) {
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border p-3 text-sm text-muted-foreground">
-        Área de Relatórios — selecione um relatório abaixo.
+    <section className="space-y-3">
+      <div className="flex items-center gap-3">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <Badge variant="secondary" className="rounded-full">{items.length}</Badge>
       </div>
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {LINKS.map(([label, href]) => (
-          <Link key={href} to={href}>
-            <Card className="hover:shadow-md transition">
-              <CardHeader>
-                <CardTitle>{label}</CardTitle>
+      <p className="text-sm text-muted-foreground">{descr}</p>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {items.map(({ label, href, icon: Icon, hint }) => (
+          <Link key={href} to={href} className="group">
+            <Card className="h-full transition-all hover:shadow-md hover:-translate-y-0.5">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20 transition-colors group-hover:bg-primary/15">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </span>
+                  <CardTitle className="text-base">{label}</CardTitle>
+                </div>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                Visualize, filtre e exporte em CSV ou PDF.
+              <CardContent className="pt-0">
+                <p className="text-sm text-muted-foreground">{hint || 'Visualize, filtre e exporte.'}</p>
               </CardContent>
             </Card>
           </Link>
         ))}
+      </div>
+    </section>
+  )
+}
+
+export default function ReportsHome() {
+  const [q, setQ] = useState('')
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return CATEGORIES
+    const term = q.toLowerCase()
+    return CATEGORIES.map(cat => ({
+      ...cat,
+      items: cat.items.filter(it =>
+        it.label.toLowerCase().includes(term) ||
+        (it.hint && it.hint.toLowerCase().includes(term)) ||
+        cat.title.toLowerCase().includes(term)
+      ),
+    })).filter(cat => cat.items.length > 0)
+  }, [q])
+
+  const totalLinks = useMemo(
+    () => CATEGORIES.reduce((acc, c) => acc + c.items.length, 0),
+    []
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Header com gradiente sutil */}
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-background to-muted p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Área de Relatórios</h1>
+            <p className="text-sm text-muted-foreground">
+              Selecione um relatório por categoria, filtre e exporte em CSV/PDF.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="rounded-full">
+              {totalLinks} relatórios
+            </Badge>
+          </div>
+        </div>
+
+        {/* Barra de busca */}
+        <div className="mt-4 max-w-xl">
+          <Input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Buscar por nome, dica ou categoria…"
+            className="h-10"
+            aria-label="Buscar relatórios"
+          />
+        </div>
+      </div>
+
+      {/* Seções */}
+      <div className="space-y-10">
+        {filtered.length === 0 ? (
+          <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
+            Nada encontrado para <span className="font-semibold">“{q}”</span>. Limpe a busca ou tente outro termo.
+          </div>
+        ) : (
+          filtered.map(cat => (
+            <Section key={cat.title} title={cat.title} descr={cat.descr} items={cat.items} />
+          ))
+        )}
       </div>
     </div>
   )
