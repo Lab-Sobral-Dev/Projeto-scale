@@ -124,7 +124,7 @@ const Layout = ({ user, onLogout }) => {
     // 🔒 Auditoria: só admin
     { name: 'Auditoria', href: '/auditoria', icon: ScrollText, requiredScreen: 'auditoria', adminOnly: true },
     // 🔸 Sobre sempre visível
-    { name: 'Relatórios', href: '/relatorios', icon: ClipboardList, code: 'relatorios' },
+    //{ name: 'Relatórios', href: '/relatorios', icon: ClipboardList, code: 'relatorios' },
     { name: 'Sobre', href: '/sobre', icon: ScrollText },
   ]
 
