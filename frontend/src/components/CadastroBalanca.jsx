@@ -9,8 +9,32 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Weight, Save, X, Plus, Edit, Trash2, Search, Network, Usb, Cable } from 'lucide-react'
 
+/** Base SEMPRE em https */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
 const ENDPOINT = `${API_BASE}/balancas/`
+
+/** Corrige qualquer URL (inclusive relativa) para https */
+const fixToHttps = (u) => {
+  if (!u) return u
+  try {
+    const urlObj = new URL(u, API_BASE)
+    urlObj.protocol = 'https:'
+    return urlObj.toString()
+  } catch {
+    return String(u).replace(/^http:\/\//i, 'https://')
+  }
+}
+/** Wrapper fetch que garante https */
+const fetchHttps = (url, options = {}) => fetch(fixToHttps(url), options)
+
+/** Motivos aceitos no backend (chaves passadas em motivo_exclusao) */
+const DELETE_MOTIVOS = [
+  { key: 'cadastro_duplicado', label: 'Cadastro duplicado' },
+  { key: 'manutencao_substituicao', label: 'Manutenção/Substituição do equipamento' },
+  { key: 'erro_cadastro', label: 'Erro de cadastro' },
+  { key: 'equipamento_obsoleto', label: 'Equipamento obsoleto/desativado' },
+  { key: 'outro', label: 'Outro motivo' },
+]
 
 const CadastroBalanca = () => {
   const [balancas, setBalancas] = useState([])
@@ -19,6 +43,11 @@ const CadastroBalanca = () => {
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+
+  // exclusão com motivo
+  const [deleteTargetId, setDeleteTargetId] = useState(null)
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleteNote, setDeleteNote] = useState('')
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -78,11 +107,17 @@ const CadastroBalanca = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(ENDPOINT + '?page_size=500', { headers })
-      if (!res.ok) throw new Error(`GET balanças: ${res.status}`)
-      const json = await res.json()
-      const list = normalizeList(json).map(apiToUi)
-      setBalancas(list)
+      let url = ENDPOINT + '?page_size=500'
+      const all = []
+      while (url) {
+        const res = await fetchHttps(url, { headers })
+        if (!res.ok) throw new Error(`GET balanças: ${res.status}`)
+        const json = await res.json()
+        all.push(...normalizeList(json).map(apiToUi))
+        url = json?.next ? fixToHttps(json.next) : null
+        if (Array.isArray(json)) break
+      }
+      setBalancas(all)
     } catch (e) {
       console.error(e)
       setError('Não foi possível carregar as balanças. Verifique conexão e permissões.')
@@ -103,9 +138,7 @@ const CadastroBalanca = () => {
   }
 
   const validar = () => {
-    if (!formData.nome.trim() || !formData.identificador.trim()) {
-      return 'Preencha Nome e Identificador.'
-    }
+    if (!formData.nome.trim() || !formData.identificador.trim()) return 'Preencha Nome e Identificador.'
     if (formData.tipoConexao === 'ethernet') {
       if (!formData.enderecoIp.trim()) return 'Para Ethernet, informe o Endereço IP.'
       if (formData.porta === '' || isNaN(Number(formData.porta))) return 'Para Ethernet, informe a Porta numérica.'
@@ -128,13 +161,10 @@ const CadastroBalanca = () => {
       const idExiste = balancas.some(b =>
         b.identificador.toLowerCase() === formData.identificador.toLowerCase() && b.id !== editingId
       )
-      if (idExiste) {
-        setError('Identificador já existe.')
-        return
-      }
+      if (idExiste) { setError('Identificador já existe.'); return }
 
       if (editingId) {
-        const res = await fetch(`${ENDPOINT}${editingId}/`, {
+        const res = await fetchHttps(`${ENDPOINT}${editingId}/`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(uiToApi(formData)),
@@ -146,7 +176,7 @@ const CadastroBalanca = () => {
         setEditingId(null)
         handleLimparFormulario(false)
       } else {
-        const res = await fetch(ENDPOINT, {
+        const res = await fetchHttps(ENDPOINT, {
           method: 'POST',
           headers,
           body: JSON.stringify(uiToApi(formData)),
@@ -181,10 +211,7 @@ const CadastroBalanca = () => {
       ativo: true
     })
     setEditingId(null)
-    if (clearAlerts) {
-      setError('')
-      setSuccess('')
-    }
+    if (clearAlerts) { setError(''); setSuccess('') }
   }
 
   const handleEditar = (balanca) => {
@@ -207,22 +234,48 @@ const CadastroBalanca = () => {
     setSuccess('')
   }
 
-  const handleExcluir = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta balança?')) return
+  // ===== Exclusão com motivo (duas etapas) =====
+  const openDeleteWithReason = (id) => {
+    setDeleteTargetId(id)
+    setDeleteReason('')
+    setDeleteNote('')
+    setError('')
+    setSuccess('')
+  }
+  const cancelDeleteWithReason = () => {
+    setDeleteTargetId(null)
+    setDeleteReason('')
+    setDeleteNote('')
+  }
+  const confirmDeleteWithReason = async () => {
+    if (!deleteTargetId) return
+    if (!deleteReason) { setError('Selecione um motivo para a exclusão.'); return }
     try {
       setLoading(true)
-      const res = await fetch(`${ENDPOINT}${id}/`, {
+      const res = await fetchHttps(`${ENDPOINT}${deleteTargetId}/`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: token
+          ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+          : { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          motivo_exclusao: deleteReason,
+          motivo_observacao: deleteNote || ''
+        })
       })
+
       if (res.status === 400 || res.status === 409) {
         const data = await res.json().catch(() => ({}))
         setError(data?.detail || 'Esta balança não pode ser excluída, pois está vinculada a pesagens.')
         return
       }
-      if (res.status !== 204 && res.status !== 200) throw new Error(`DELETE balança: ${res.status}`)
-      setBalancas(prev => prev.filter(b => b.id !== id))
+      if (res.status !== 204 && res.status !== 200) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.detail || `DELETE balança: ${res.status}`)
+      }
+
+      setBalancas(prev => prev.filter(b => b.id !== deleteTargetId))
       setSuccess('Balança excluída com sucesso!')
+      cancelDeleteWithReason()
     } catch (err) {
       console.error(err)
       setError('Erro ao excluir balança. Tente novamente.')
@@ -460,7 +513,7 @@ const CadastroBalanca = () => {
           </CardHeader>
 
           <CardContent className="p-0">
-            {/* Barra de busca fixa no topo da lista */}
+            {/* Barra de busca fixa */}
             <div className="sticky top-0 z-10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/75 border-b">
               <div className="p-4">
                 <Input
@@ -472,7 +525,7 @@ const CadastroBalanca = () => {
               </div>
             </div>
 
-            {/* Área rolável da lista */}
+            {/* Lista rolável */}
             <div className="max-h-[28rem] overflow-y-auto">
               {loading ? (
                 <div className="p-6 text-sm text-gray-500">Carregando...</div>
@@ -488,74 +541,141 @@ const CadastroBalanca = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
-                  {balancasFiltradas.map((b) => (
-                    <div key={b.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex items-start justify-between gap-3">
-                        {/* Informações (permitir quebra e truncamento elegante) */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate">{b.nome}</h3>
-                            <Badge variant={b.ativo ? "default" : "secondary"} className="shrink-0">
-                              {b.ativo ? 'Ativa' : 'Inativa'}
-                            </Badge>
+                  {balancasFiltradas.map((b) => {
+                    const isDeleting = deleteTargetId === b.id
+                    return (
+                      <div key={b.id} className="p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between gap-3">
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 min-w-0">
+                              <h3 className="font-medium text-gray-900 truncate">{b.nome}</h3>
+                              <Badge variant={b.ativo ? "default" : "secondary"} className="shrink-0">
+                                {b.ativo ? 'Ativa' : 'Inativa'}
+                              </Badge>
+                            </div>
+
+                            <p className="text-sm text-gray-500 break-all">
+                              <span className="font-medium">Identificador:</span> {b.identificador}
+                            </p>
+
+                            <p className="text-sm text-gray-500">
+                              <span className="font-medium">Tipo:</span>{' '}
+                              {b.tipoConexao === 'ethernet' ? 'Ethernet' : (b.tipoConexao === 'serial' ? 'Serial' : 'USB')}
+                            </p>
+
+                            {b.tipoConexao === 'ethernet' ? (
+                              <p className="text-sm text-gray-500 break-all">
+                                <span className="font-medium">IP/Porta:</span> {b.enderecoIp || '-'}{b.porta ? `:${b.porta}` : ''}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-500 break-all">
+                                <span className="font-medium">Porta:</span> {b.portaSerial || '-'}
+                              </p>
+                            )}
+
+                            {!!b.localizacao && (
+                              <p className="text-sm text-gray-500 break-words">
+                                <span className="font-medium">Local:</span> {b.localizacao}
+                              </p>
+                            )}
+                            {!!b.protocolo && (
+                              <p className="text-sm text-gray-500 break-words">
+                                <span className="font-medium">Protocolo:</span> {b.protocolo}
+                              </p>
+                            )}
                           </div>
 
-                          <p className="text-sm text-gray-500 break-all">
-                            <span className="font-medium">Identificador:</span> {b.identificador}
-                          </p>
+                          {/* Ações */}
+                          <div className="flex gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditar(b)}
+                              className="text-blue-600 hover:text-blue-800"
+                              aria-label={`Editar ${b.nome}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
 
-                          <p className="text-sm text-gray-500">
-                            <span className="font-medium">Tipo:</span>{' '}
-                            {b.tipoConexao === 'ethernet' ? 'Ethernet' : (b.tipoConexao === 'serial' ? 'Serial' : 'USB')}
-                          </p>
-
-                          {b.tipoConexao === 'ethernet' ? (
-                            <p className="text-sm text-gray-500 break-all">
-                              <span className="font-medium">IP/Porta:</span> {b.enderecoIp || '-'}{b.porta ? `:${b.porta}` : ''}
-                            </p>
-                          ) : (
-                            <p className="text-sm text-gray-500 break-all">
-                              <span className="font-medium">Porta:</span> {b.portaSerial || '-'}
-                            </p>
-                          )}
-
-                          {!!b.localizacao && (
-                            <p className="text-sm text-gray-500 break-words">
-                              <span className="font-medium">Local:</span> {b.localizacao}
-                            </p>
-                          )}
-
-                          {!!b.protocolo && (
-                            <p className="text-sm text-gray-500 break-words">
-                              <span className="font-medium">Protocolo:</span> {b.protocolo}
-                            </p>
-                          )}
+                            {!isDeleting ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDeleteWithReason(b.id)}
+                                className="text-red-600 hover:text-red-800"
+                                aria-label={`Excluir ${b.nome}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button" variant="outline" size="sm"
+                                onClick={cancelDeleteWithReason}
+                                className="text-gray-700"
+                                title="Cancelar exclusão"
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Ações */}
-                        <div className="flex gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditar(b)}
-                            className="text-blue-600 hover:text-blue-800"
-                            aria-label={`Editar ${b.nome}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleExcluir(b.id)}
-                            className="text-red-600 hover:text-red-800"
-                            aria-label={`Excluir ${b.nome}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {/* Painel inline para exclusão com motivo */}
+                        {isDeleting && (
+                          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                            <p className="text-sm font-medium text-red-800 mb-3">
+                              Para excluir esta balança, informe o motivo.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                              <div className="space-y-1 md:col-span-1">
+                                <Label htmlFor={`motivo-${b.id}`}>Motivo *</Label>
+                                <select
+                                  id={`motivo-${b.id}`}
+                                  className="w-full border rounded-md h-9 px-3 text-sm bg-white"
+                                  value={deleteReason}
+                                  onChange={(ev) => setDeleteReason(ev.target.value)}
+                                >
+                                  <option value="">Selecione...</option>
+                                  {DELETE_MOTIVOS.map(m => (
+                                    <option key={m.key} value={m.key}>{m.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1 md:col-span-2">
+                                <Label htmlFor={`obs-${b.id}`}>Observação (opcional)</Label>
+                                <Input
+                                  id={`obs-${b.id}`}
+                                  value={deleteNote}
+                                  onChange={(ev) => setDeleteNote(ev.target.value)}
+                                  placeholder="Ex.: Substituída por modelo novo"
+                                />
+                              </div>
+
+                              <div className="md:col-span-3 flex gap-2">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={loading || !deleteReason}
+                                  onClick={confirmDeleteWithReason}
+                                  className="flex items-center gap-2"
+                                  title="Confirmar exclusão"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  {loading ? 'Excluindo...' : 'Confirmar exclusão'}
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={cancelDeleteWithReason}>
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
