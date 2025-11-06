@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 
@@ -24,25 +25,44 @@ import RequireAdmin from '@/components/auth/RequireAdmin'
 import Sobre from './components/Sobre'
 import LogsAuditoria from './components/LogsAuditoria'
 
+// Relatórios
+import ReportsHome from '@/pages/reports/Index'
+import Pesagens from '@/pages/reports/Pesagens'
+import Lotes from '@/pages/reports/Lotes'
+import Balancas from '@/pages/reports/Balancas'
+import Produtos from '@/pages/reports/Produtos'
+import MPs from '@/pages/reports/MPs'
+import Estrutura from '@/pages/reports/Estrutura'
+import Usuarios from '@/pages/reports/Usuarios'
+import Permissoes from '@/pages/reports/Permissoes'
+import AuditoriaAcoes from '@/pages/reports/AuditoriaAcoes'
+import AuditoriaExclusoes from '@/pages/reports/AuditoriaExclusoes'
+import AuditoriaAuthErros from '@/pages/reports/AuditoriaAuthErros'
+import Backups from '@/pages/reports/Backups'
+import Restores from '@/pages/reports/Restores'
 
 import './App.css'
+
+// Guard simples para admin|supervisor nos relatórios
+const RequireReportViewer = ({ children }) => {
+  const userData = JSON.parse(localStorage.getItem('user') || 'null')
+  const papel = userData?.perfil?.papel || userData?.papel // dependendo de como você populou o objeto
+  if (papel === 'admin' || papel === 'supervisor') return children
+  return <Navigate to="/" replace />
+}
 
 function App() {
   const [user, setUser] = useState(null)
   const [bootChecked, setBootChecked] = useState(false)
 
   useEffect(() => {
-    // Alinhar com o padrão "access"/"refresh"
     const access = localStorage.getItem('access')
     const userData = localStorage.getItem('user')
-    if (access && userData) {
-      setUser(JSON.parse(userData))
-    }
+    if (access && userData) setUser(JSON.parse(userData))
     setBootChecked(true)
   }, [])
 
   const handleLogin = (userData, accessToken) => {
-    // Guarde como "access" para padronizar com o restante do app
     localStorage.setItem('access', accessToken)
     localStorage.setItem('user', JSON.stringify(userData))
     setUser(userData)
@@ -50,7 +70,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('access')
-    localStorage.removeItem('refresh') // se usar
+    localStorage.removeItem('refresh')
     localStorage.removeItem('user')
     setUser(null)
   }
@@ -60,10 +80,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Rota pública de login */}
+        {/* Público */}
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
 
-        {/* Rota de alteração de senha — protegida, mas independente */}
+        {/* Alterar senha (autenticado) */}
         <Route
           path="/alterar-senha"
           element={
@@ -73,7 +93,7 @@ function App() {
           }
         />
 
-        {/* Rotas privadas com layout comum */}
+        {/* Área autenticada (layout padrão) */}
         <Route
           element={
             <RequireAuth>
@@ -90,9 +110,33 @@ function App() {
           <Route path="/perfil" element={<PerfilUsuario user={user} onLogout={handleLogout} />} />
           <Route path="/etiqueta/:id" element={<GeracaoEtiqueta />} />
           <Route path="/sobre" element={<Sobre />} />
+
+          {/* Relatórios (admin|supervisor) */}
+          <Route
+            element={
+              <RequireReportViewer>
+                <></>
+              </RequireReportViewer>
+            }
+          >
+            <Route path="/relatorios" element={<ReportsHome />} />
+            <Route path="/relatorios/pesagens" element={<Pesagens />} />
+            <Route path="/relatorios/lotes" element={<Lotes />} />
+            <Route path="/relatorios/balancas" element={<Balancas />} />
+            <Route path="/relatorios/produtos" element={<Produtos />} />
+            <Route path="/relatorios/mps" element={<MPs />} />
+            <Route path="/relatorios/estrutura" element={<Estrutura />} />
+            <Route path="/relatorios/usuarios" element={<Usuarios />} />
+            <Route path="/relatorios/permissoes" element={<Permissoes />} />
+            <Route path="/relatorios/auditoria/acoes" element={<AuditoriaAcoes />} />
+            <Route path="/relatorios/auditoria/exclusoes" element={<AuditoriaExclusoes />} />
+            <Route path="/relatorios/auditoria/auth" element={<AuditoriaAuthErros />} />
+            <Route path="/relatorios/backups" element={<Backups />} />
+            <Route path="/relatorios/restores" element={<Restores />} />
+          </Route>
         </Route>
 
-        {/* Rotas exclusivas para admin */}
+        {/* Área exclusiva admin */}
         <Route
           element={
             <RequireAdmin>
@@ -114,7 +158,6 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
-
   )
 }
 
