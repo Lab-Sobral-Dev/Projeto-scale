@@ -545,6 +545,8 @@ class IsAdminOnly(permissions.BasePermission):
         return request.user and request.user.is_staff
 
 
+# registro/views.py
+
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     /api/auditoria/?q=...&action=...&method=...&model=...&status_code=...
@@ -559,7 +561,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = AuditLogFilter
-    search_fields = ["path", "model", "object_pk", "user_agent", "ip", "username"]
+    search_fields = ["path", "model", "object_pk", "user_agent", "ip", "user__username"]
     ordering_fields = ["timestamp", "status_code", "model", "action"]
     ordering = ["-timestamp"]
 
