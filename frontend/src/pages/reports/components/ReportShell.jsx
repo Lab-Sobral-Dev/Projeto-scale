@@ -41,7 +41,9 @@ export default function ReportShell({ report }) {
     }
 
     function onExport(type) {
-        openExport(report.path, params, type)
+        // permite adicionar parâmetros por relatório (ex.: paper=A4, orientation=landscape, font_size=9)
+        const extra = report?.exportParams?.[type] || {}
+        openExport(report.path, { ...params, ...extra }, type)
     }
 
     const Icon = report.primaryIcon
@@ -75,9 +77,7 @@ export default function ReportShell({ report }) {
 
                                 {f.type === 'select' ? (
                                     <Select
-                                        // Exibe "__all__" quando param está vazio/indefinido
                                         value={params[f.name] ?? '__all__'}
-                                        // Converte "__all__" -> '' ao gravar nos params (API recebe vazio)
                                         onValueChange={(v) => setParam(f.name, v === '__all__' ? '' : v)}
                                     >
                                         <SelectTrigger id={f.name}>
@@ -159,7 +159,7 @@ export default function ReportShell({ report }) {
                         </table>
                     </div>
 
-                    {/* Paginação simples (quando houver results/count) */}
+                    {/* Paginação simples */}
                     {isPaginated && (
                         <div className="flex items-center justify-end gap-2 mt-3">
                             <Button

@@ -119,17 +119,6 @@ export default function ReportsHome() {
             </Badge>
           </div>
         </div>
-
-        {/* Barra de busca */}
-        <div className="mt-4 max-w-xl">
-          <Input
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Buscar por nome, dica ou categoria…"
-            className="h-10"
-            aria-label="Buscar relatórios"
-          />
-        </div>
       </div>
 
       {/* Seções */}

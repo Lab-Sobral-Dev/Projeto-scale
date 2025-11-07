@@ -10,7 +10,13 @@ import {
  *  - path: endpoint do backend (após /api/reports)
  *  - columns: colunas da tabela (key -> header)
  *  - filters: campos do formulário (tipos: text | date | select)
+ *  - exportParams: parâmetros padrão para exportação PDF/CSV
  */
+
+const DEFAULT_EXPORT_PARAMS = {
+  pdf: { paper: 'A4', orientation: 'landscape', font_size: '9' },
+  csv: {},
+}
 
 export const REPORTS = {
   pesagens: {
@@ -51,7 +57,8 @@ export const REPORTS = {
       },
       { name: 'balanca', label: 'Balança', type: 'text', icon: Network },
     ],
-    primaryIcon: Weight
+    primaryIcon: Weight,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   lotes: {
@@ -73,7 +80,8 @@ export const REPORTS = {
       { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
       { name: 'op', label: 'OP', type: 'text', icon: ClipboardList },
     ],
-    primaryIcon: ClipboardList
+    primaryIcon: ClipboardList,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   balancas: {
@@ -93,7 +101,8 @@ export const REPORTS = {
       { name: 'produto', label: 'Produto', type: 'text', icon: Package },
       { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
     ],
-    primaryIcon: Network
+    primaryIcon: Network,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   produtos: {
@@ -119,7 +128,8 @@ export const REPORTS = {
       { name: 'codigo_interno', label: 'Cód. Interno', type: 'text', icon: MonitorCog },
       { name: 'descricao', label: 'Descrição/Nome', type: 'text', icon: Package },
     ],
-    primaryIcon: Package
+    primaryIcon: Package,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   mps: {
@@ -145,7 +155,8 @@ export const REPORTS = {
       { name: 'codigo_interno', label: 'Cód. Interno', type: 'text', icon: MonitorCog },
       { name: 'nome', label: 'Nome', type: 'text', icon: Layers },
     ],
-    primaryIcon: Layers
+    primaryIcon: Layers,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   estrutura: {
@@ -171,7 +182,8 @@ export const REPORTS = {
         ]
       },
     ],
-    primaryIcon: Layers
+    primaryIcon: Layers,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   usuarios: {
@@ -212,7 +224,8 @@ export const REPORTS = {
         ]
       },
     ],
-    primaryIcon: Users
+    primaryIcon: Users,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   permissoes: {
@@ -237,7 +250,8 @@ export const REPORTS = {
       },
       { name: 'usuario', label: 'Usuário', type: 'text', icon: Users },
     ],
-    primaryIcon: MonitorCog
+    primaryIcon: MonitorCog,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   aud_acoes: {
@@ -261,7 +275,8 @@ export const REPORTS = {
       { name: 'action', label: 'Ação', type: 'text', icon: ShieldAlert },
       { name: 'model', label: 'Modelo', type: 'text', icon: ClipboardList },
     ],
-    primaryIcon: ShieldAlert
+    primaryIcon: ShieldAlert,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   aud_exclusoes: {
@@ -281,7 +296,8 @@ export const REPORTS = {
       { name: 'usuario', label: 'Usuário', type: 'text' },
       { name: 'model', label: 'Modelo', type: 'text' },
     ],
-    primaryIcon: ShieldAlert
+    primaryIcon: ShieldAlert,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   aud_auth: {
@@ -300,7 +316,8 @@ export const REPORTS = {
       { name: 'data_final', label: 'Data final', type: 'date' },
       { name: 'usuario', label: 'Usuário', type: 'text' },
     ],
-    primaryIcon: ShieldAlert
+    primaryIcon: ShieldAlert,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   backups: {
@@ -318,7 +335,8 @@ export const REPORTS = {
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },
       { name: 'data_final', label: 'Data final', type: 'date' },
     ],
-    primaryIcon: FileDown
+    primaryIcon: FileDown,
+    exportParams: DEFAULT_EXPORT_PARAMS
   },
 
   restores: {
@@ -335,6 +353,7 @@ export const REPORTS = {
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },
       { name: 'data_final', label: 'Data final', type: 'date' },
     ],
-    primaryIcon: Printer
+    primaryIcon: Printer,
+    exportParams: DEFAULT_EXPORT_PARAMS
   }
 }
