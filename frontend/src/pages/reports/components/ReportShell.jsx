@@ -8,6 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { fetchReport, openExport } from '@/services/reports'
 import { Download, RefreshCcw, Search } from 'lucide-react'
 
+// --- helpers ---
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}/
+function formatMaybeDate(val) {
+    if (typeof val === 'string' && ISO_DATETIME_RE.test(val)) {
+        try {
+            const d = new Date(val)
+            // Ex.: 15/09/2025 17:24:25
+            return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).replace(',', '')
+        } catch {
+            return val
+        }
+    }
+    return val
+}
+
 export default function ReportShell({ report }) {
     const [params, setParams] = useState({})
     const [loading, setLoading] = useState(false)
@@ -67,6 +82,7 @@ export default function ReportShell({ report }) {
                         </Button>
                     </div>
                 </CardHeader>
+
                 <CardContent>
                     {/* Filtros */}
                     <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -85,10 +101,7 @@ export default function ReportShell({ report }) {
                                     {isSelect ? (
                                         <Select
                                             value={safeVal}
-                                            onValueChange={v => {
-                                                // Mantém '__all__' como sentinel; o serviço já remove na query
-                                                setParam(f.name, v)
-                                            }}
+                                            onValueChange={v => setParam(f.name, v)}
                                         >
                                             <SelectTrigger id={f.name} className="w-full">
                                                 <SelectValue placeholder="Selecione" />
@@ -138,14 +151,28 @@ export default function ReportShell({ report }) {
                             </thead>
                             <tbody>
                                 {rows.length === 0 && !loading ? (
-                                    <tr><td className="px-3 py-3 text-muted-foreground" colSpan={report.columns.length}>Nenhum registro.</td></tr>
+                                    <tr>
+                                        <td className="px-3 py-3 text-muted-foreground" colSpan={report.columns.length}>
+                                            Nenhum registro.
+                                        </td>
+                                    </tr>
                                 ) : rows.map((row, idx) => (
                                     <tr key={idx} className="border-t">
                                         {report.columns.map(col => {
                                             let val = row[col.key]
+
+                                            // Formatação amigável para datas/horas
+                                            val = formatMaybeDate(val)
+
+                                            // Booleanos e nulos
                                             if (typeof val === 'boolean') val = val ? 'Sim' : 'Não'
                                             if (val === null || val === undefined) val = ''
-                                            return <td key={col.key} className="px-3 py-2">{String(val)}</td>
+
+                                            return (
+                                                <td key={col.key} className="px-3 py-2 whitespace-nowrap">
+                                                    {String(val)}
+                                                </td>
+                                            )
                                         })}
                                     </tr>
                                 ))}
@@ -156,9 +183,21 @@ export default function ReportShell({ report }) {
                     {/* Paginação simples (quando houver results/count) */}
                     {isPaginated && (
                         <div className="flex items-center justify-end gap-2 mt-3">
-                            <Button variant="outline" disabled={!data.previous || loading} onClick={() => load(Math.max(1, page - 1))}>Anterior</Button>
+                            <Button
+                                variant="outline"
+                                disabled={!data.previous || loading}
+                                onClick={() => load(Math.max(1, page - 1))}
+                            >
+                                Anterior
+                            </Button>
                             <span className="text-sm">Página {page}</span>
-                            <Button variant="outline" disabled={!data.next || loading} onClick={() => load(page + 1)}>Próxima</Button>
+                            <Button
+                                variant="outline"
+                                disabled={!data.next || loading}
+                                onClick={() => load(page + 1)}
+                            >
+                                Próxima
+                            </Button>
                         </div>
                     )}
                 </CardContent>
