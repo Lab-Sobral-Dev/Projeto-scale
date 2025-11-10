@@ -311,6 +311,7 @@ const NovaPesagem = () => {
       const loteMP = (formData.loteMP || '').trim()
 
       // Payload: ENVIAR EM KG (backend converte/valida/calcula bruto)
+      // Aqui adicionamos o pesador para aparecer na etiqueta
       const payload = {
         op_id: Number(formData.op),
         item_op_id: Number(formData.itemOp),
@@ -318,7 +319,8 @@ const NovaPesagem = () => {
         liquido: Number(liquidoKg.toFixed(3)),  // kg
         balanca_id: formData.balanca ? Number(formData.balanca) : null,
         codigo_interno: formData.codigoInterno || '',
-        lote_mp: loteMP
+        lote_mp: loteMP,
+        pesador: formData.pesador || localUser?.displayName || ''
       }
 
       const created = await api.createPesagemOP(payload)
@@ -562,7 +564,7 @@ const NovaPesagem = () => {
                     )}
                     required
                     aria-required="true"
-                    maxLength={60}
+                    maxLength={60} // casa com models.CharField(max_length=60)
                     title="Informe o lote da matéria-prima (obrigatório)."
                   />
                 </div>
