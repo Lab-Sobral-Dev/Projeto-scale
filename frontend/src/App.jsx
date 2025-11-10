@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 
 import Login from './components/Login'
@@ -42,20 +42,16 @@ import Restores from '@/pages/reports/Restores'
 
 import './App.css'
 
-/* ================================
-   Helpers de papel no frontend
-   ================================ */
+/* ===== Guard simples para relatórios (admin|supervisor) ===== */
 
 const getUserRole = () => {
   try {
     const raw = localStorage.getItem('user')
     if (!raw) return null
     const data = JSON.parse(raw)
-
-    // preferir campo "tipo" vindo do /auth/me
     return (
-      data?.tipo ||          // 'admin' | 'supervisor' | 'operador'
-      data?.perfil?.papel || // fallback se ainda vier assim
+      data?.tipo ||          // 'admin' | 'supervisor' | 'operador' vindo do /auth/me
+      data?.perfil?.papel || // fallback antigo
       data?.papel ||         // outro fallback
       null
     )
@@ -64,29 +60,13 @@ const getUserRole = () => {
   }
 }
 
-// Guard simples baseado no papel local (admin|supervisor)
 const isReportViewer = () => {
   const papel = getUserRole()
   return papel === 'admin' || papel === 'supervisor'
 }
 
-// Guard de saída para relatórios
-function RequireReportViewerOutlet() {
-  return isReportViewer() ? <Outlet /> : <Navigate to="/" replace />
-}
-
-// Apenas um agrupador com Outlet para a família /relatorios
-function ReportsOutlet() {
-  return <Outlet />
-}
-
-// Guard para rotas que podem ser usadas por supervisor OU admin
-function RequireSupervisorOrAdmin({ children }) {
-  const papel = getUserRole()
-  if (papel === 'admin' || papel === 'supervisor') {
-    return children
-  }
-  return <Navigate to="/" replace />
+function RequireReportViewer({ children }) {
+  return isReportViewer() ? children : <Navigate to="/" replace />
 }
 
 function App() {
@@ -134,7 +114,7 @@ function App() {
           }
         />
 
-        {/* Área autenticada (um único Layout) */}
+        {/* Área autenticada (um único Layout para tudo) */}
         <Route
           element={
             <RequireAuth>
@@ -148,57 +128,26 @@ function App() {
           <Route path="/ops" element={<Ops />} />
           <Route path="/ops/nova" element={<CriarOP />} />
           <Route path="/pesagens/:id" element={<PesagemDetalhe />} />
-          <Route path="/historico" element={<Historico />} />
           <Route
             path="/perfil"
             element={<PerfilUsuario user={user} onLogout={handleLogout} />}
           />
+          <Route path="/historico" element={<Historico />} />
           <Route path="/etiqueta/:id" element={<GeracaoEtiqueta />} />
           <Route path="/sobre" element={<Sobre />} />
 
-          {/* ===== Telas de cadastro/estrutura/balanças (supervisor OU admin) ===== */}
-          <Route
-            path="/cadastro-produto"
-            element={
-              <RequireSupervisorOrAdmin>
-                <CadastroProduto />
-              </RequireSupervisorOrAdmin>
-            }
-          />
-          <Route
-            path="/cadastro-materia-prima"
-            element={
-              <RequireSupervisorOrAdmin>
-                <CadastroMateriaPrima />
-              </RequireSupervisorOrAdmin>
-            }
-          />
-          <Route
-            path="/balancas"
-            element={
-              <RequireSupervisorOrAdmin>
-                <CadastroBalanca />
-              </RequireSupervisorOrAdmin>
-            }
-          />
-          <Route
-            path="/estruturas"
-            element={
-              <RequireSupervisorOrAdmin>
-                <Estruturas />
-              </RequireSupervisorOrAdmin>
-            }
-          />
-          <Route
-            path="/estruturas/:id"
-            element={
-              <RequireSupervisorOrAdmin>
-                <ComposicaoEstrutura />
-              </RequireSupervisorOrAdmin>
-            }
-          />
+          {/* ===== Cadastros / Estruturas / Balanças =====
+              Aqui a regra de quem pode ver já vem do menu (allowed_screens)
+              e do backend (IsSupervisorOrAdminOrReadOnly).
+              Não colocamos RequireAdmin aqui, senão o supervisor fica bloqueado.
+          */}
+          <Route path="/cadastro-produto" element={<CadastroProduto />} />
+          <Route path="/cadastro-materia-prima" element={<CadastroMateriaPrima />} />
+          <Route path="/balancas" element={<CadastroBalanca />} />
+          <Route path="/estruturas" element={<Estruturas />} />
+          <Route path="/estruturas/:id" element={<ComposicaoEstrutura />} />
 
-          {/* ===== Rotas exclusivamente admin (ex: gestão de usuários, auditoria, edição avançada) ===== */}
+          {/* ===== Rotas realmente só de admin ===== */}
           <Route
             path="/usuarios"
             element={
@@ -224,26 +173,119 @@ function App() {
             }
           />
 
-          {/* ===== Área de Relatórios (apenas admin|supervisor) ===== */}
-          <Route element={<RequireReportViewerOutlet />}>
-            {/* Grupo /relatorios com index e filhos relativos */}
-            <Route path="/relatorios" element={<ReportsOutlet />}>
-              <Route index element={<ReportsHome />} /> {/* /relatorios */}
-              <Route path="pesagens" element={<Pesagens />} />
-              <Route path="lotes" element={<Lotes />} />
-              <Route path="balancas" element={<Balancas />} />
-              <Route path="produtos" element={<Produtos />} />
-              <Route path="mps" element={<MPs />} />
-              <Route path="estrutura" element={<Estrutura />} />
-              <Route path="usuarios" element={<Usuarios />} />
-              <Route path="permissoes" element={<Permissoes />} />
-              <Route path="auditoria/acoes" element={<AuditoriaAcoes />} />
-              <Route path="auditoria/exclusoes" element={<AuditoriaExclusoes />} />
-              <Route path="auditoria/auth" element={<AuditoriaAuthErros />} />
-              <Route path="backups" element={<Backups />} />
-              <Route path="restores" element={<Restores />} />
-            </Route>
-          </Route>
+          {/* ===== Relatórios (admin|supervisor) ===== */}
+          <Route
+            path="/relatorios"
+            element={
+              <RequireReportViewer>
+                <ReportsHome />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/pesagens"
+            element={
+              <RequireReportViewer>
+                <Pesagens />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/lotes"
+            element={
+              <RequireReportViewer>
+                <Lotes />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/balancas"
+            element={
+              <RequireReportViewer>
+                <Balancas />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/produtos"
+            element={
+              <RequireReportViewer>
+                <Produtos />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/mps"
+            element={
+              <RequireReportViewer>
+                <MPs />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/estrutura"
+            element={
+              <RequireReportViewer>
+                <Estrutura />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/usuarios"
+            element={
+              <RequireReportViewer>
+                <Usuarios />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/permissoes"
+            element={
+              <RequireReportViewer>
+                <Permissoes />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/auditoria/acoes"
+            element={
+              <RequireReportViewer>
+                <AuditoriaAcoes />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/auditoria/exclusoes"
+            element={
+              <RequireReportViewer>
+                <AuditoriaExclusoes />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/auditoria/auth"
+            element={
+              <RequireReportViewer>
+                <AuditoriaAuthErros />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/backups"
+            element={
+              <RequireReportViewer>
+                <Backups />
+              </RequireReportViewer>
+            }
+          />
+          <Route
+            path="/relatorios/restores"
+            element={
+              <RequireReportViewer>
+                <Restores />
+              </RequireReportViewer>
+            }
+          />
         </Route>
 
         {/* Fallback */}
