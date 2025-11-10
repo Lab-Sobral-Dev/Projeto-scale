@@ -20,12 +20,15 @@ import api from '@/services/api'
 // ---------- Constantes/Formatadores ----------
 const KG_IN_G = 1000
 const TOLERANCIA_PERCENTUAL = 0.05 // 5%
+
 const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)
 const gToKg = (g) => (Number(g) || 0) / KG_IN_G
+
 const fmtG = (v) => {
   const n = Math.round(Number(v) || 0)
   return n.toLocaleString('pt-BR') + ' g'
 }
+
 const toNumber = (v) => {
   if (typeof v !== 'string') return Number(v) || 0
   const s = v.trim()
@@ -36,9 +39,30 @@ const toNumber = (v) => {
   if (!hasComma && hasDot) return Number(s) || 0
   return Number(s.replace(/\./g, '').replace(',', '.')) || 0
 }
+
 const nf3 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 const tz = 'America/Fortaleza'
 const fmtDT = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) : '-')
+
+// === HELPERS PARA VÍRGULA NA UI ===
+
+// Normaliza digitação: força vírgula, tira caracteres estranhos, só deixa 1 vírgula
+const normalizeDecimalInput = (value) => {
+  if (!value) return ''
+  let v = value.replace(/\./g, ',')
+  v = v.replace(/[^0-9,]/g, '')
+  const parts = v.split(',')
+  if (parts.length > 2) {
+    v = parts[0] + ',' + parts.slice(1).join('')
+  }
+  return v
+}
+
+// Formata número com vírgula para exibição
+const formatNumberWithComma = (num, decimals = 3) => {
+  if (num === null || num === undefined || isNaN(num)) return '0,000'
+  return num.toFixed(decimals).replace('.', ',')
+}
 
 // API base (motivos)
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
@@ -81,7 +105,9 @@ export default function PesagemEditar() {
   })
 
   const liquidoRef = useRef(null)
+
   const normalizeList = (data) => Array.isArray(data) ? data : (data?.results ?? [])
+
   const handleChange = (name, value) => {
     setForm(prev => ({ ...prev, [name]: value }))
     setError('')
@@ -116,6 +142,7 @@ export default function PesagemEditar() {
 
           const opId = p?.op?.id ?? ''
           const itemId = p?.item_op?.id ?? ''
+
           const liquidoKg =
             gToKg(p?.liquido ?? p?.liquido_g ?? 0) ||
             ((p?.bruto != null && p?.tara != null) ? (Number(p.bruto) - Number(p.tara)) : 0)
@@ -129,8 +156,9 @@ export default function PesagemEditar() {
             produtoNome: p?.op?.produto?.nome || '',
             mpNome: p?.item_op?.materia_prima?.nome || '',
             lote_mp: p?.lote_mp || '',
-            liquido: liquidoKg ? String(liquidoKg) : '',
-            tara: p?.tara != null ? String(p.tara) : '',
+            // já formatados com vírgula e 3 casas
+            liquido: liquidoKg ? nf3.format(liquidoKg) : '',
+            tara: p?.tara != null ? nf3.format(Number(p.tara)) : '',
             balanca: p?.balanca?.id ? String(p.balanca.id) : '',
             codigoInterno: p?.codigo_interno || '',
           }))
@@ -280,7 +308,7 @@ export default function PesagemEditar() {
         lote_mp: form.lote_mp.trim(),
         liquido: Number(liquidoKg.toFixed(3)), // kg
         tara: Number(taraKg.toFixed(3)),       // kg
-        balanca_id: form.balanca ? Number(form.balanca) : null,
+        balanca_id: form.balanca && form.balanca !== '__none__' ? Number(form.balanca) : null,
         codigo_interno: form.codigoInterno?.trim() || null,
         motivo_edicao: motivo,
         motivo_observacao: motivoObs?.trim() || null,
@@ -511,7 +539,7 @@ export default function PesagemEditar() {
               type="text"
               inputMode="decimal"
               value={form.tara}
-              onChange={(e) => handleChange('tara', e.target.value)}
+              onChange={(e) => handleChange('tara', normalizeDecimalInput(e.target.value))}
               placeholder="0,000 kg"
             />
           </div>
@@ -523,7 +551,7 @@ export default function PesagemEditar() {
               type="text"
               inputMode="decimal"
               value={form.liquido}
-              onChange={(e) => handleChange('liquido', e.target.value)}
+              onChange={(e) => handleChange('liquido', normalizeDecimalInput(e.target.value))}
               placeholder="0,000 kg"
             />
           </div>
@@ -564,7 +592,7 @@ export default function PesagemEditar() {
             <Label className="text-blue-900 font-semibold">Peso Bruto (auto)</Label>
           </div>
           <div className="text-2xl font-bold text-blue-900">
-            {Number.isFinite(brutoCalcKg) ? brutoCalcKg.toFixed(3) : '0,000'} kg
+            {formatNumberWithComma(brutoCalcKg, 3)} kg
           </div>
           <p className="text-sm text-blue-700 mt-1">
             Líquido ({form.liquido || '0'}) + Tara ({form.tara || '0'})

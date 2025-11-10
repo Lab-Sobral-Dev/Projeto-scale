@@ -42,7 +42,7 @@ import Restores from '@/pages/reports/Restores'
 
 import './App.css'
 
-/* ===== Guard simples para relatórios (admin|supervisor) ===== */
+/* ===== Helpers de papel no frontend ===== */
 
 const getUserRole = () => {
   try {
@@ -67,6 +67,15 @@ const isReportViewer = () => {
 
 function RequireReportViewer({ children }) {
   return isReportViewer() ? children : <Navigate to="/" replace />
+}
+
+// 🔐 Supervisor OU Admin
+function RequireSupervisorOrAdmin({ children }) {
+  const papel = getUserRole()
+  if (papel === 'admin' || papel === 'supervisor') {
+    return children
+  }
+  return <Navigate to="/" replace />
 }
 
 function App() {
@@ -136,18 +145,14 @@ function App() {
           <Route path="/etiqueta/:id" element={<GeracaoEtiqueta />} />
           <Route path="/sobre" element={<Sobre />} />
 
-          {/* ===== Cadastros / Estruturas / Balanças =====
-              Aqui a regra de quem pode ver já vem do menu (allowed_screens)
-              e do backend (IsSupervisorOrAdminOrReadOnly).
-              Não colocamos RequireAdmin aqui, senão o supervisor fica bloqueado.
-          */}
+          {/* Cadastros / Estruturas / Balanças (menu + backend controlam quem enxerga/escreve) */}
           <Route path="/cadastro-produto" element={<CadastroProduto />} />
           <Route path="/cadastro-materia-prima" element={<CadastroMateriaPrima />} />
           <Route path="/balancas" element={<CadastroBalanca />} />
           <Route path="/estruturas" element={<Estruturas />} />
           <Route path="/estruturas/:id" element={<ComposicaoEstrutura />} />
 
-          {/* ===== Rotas realmente só de admin ===== */}
+          {/* ===== Rotas apenas admin ===== */}
           <Route
             path="/usuarios"
             element={
@@ -157,19 +162,21 @@ function App() {
             }
           />
           <Route
-            path="/pesagens/:id/editar"
-            element={
-              <RequireAdmin>
-                <PesagemEditar />
-              </RequireAdmin>
-            }
-          />
-          <Route
             path="/auditoria"
             element={
               <RequireAdmin>
                 <LogsAuditoria />
               </RequireAdmin>
+            }
+          />
+
+          {/* ✅ Edição de pesagem: supervisor OU admin */}
+          <Route
+            path="/pesagens/:id/editar"
+            element={
+              <RequireSupervisorOrAdmin>
+                <PesagemEditar />
+              </RequireSupervisorOrAdmin>
             }
           />
 
