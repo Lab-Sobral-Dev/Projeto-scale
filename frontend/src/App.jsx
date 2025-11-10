@@ -42,16 +42,35 @@ import Restores from '@/pages/reports/Restores'
 
 import './App.css'
 
-// ==== Guards específicos para a área de Relatórios ====
+/* ================================
+   Helpers de papel no frontend
+   ================================ */
+
+const getUserRole = () => {
+  try {
+    const raw = localStorage.getItem('user')
+    if (!raw) return null
+    const data = JSON.parse(raw)
+
+    // preferir campo "tipo" vindo do /auth/me
+    return (
+      data?.tipo ||          // 'admin' | 'supervisor' | 'operador'
+      data?.perfil?.papel || // fallback se ainda vier assim
+      data?.papel ||         // outro fallback
+      null
+    )
+  } catch {
+    return null
+  }
+}
 
 // Guard simples baseado no papel local (admin|supervisor)
 const isReportViewer = () => {
-  const userData = JSON.parse(localStorage.getItem('user') || 'null')
-  const papel = userData?.perfil?.papel || userData?.papel
+  const papel = getUserRole()
   return papel === 'admin' || papel === 'supervisor'
 }
 
-// Outlet guard: se pode ver relatórios → renderiza os filhos
+// Guard de saída para relatórios
 function RequireReportViewerOutlet() {
   return isReportViewer() ? <Outlet /> : <Navigate to="/" replace />
 }
@@ -61,6 +80,15 @@ function ReportsOutlet() {
   return <Outlet />
 }
 
+// Guard para rotas que podem ser usadas por supervisor OU admin
+function RequireSupervisorOrAdmin({ children }) {
+  const papel = getUserRole()
+  if (papel === 'admin' || papel === 'supervisor') {
+    return children
+  }
+  return <Navigate to="/" replace />
+}
+
 function App() {
   const [user, setUser] = useState(null)
   const [bootChecked, setBootChecked] = useState(false)
@@ -68,7 +96,9 @@ function App() {
   useEffect(() => {
     const access = localStorage.getItem('access')
     const userData = localStorage.getItem('user')
-    if (access && userData) setUser(JSON.parse(userData))
+    if (access && userData) {
+      setUser(JSON.parse(userData))
+    }
     setBootChecked(true)
   }, [])
 
@@ -82,6 +112,7 @@ function App() {
     localStorage.removeItem('access')
     localStorage.removeItem('refresh')
     localStorage.removeItem('user')
+    localStorage.removeItem('allowed_screens')
     setUser(null)
   }
 
@@ -103,7 +134,7 @@ function App() {
           }
         />
 
-        {/* Área autenticada (layout padrão) */}
+        {/* Área autenticada (um único Layout) */}
         <Route
           element={
             <RequireAuth>
@@ -111,15 +142,87 @@ function App() {
             </RequireAuth>
           }
         >
+          {/* Rotas gerais (qualquer autenticado) */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/nova-pesagem" element={<NovaPesagem />} />
           <Route path="/ops" element={<Ops />} />
           <Route path="/ops/nova" element={<CriarOP />} />
           <Route path="/pesagens/:id" element={<PesagemDetalhe />} />
           <Route path="/historico" element={<Historico />} />
-          <Route path="/perfil" element={<PerfilUsuario user={user} onLogout={handleLogout} />} />
+          <Route
+            path="/perfil"
+            element={<PerfilUsuario user={user} onLogout={handleLogout} />}
+          />
           <Route path="/etiqueta/:id" element={<GeracaoEtiqueta />} />
           <Route path="/sobre" element={<Sobre />} />
+
+          {/* ===== Telas de cadastro/estrutura/balanças (supervisor OU admin) ===== */}
+          <Route
+            path="/cadastro-produto"
+            element={
+              <RequireSupervisorOrAdmin>
+                <CadastroProduto />
+              </RequireSupervisorOrAdmin>
+            }
+          />
+          <Route
+            path="/cadastro-materia-prima"
+            element={
+              <RequireSupervisorOrAdmin>
+                <CadastroMateriaPrima />
+              </RequireSupervisorOrAdmin>
+            }
+          />
+          <Route
+            path="/balancas"
+            element={
+              <RequireSupervisorOrAdmin>
+                <CadastroBalanca />
+              </RequireSupervisorOrAdmin>
+            }
+          />
+          <Route
+            path="/estruturas"
+            element={
+              <RequireSupervisorOrAdmin>
+                <Estruturas />
+              </RequireSupervisorOrAdmin>
+            }
+          />
+          <Route
+            path="/estruturas/:id"
+            element={
+              <RequireSupervisorOrAdmin>
+                <ComposicaoEstrutura />
+              </RequireSupervisorOrAdmin>
+            }
+          />
+
+          {/* ===== Rotas exclusivamente admin (ex: gestão de usuários, auditoria, edição avançada) ===== */}
+          <Route
+            path="/usuarios"
+            element={
+              <RequireAdmin>
+                <UsuariosAdmin />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/pesagens/:id/editar"
+            element={
+              <RequireAdmin>
+                <PesagemEditar />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/auditoria"
+            element={
+              <RequireAdmin>
+                <LogsAuditoria />
+              </RequireAdmin>
+            }
+          />
 
           {/* ===== Área de Relatórios (apenas admin|supervisor) ===== */}
           <Route element={<RequireReportViewerOutlet />}>
@@ -141,24 +244,6 @@ function App() {
               <Route path="restores" element={<Restores />} />
             </Route>
           </Route>
-        </Route>
-
-        {/* Área exclusiva admin */}
-        <Route
-          element={
-            <RequireAdmin>
-              <Layout user={user} onLogout={handleLogout} />
-            </RequireAdmin>
-          }
-        >
-          <Route path="/cadastro-produto" element={<CadastroProduto />} />
-          <Route path="/estruturas" element={<Estruturas />} />
-          <Route path="/estruturas/:id" element={<ComposicaoEstrutura />} />
-          <Route path="/cadastro-materia-prima" element={<CadastroMateriaPrima />} />
-          <Route path="/balancas" element={<CadastroBalanca />} />
-          <Route path="/usuarios" element={<UsuariosAdmin />} />
-          <Route path="/pesagens/:id/editar" element={<PesagemEditar />} />
-          <Route path="/auditoria" element={<LogsAuditoria />} />
         </Route>
 
         {/* Fallback */}
