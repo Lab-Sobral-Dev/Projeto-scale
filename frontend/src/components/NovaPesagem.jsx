@@ -39,6 +39,27 @@ const toNumber = (v) => {
 
 const isNonEmpty = (s) => typeof s === 'string' ? s.trim().length > 0 : !!s
 
+// === NOVOS HELPERS PARA TRABALHAR COM VÍRGULA ===
+
+// Normaliza o que o usuário digita: troca ponto por vírgula, remove caracteres inválidos
+const normalizeDecimalInput = (value) => {
+  if (!value) return ''
+  let v = value.replace(/\./g, ',')          // força vírgula
+  v = v.replace(/[^0-9,]/g, '')              // só dígitos e vírgula
+  const parts = v.split(',')
+  if (parts.length > 2) {
+    // se tiver mais de uma vírgula, junta tudo após a primeira
+    v = parts[0] + ',' + parts.slice(1).join('')
+  }
+  return v
+}
+
+// Formata número JS para string com vírgula (ex: 1.5 -> "1,500")
+const formatNumberWithComma = (num, decimals = 3) => {
+  if (num === null || num === undefined || isNaN(num)) return '0,000'
+  return num.toFixed(decimals).replace('.', ',')
+}
+
 const NovaPesagem = () => {
   const [localUser, setLocalUser] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -62,7 +83,7 @@ const NovaPesagem = () => {
     op: '',          // sempre string p/ Select controlado
     itemOp: '',      // sempre string p/ Select/Popover controlado
     pesador: user?.nome || '',
-    // Entradas SEMPRE em kg na UI
+    // Entradas SEMPRE em kg na UI (como string com vírgula)
     liquido: '',     // input do usuário (kg)
     tara: '',        // input do usuário (kg)
     balanca: '',     // sempre string p/ Select controlado
@@ -124,7 +145,7 @@ const NovaPesagem = () => {
     return () => { abort = true }
   }, [])
 
-  // ---- Unidades: UI em kg; comparação/saldo em g ----
+  // ---- Unidades: UI em kg (string com vírgula); comparação/saldo em g ----
   const liquidoKg = useMemo(() => toNumber(formData.liquido), [formData.liquido])
   const taraKg = useMemo(() => toNumber(formData.tara), [formData.tara])
 
@@ -541,7 +562,7 @@ const NovaPesagem = () => {
                     )}
                     required
                     aria-required="true"
-                    maxLength={60} // casa com models.CharField(max_length=60)
+                    maxLength={60}
                     title="Informe o lote da matéria-prima (obrigatório)."
                   />
                 </div>
@@ -579,7 +600,7 @@ const NovaPesagem = () => {
                   type="text"
                   inputMode="decimal"
                   value={formData.tara}
-                  onChange={(e) => handleChange('tara', e.target.value)}
+                  onChange={(e) => handleChange('tara', normalizeDecimalInput(e.target.value))}
                   placeholder="0,000 kg"
                 />
               </div>
@@ -592,7 +613,7 @@ const NovaPesagem = () => {
                   type="text"
                   inputMode="decimal"
                   value={formData.liquido}
-                  onChange={(e) => handleChange('liquido', e.target.value)}
+                  onChange={(e) => handleChange('liquido', normalizeDecimalInput(e.target.value))}
                   placeholder="0,000 kg"
                   required
                   aria-required="true"
@@ -608,7 +629,7 @@ const NovaPesagem = () => {
                   <Label className="text-blue-900 font-semibold">Peso Bruto (auto)</Label>
                 </div>
                 <div className="text-2xl font-bold text-blue-900">
-                  {Number.isFinite(brutoCalculadoKg) ? brutoCalculadoKg.toFixed(3) : '0,000'} kg
+                  {formatNumberWithComma(brutoCalculadoKg, 3)} kg
                 </div>
                 <p className="text-sm text-blue-700 mt-1">
                   Líquido ({formData.liquido || '0'}) + Tara ({formData.tara || '0'})
