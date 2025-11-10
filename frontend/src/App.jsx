@@ -69,15 +69,6 @@ function RequireReportViewer({ children }) {
   return isReportViewer() ? children : <Navigate to="/" replace />
 }
 
-// 🔐 Supervisor OU Admin
-function RequireSupervisorOrAdmin({ children }) {
-  const papel = getUserRole()
-  if (papel === 'admin' || papel === 'supervisor') {
-    return children
-  }
-  return <Navigate to="/" replace />
-}
-
 function App() {
   const [user, setUser] = useState(null)
   const [bootChecked, setBootChecked] = useState(false)
@@ -128,7 +119,6 @@ function App() {
           element={
             <RequireAuth>
               <Layout user={user} onLogout={handleLogout} />
-              <Route path="/pesagens/:id/editar" element={<PesagemEditar />} />
             </RequireAuth>
           }
         >
@@ -138,6 +128,8 @@ function App() {
           <Route path="/ops" element={<Ops />} />
           <Route path="/ops/nova" element={<CriarOP />} />
           <Route path="/pesagens/:id" element={<PesagemDetalhe />} />
+          {/* edição de pesagem – permissão tratada dentro do componente */}
+          <Route path="/pesagens/:id/editar" element={<PesagemEditar />} />
           <Route
             path="/perfil"
             element={<PerfilUsuario user={user} onLogout={handleLogout} />}
@@ -170,8 +162,6 @@ function App() {
               </RequireAdmin>
             }
           />
-
-          
 
           {/* ===== Relatórios (admin|supervisor) ===== */}
           <Route
