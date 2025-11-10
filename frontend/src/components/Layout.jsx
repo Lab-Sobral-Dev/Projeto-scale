@@ -16,7 +16,8 @@ import {
   Factory,
   ListChecks,
   Boxes,
-  ClipboardList, // 👈 adicionado (para Relatórios)
+  ClipboardList,
+  BookPlus, // 👈 adicionado (para Relatórios)
 } from 'lucide-react'
 
 /** Base deve apontar para .../api */
@@ -134,7 +135,7 @@ const Layout = ({ user, onLogout }) => {
     { name: 'Relatórios', href: '/relatorios', icon: ClipboardList, requiredScreen: 'relatorios' },
 
     // 🔒 Auditoria: só admin
-    { name: 'Auditoria', href: '/auditoria', icon: ScrollText, requiredScreen: 'auditoria', adminOnly: true },
+    { name: 'Auditoria', href: '/auditoria', icon: BookPlus, requiredScreen: 'auditoria', adminOnly: true },
 
     // 🔸 Sobre sempre visível
     { name: 'Sobre', href: '/sobre', icon: ScrollText },

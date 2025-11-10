@@ -132,7 +132,7 @@ const CriarOP = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Estrutura (BOM) *</Label>
+              <Label>Estrutura</Label>
               <Select
                 value={form.estrutura ? String(form.estrutura) : undefined}
                 onValueChange={(v) => handleChange('estrutura', v)}

@@ -10,15 +10,22 @@ from .serializers import (
     ScreenSerializer, RoleSerializer
 )
 from .models import PerfilUsuario, Screen, Role
+from .permissions import (
+    IsAdmin,
+    IsSupervisorOrAdmin,
+    IsSupervisorOrAdminOrReadOnly,
+    HasScreen,
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
     """
     Admin pode listar/criar/editar usuários.
-    Operador não tem acesso aqui (IsAdminUser).
+    Operador e supervisor não têm acesso aqui.
+    Regra baseada no PerfilUsuario.papel (PAPEL_ADMIN).
     """
     queryset = User.objects.all().order_by('username')
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -29,14 +36,16 @@ class UserViewSet(viewsets.ModelViewSet):
 class PerfilUsuarioViewSet(viewsets.ModelViewSet):
     """
     Admin gerencia todos os perfis.
-    Operador: só consegue ver o próprio perfil via /perfis/me/ (custom action).
+    Qualquer usuário autenticado pode consultar apenas o próprio perfil em /perfis/me/.
     """
     queryset = PerfilUsuario.objects.select_related('user').prefetch_related('roles__screens', 'extra_screens').all()
 
     def get_permissions(self):
         if self.action in ['me']:
+            # qualquer autenticado pode ver o próprio perfil
             return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+        # demais ações: apenas admin (papel)
+        return [IsAdmin()]
 
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
@@ -53,20 +62,22 @@ class PerfilUsuarioViewSet(viewsets.ModelViewSet):
 
 class ScreenViewSet(viewsets.ModelViewSet):
     """
-    CRUD de telas. Apenas admin.
+    CRUD de telas (Screen).
+    Apenas admin (papel).
     """
     queryset = Screen.objects.all().order_by("label")
     serializer_class = ScreenSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdmin]
 
 
 class RoleViewSet(viewsets.ModelViewSet):
     """
-    CRUD de papéis. Apenas admin.
+    CRUD de papéis (Role).
+    Apenas admin (papel).
     """
     queryset = Role.objects.prefetch_related("screens").all().order_by("name")
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdmin]
 
 
 # /auth/me (resumo do usuário atual)
@@ -78,12 +89,14 @@ class MeView(APIView):
         perfil = getattr(u, 'perfil', None)
         nome = (u.get_full_name() or '').strip() or u.username
 
-        # regra: se é staff/superuser => admin, senão usa perfil.papel (fallback operador)
-        if u.is_staff or u.is_superuser:
-            tipo = 'admin'
+        # regra: tipo vem prioritariamente do PerfilUsuario.papel
+        # fallback: 'operador' se não houver perfil
+        if perfil and getattr(perfil, 'papel', None):
+            tipo = perfil.papel
         else:
-            tipo = getattr(perfil, 'papel', 'operador')
+            tipo = 'operador'
 
+        # allowed_screens vem sempre do perfil (quando existir)
         allowed = perfil.get_allowed_screens() if perfil else []
 
         return Response({
@@ -94,8 +107,8 @@ class MeView(APIView):
             "last_name": u.last_name,
             "email": u.email,
             "nome_exibicao": nome,
-            "tipo": tipo,
-            "is_staff": u.is_staff,
+            "tipo": tipo,               # 'admin' | 'supervisor' | 'operador'
+            "is_staff": u.is_staff,     # mantido só como info, não como regra de negócio
             "is_superuser": u.is_superuser,
             "allowed_screens": allowed,
         })
