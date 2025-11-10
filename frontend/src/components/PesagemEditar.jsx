@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/services/api'
+import { canEditPesagem } from '@/utils/authRoles'   // ⬅️ novo
 
 // ---------- Constantes/Formatadores ----------
 const KG_IN_G = 1000
@@ -71,6 +72,11 @@ const MOTIVOS_URL = `${API_BASE}/registro/pesagens/motivos/`
 export default function PesagemEditar() {
   const { id } = useParams()
   const navigate = useNavigate()
+
+  // 🔐 Guard: só supervisor ou admin entram aqui
+  if (!canEditPesagem()) {
+    return <Navigate to="/" replace />
+  }
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

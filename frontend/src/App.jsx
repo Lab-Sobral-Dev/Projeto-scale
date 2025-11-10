@@ -128,6 +128,7 @@ function App() {
           element={
             <RequireAuth>
               <Layout user={user} onLogout={handleLogout} />
+              <Route path="/pesagens/:id/editar" element={<PesagemEditar />} />
             </RequireAuth>
           }
         >
@@ -170,15 +171,7 @@ function App() {
             }
           />
 
-          {/* ✅ Edição de pesagem: supervisor OU admin */}
-          <Route
-            path="/pesagens/:id/editar"
-            element={
-              <RequireSupervisorOrAdmin>
-                <PesagemEditar />
-              </RequireSupervisorOrAdmin>
-            }
-          />
+          
 
           {/* ===== Relatórios (admin|supervisor) ===== */}
           <Route
