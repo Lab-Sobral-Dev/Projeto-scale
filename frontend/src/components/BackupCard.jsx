@@ -5,9 +5,38 @@ import { Button } from "@/components/ui/button"
 import { Download, RefreshCcw, HardDrive } from "lucide-react"
 import api from "@/services/api"
 
+const API_BASE =
+  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:8000/api")
+const AUTH_ME_URL = `${API_BASE}/usuarios/auth/me/`
+
 export default function BackupCard({ isAdmin }) {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState([])
+  const [canExecute, setCanExecute] = useState(!!isAdmin) // fail-safe
+
+  // Descobre permissão se a prop não foi informada
+  useEffect(() => {
+    let mounted = true
+    const hydratePerm = async () => {
+      if (typeof isAdmin === "boolean") {
+        setCanExecute(isAdmin)
+        return
+      }
+      try {
+        const { data } = await api.get(AUTH_ME_URL.replace(API_BASE, "")) // mantém base do api service
+        const admin =
+          data?.is_staff === true ||
+          data?.is_superuser === true ||
+          String(data?.tipo || "").toLowerCase().includes("admin")
+        if (mounted) setCanExecute(admin)
+      } catch {
+        // se falhar, assume false
+        if (mounted) setCanExecute(false)
+      }
+    }
+    hydratePerm()
+    return () => { mounted = false }
+  }, [isAdmin])
 
   const carregar = async () => {
     const { data } = await api.get("/registro/backups/")
@@ -33,8 +62,8 @@ export default function BackupCard({ isAdmin }) {
       const base = (import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "")
       const url = `${base}/registro/backups/${id}/download/`
 
-      // pegue seu token do storage onde você já salva (ajuste a chave se diferente)
-      const token = localStorage.getItem("access_token")
+      // use a mesma chave do restante do app
+      const token = localStorage.getItem("access")
       if (!token) {
         alert("Sessão expirada. Faça login novamente.")
         return
@@ -42,11 +71,7 @@ export default function BackupCard({ isAdmin }) {
 
       const resp = await fetch(url, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        // se sua API usa cookies também, mantenha:
-        // credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
       })
 
       if (!resp.ok) {
@@ -55,11 +80,8 @@ export default function BackupCard({ isAdmin }) {
       }
 
       const blob = await resp.blob()
-
-      // tenta extrair o filename do Content-Disposition
       const cd = resp.headers.get("Content-Disposition") || ""
       const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
-      // decode RFC 5987 se vier como UTF-8''nome.ext
       let filename = match ? decodeURIComponent(match[1].replace(/^UTF-8''/, "")) : `backup-${id}.bin`
 
       const link = document.createElement("a")
@@ -88,7 +110,7 @@ export default function BackupCard({ isAdmin }) {
           <Button variant="secondary" onClick={carregar}>
             <RefreshCcw className="w-4 h-4 mr-2" /> Atualizar
           </Button>
-          {isAdmin && (
+          {canExecute && (
             <Button onClick={executar} disabled={loading}>
               <Download className="w-4 h-4 mr-2" />
               {loading ? "Executando..." : "Backup completo"}
