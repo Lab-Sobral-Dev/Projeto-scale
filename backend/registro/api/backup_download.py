@@ -4,7 +4,7 @@ from django.conf import settings
 from django.http import HttpResponse, FileResponse, Http404
 from rest_framework import permissions, views, status
 from rest_framework.response import Response
-from backup import BackupRecord
+from registro.backup import BackupRecord
 
 class CanDownloadBackup(permissions.BasePermission):
     """
