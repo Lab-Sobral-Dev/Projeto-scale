@@ -3,7 +3,7 @@ from rest_framework import serializers, permissions, status, views
 from rest_framework.response import Response
 from django.utils.timezone import now
 from django.db import transaction
-from backup import BackupRecord
+from registro.backup import BackupRecord
 from services.backup_db import run_full_backup
 from audit_models import AuditLog  # use o caminho do seu AuditLog
 
