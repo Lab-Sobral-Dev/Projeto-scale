@@ -8,6 +8,9 @@ from .views import (
     PesagemViewSet, gerar_etiqueta_pdf, AuditLogViewSet
 )
 
+from .api.backups import BackupExecuteView, BackupListView
+from .api.backup_download import BackupDownloadView
+
 router = DefaultRouter()
 router.register(r'produtos', ProdutoViewSet)
 router.register(r'materias-primas', MateriaPrimaViewSet)
@@ -30,4 +33,9 @@ router.register(r"auditoria", AuditLogViewSet, basename="auditoria")
 urlpatterns = [
     path('', include(router.urls)),
     path('etiqueta/<int:pk>/', gerar_etiqueta_pdf, name='gerar_etiqueta'),
+
+    #Backups
+    path("backups/execute/", BackupExecuteView.as_view(), name="backup-execute"),
+    path("backups/", BackupListView.as_view(), name="backup-list"),
+    path("backups/<int:pk>/download/", BackupDownloadView.as_view(), name="backup-download"),
 ]

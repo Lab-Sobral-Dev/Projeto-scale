@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { User, LogOut, Shield, Calendar, Clock, UserPlus, LayoutGrid } from 'lucide-react'
+import { User, LogOut, Shield, Calendar, Clock, UserPlus, LayoutGrid, HardDrive } from 'lucide-react'
 
 /** Base da API do backend — deve apontar para .../api */
 const API_BASE =
@@ -199,7 +199,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header com botão condicional */}
+      {/* Header com botões condicionais (Usuários + Backups para admin) */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <User className="h-8 w-8 text-blue-600" />
@@ -210,12 +210,20 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
         </div>
 
         {user?.tipo === 'admin' && (
-          <Button asChild className="flex items-center gap-2">
-            <Link to="/usuarios">
-              <UserPlus className="h-4 w-4" />
-              Usuários
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild className="flex items-center gap-2">
+              <Link to="/usuarios">
+                <UserPlus className="h-4 w-4" />
+                Usuários
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="flex items-center gap-2">
+              <Link to="/relatorios/backups">
+                <HardDrive className="h-4 w-4" />
+                Backups
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 

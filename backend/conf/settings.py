@@ -200,6 +200,11 @@ MEDIA_ROOT  = "/app/media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# settings.py
+BACKUP_DIR = os.environ.get("BACKUP_DIR", "/var/backups/scale")
+# Prefixo interno do Nginx para entrega segura (não público)
+BACKUP_ACCEL_PREFIX = os.environ.get("BACKUP_ACCEL_PREFIX", "/protected/backups")
+
 # (Opcional) LOGGING para HML — rotação de arquivo
 if AUDIT_ENABLED:
     LOGGING = {
