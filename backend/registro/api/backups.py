@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from django.utils.timezone import now
 from django.db import transaction
 from registro.backup import BackupRecord
-from services.backup_db import run_full_backup
-from audit_models import AuditLog  # use o caminho do seu AuditLog
+from registro.services.backup_db import run_full_backup
+from registro.audit_models import AuditLog  # use o caminho do seu AuditLog
 
 class BackupRecordSerializer(serializers.ModelSerializer):
     class Meta:
