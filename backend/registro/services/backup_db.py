@@ -1,11 +1,11 @@
 # apps/registro/services/backup_db.py
-import gzip, hashlib, os, shlex, subprocess, sys, tempfile
+import gzip, hashlib, os, shlex, subprocess, sys, tempfile, shutil
 from datetime import datetime
 from django.conf import settings
-from django.db import connections
 from pathlib import Path
 
 def _sha256(path: Path) -> str:
+    import hashlib
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
@@ -15,30 +15,41 @@ def _sha256(path: Path) -> str:
 def _ensure_dir(path: Path):
     path.mkdir(parents=True, exist_ok=True)
 
+def _find_pg_dump() -> str:
+    # 1) variável de ambiente explícita
+    env_path = os.environ.get("PG_DUMP_BIN")
+    if env_path and Path(env_path).exists():
+        return env_path
+    # 2) no PATH do container/servidor
+    which = shutil.which("pg_dump")
+    if which:
+        return which
+    # 3) caminhos comuns (debian/ubuntu/alpine)
+    for p in ("/usr/bin/pg_dump", "/usr/local/bin/pg_dump", "/bin/pg_dump"):
+        if Path(p).exists():
+            return p
+    raise RuntimeError(
+        "pg_dump não encontrado. Instale o cliente do PostgreSQL no container/servidor "
+        "(ex.: postgresql-client) ou defina PG_DUMP_BIN com o caminho completo."
+    )
+
 def run_full_backup() -> dict:
-    """
-    Faz dump completo do banco atual.
-    - Postgres: usa pg_dump
-    - SQLite: usa cópia do arquivo e compacta
-    Retorna dict com: engine, output_file, size_bytes, sha256.
-    Levanta Exception em erro.
-    """
     alias = "default"
     db = settings.DATABASES[alias]
-    engine = db["ENGINE"].split(".")[-1]   # "postgresql" ou "sqlite3"
+    engine = db["ENGINE"].split(".")[-1]
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_dir = Path(getattr(settings, "BACKUP_DIR", "/var/backups/scale"))
     _ensure_dir(out_dir)
 
     if engine == "postgresql":
-        # Credenciais
+        pg_dump = _find_pg_dump()  # <<<<<<<<<<<<<<<<<< chave da correção
+
         host = db.get("HOST") or "localhost"
         port = str(db.get("PORT") or "5432")
         name = db["NAME"]
         user = db.get("USER") or ""
         password = db.get("PASSWORD") or ""
 
-        # Arquivo de saída
         raw_path = out_dir / f"db-{stamp}.sql"
         gz_path = Path(str(raw_path) + ".gz")
 
@@ -47,7 +58,7 @@ def run_full_backup() -> dict:
             env["PGPASSWORD"] = password
 
         cmd = [
-            "pg_dump",
+            pg_dump,           # usa o caminho encontrado
             "-h", host,
             "-p", port,
             "-U", user,
@@ -55,7 +66,7 @@ def run_full_backup() -> dict:
             "--no-privileges",
             name,
         ]
-        # Executa pg_dump para arquivo temporário não compactado
+
         with open(raw_path, "wb") as f:
             proc = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, env=env)
         if proc.returncode != 0:
@@ -66,7 +77,6 @@ def run_full_backup() -> dict:
                 pass
             raise RuntimeError(f"pg_dump falhou: {stderr}")
 
-        # Compacta
         with open(raw_path, "rb") as fin, gzip.open(gz_path, "wb") as fout:
             for chunk in iter(lambda: fin.read(1024 * 1024), b""):
                 fout.write(chunk)
@@ -81,14 +91,11 @@ def run_full_backup() -> dict:
         }
 
     elif engine == "sqlite3":
-        # Caminho do .sqlite
         db_path = Path(db["NAME"]).resolve()
         if not db_path.exists():
             raise RuntimeError(f"Arquivo SQLite não encontrado: {db_path}")
 
         out_path = Path(str(out_dir / f"db-{stamp}.sqlite") + ".gz")
-
-        # Copia e compacta (lock de leitura mínimo)
         with open(db_path, "rb") as fin, gzip.open(out_path, "wb") as fout:
             for chunk in iter(lambda: fin.read(1024 * 1024), b""):
                 fout.write(chunk)
