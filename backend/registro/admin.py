@@ -1,7 +1,10 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.urls import reverse
+from django.http import HttpResponseRedirect
 from django.db import models
+from django.utils.timezone import now
 import json
 
 from .models import (
@@ -9,6 +12,12 @@ from .models import (
     EstruturaProduto, ItemEstrutura,
     OrdemProducao, ItemOP, Pesagem
 )
+
+# === IMPORTS PARA BACKUP ===
+# Ajuste os caminhos conforme sua estrutura:
+from registro.backup import BackupRecord   # modelo criado anteriormente
+from registro.services.backup_db import run_full_backup
+from .audit_models import AuditLog  # seu modelo de auditoria
 
 # --- Produtos / MPs ---
 
@@ -173,7 +182,6 @@ class PesagemAdmin(admin.ModelAdmin):
 
 # -------- AuditLog (somente leitura) --------
 
-# Import do modelo de auditoria
 from .audit_models import AuditLog
 
 
@@ -290,3 +298,145 @@ class AuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# -------- Backups (executar + baixar via Admin) --------
+
+@admin.register(BackupRecord)
+class BackupRecordAdmin(admin.ModelAdmin):
+    """
+    - Clique no botão verde "Adicionar Backup record" para executar um backup agora.
+    - Lista mostra status, hash, tamanho, e link de download.
+    """
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    list_per_page = 25
+    list_select_related = ("executed_by",)
+
+    list_display = (
+        "created_at",
+        "executed_by",
+        "engine",
+        "size_mb",
+        "sha_short",
+        "status_badge",
+        "acoes",
+    )
+    readonly_fields = (
+        "created_at",
+        "executed_by",
+        "ip",
+        "user_agent",
+        "engine",
+        "output_file",
+        "size_bytes",
+        "sha256",
+        "status",
+        "error_message",
+    )
+
+    fieldsets = (
+        ("Informações do Backup", {
+            "fields": (
+                "created_at", "executed_by", "ip", "user_agent",
+                "engine", "output_file", "size_bytes", "sha256",
+                "status", "error_message",
+            )
+        }),
+    )
+
+    # ===== Helpers de exibição =====
+    def size_mb(self, obj):
+        if not obj.size_bytes:
+            return "0.00 MB"
+        return f"{obj.size_bytes/1024/1024:.2f} MB"
+    size_mb.short_description = "Tamanho"
+
+    def sha_short(self, obj):
+        s = obj.sha256 or ""
+        return s[:12] + "…" if s else "-"
+    sha_short.short_description = "SHA256"
+
+    def status_badge(self, obj):
+        color = "#16a34a" if obj.status == "success" else "#dc2626"
+        label = "OK" if obj.status == "success" else "Erro"
+        return format_html(
+            "<span style='display:inline-block;padding:2px 8px;border-radius:999px;color:#fff;background:{}'>{}</span>",
+            color, label
+        )
+    status_badge.short_description = "Status"
+
+    def acoes(self, obj):
+        # Link de download via rota DRF: /registro/backups/<id>/download/
+        try:
+            url = reverse("backup-download", args=[obj.pk])
+        except Exception:
+            url = f"/registro/backups/{obj.pk}/download/"
+        return format_html('<a class="button" href="{}" target="_blank">Baixar</a>', url)
+    acoes.short_description = "Ações"
+
+    # ===== Execução do backup ao clicar em "Adicionar" =====
+    def has_add_permission(self, request):
+        # Permite o botão "Adicionar" apenas a staff/admin
+        return bool(request.user and request.user.is_staff)
+
+    def add_view(self, request, form_url="", extra_context=None):
+        """
+        Em vez de exibir formulário, executa o backup imediatamente
+        e redireciona para a lista com mensagem.
+        """
+        user = request.user if request.user.is_authenticated else None
+        ip = request.META.get("REMOTE_ADDR")
+        ua = request.META.get("HTTP_USER_AGENT", "")
+        rec = BackupRecord.objects.create(
+            executed_by=user, ip=ip, user_agent=ua,
+            engine="", output_file="", size_bytes=0, sha256="", status="success"
+        )
+        try:
+            result = run_full_backup()
+            rec.engine = result["engine"]
+            rec.output_file = result["output_file"]
+            rec.size_bytes = result["size_bytes"]
+            rec.sha256 = result["sha256"]
+            rec.status = "success"
+            rec.save()
+
+            # Auditoria
+            try:
+                AuditLog.objects.create(
+                    user=user, ip=ip, user_agent=ua,
+                    path=request.path, method="POST", status_code=200,
+                    action="create",  # ou "backup" se você tiver essa ação
+                    model="BackupRecord", object_pk=str(rec.pk),
+                    changes={"output_file": rec.output_file, "engine": rec.engine, "size": rec.size_bytes},
+                )
+            except Exception:
+                pass
+
+            messages.success(request, "Backup concluído com sucesso.")
+        except Exception as e:
+            rec.status = "error"
+            rec.error_message = str(e)
+            rec.save()
+            try:
+                AuditLog.objects.create(
+                    user=user, ip=ip, user_agent=ua,
+                    path=request.path, method="POST", status_code=500,
+                    action="error",
+                    model="BackupRecord", object_pk=str(rec.pk),
+                    extra={"error": str(e)},
+                )
+            except Exception:
+                pass
+            messages.error(request, f"Falha ao executar backup: {e}")
+
+        # Redireciona para a lista de backups
+        changelist_url = reverse(f"admin:{BackupRecord._meta.app_label}_{BackupRecord._meta.model_name}_changelist")
+        return HttpResponseRedirect(changelist_url)
+
+    # Sem edição/exclusão manual via Admin (somos estritos aqui)
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return bool(request.user and request.user.is_superuser)
