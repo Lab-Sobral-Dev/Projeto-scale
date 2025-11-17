@@ -119,91 +119,121 @@ const Login = ({ onLogin }) => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            {!logoError ? (
-              <img
-                src="/logo.png"
-                alt="Logo"
-                className="h-20 w-auto"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <div className="p-3 bg-blue-100 rounded-full">
-                <Scale className="h-8 w-8 text-blue-600" />
-              </div>
-            )}
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 px-4">
+      <div className="relative w-full max-w-md">
+        {/* Glow laranja atrás do card */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -inset-10 bg-gradient-to-tr from-orange-500/25 via-transparent to-orange-400/30 blur-3xl" />
+        </div>
 
-          <CardTitle className="text-2xl font-bold">Sistema de Pesagem</CardTitle>
-          <CardDescription>Entre com suas credenciais para acessar o sistema</CardDescription>
-        </CardHeader>
+        <Card className="w-full shadow-2xl border border-white/10 bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-orange-500/30 hover:-translate-y-1">
+          <CardHeader className="space-y-1 text-center relative pb-6">
+            {/* Faixa laranja no topo */}
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="usuario">Usuário</Label>
-              <Input
-                id="usuario"
-                name="usuario"
-                type="text"
-                placeholder="Digite seu usuário"
-                value={formData.usuario}
-                onChange={handleChange}
-                required
-                className="w-full"
-                autoComplete="username"
-                disabled={loading}
-              />
+            <div className="flex justify-center mt-4 mb-4">
+              {!logoError ? (
+                <img
+                  src="/logo.png"
+                  alt="Logo"
+                  className="h-20 w-auto drop-shadow-md"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="p-3 bg-orange-50 rounded-full border border-orange-200">
+                  <Scale className="h-8 w-8 text-orange-500" />
+                </div>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="senha">Senha</Label>
-              <div className="relative">
+            <CardTitle className="text-2xl font-bold text-slate-900">
+              Sistema de Pesagem
+            </CardTitle>
+            <CardDescription className="text-sm text-slate-500">
+              Entre com suas credenciais para acessar o sistema
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="pb-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="usuario" className="text-sm font-medium text-slate-700">
+                  Usuário
+                </Label>
                 <Input
-                  id="senha"
-                  name="senha"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Digite sua senha"
-                  value={formData.senha}
+                  id="usuario"
+                  name="usuario"
+                  type="text"
+                  placeholder="Digite seu usuário"
+                  value={formData.usuario}
                   onChange={handleChange}
                   required
-                  className="w-full pr-10"
-                  autoComplete="current-password"
+                  className="w-full bg-slate-50/80 border-slate-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:border-orange-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
+                  autoComplete="username"
                   disabled={loading}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
-                </Button>
               </div>
-            </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="senha" className="text-sm font-medium text-slate-700">
+                  Senha
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="senha"
+                    name="senha"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Digite sua senha"
+                    value={formData.senha}
+                    onChange={handleChange}
+                    required
+                    className="w-full pr-10 bg-slate-50/80 border-slate-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:border-orange-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
+                    autoComplete="current-password"
+                    disabled={loading}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-slate-400 hover:text-orange-500 transition-colors"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
-            </Button>
+              {error && (
+                <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-700">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-          </form>
-        </CardContent>
-      </Card>
+              <Button
+                type="submit"
+                className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-md shadow-orange-500/40 border-0 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
+                disabled={loading}
+              >
+                {loading ? 'Entrando...' : 'Entrar'}
+              </Button>
+
+              {/* Linha sutil no rodapé do form */}
+              <div className="pt-2 text-xs text-center text-slate-400">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-px w-6 bg-gradient-to-r from-transparent via-orange-300/70 to-transparent" />
+                  Acesso seguro
+                  <span className="h-px w-6 bg-gradient-to-r from-transparent via-orange-300/70 to-transparent" />
+                </span>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
