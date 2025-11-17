@@ -18,17 +18,18 @@ const hasSymbol = (s) => /[^\w\s]/.test(s || '')
 function Rule({ ok, children }) {
     return (
         <li
-            className={`text-sm flex items-start gap-2 ${ok ? 'text-green-600' : 'text-gray-600'}`}
+            className={`text-sm flex items-start gap-2 ${ok ? 'text-emerald-600' : 'text-slate-600'}`}
             role="status"
             aria-live="polite"
         >
             <span
-                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${ok ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-300'}`}
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${ok ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-100 border-slate-300'
+                    }`}
                 aria-hidden="true"
             >
                 {ok ? '✓' : '•'}
             </span>
-            <span className={`${ok ? 'line-through decoration-green-400/60' : ''}`}>
+            <span className={ok ? 'line-through decoration-emerald-400/60' : ''}>
                 {children}
             </span>
         </li>
@@ -47,23 +48,36 @@ function readPwdFlags() {
 }
 
 function PasswordRules({ meets }) {
-    const score = ['min', 'upper', 'lower', 'digit', 'symbol'].reduce((acc, k) => acc + (meets[k] ? 1 : 0), 0)
+    const score = ['min', 'upper', 'lower', 'digit', 'symbol'].reduce(
+        (acc, k) => acc + (meets[k] ? 1 : 0),
+        0
+    )
     const percent = (score / 5) * 100
     const strengthLabel =
-        score <= 1 ? 'Muito fraca' :
-            score === 2 ? 'Fraca' :
-                score === 3 ? 'Média' :
-                    score === 4 ? 'Forte' : 'Excelente'
+        score <= 1
+            ? 'Muito fraca'
+            : score === 2
+                ? 'Fraca'
+                : score === 3
+                    ? 'Média'
+                    : score === 4
+                        ? 'Forte'
+                        : 'Excelente'
 
     const barColor =
-        score <= 1 ? 'bg-red-500' :
-            score === 2 ? 'bg-orange-500' :
-                score === 3 ? 'bg-yellow-500' :
-                    score === 4 ? 'bg-green-500' : 'bg-emerald-600'
+        score <= 1
+            ? 'bg-red-500'
+            : score === 2
+                ? 'bg-orange-500'
+                : score === 3
+                    ? 'bg-yellow-500'
+                    : score === 4
+                        ? 'bg-green-500'
+                        : 'bg-emerald-600'
 
     return (
-        <div className="rounded-md border bg-white/60">
-            <div className="px-3 py-2 border-b text-xs font-semibold text-gray-700 uppercase tracking-wide">
+        <div className="rounded-md border border-slate-200 bg-slate-50/80">
+            <div className="px-3 py-2 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wide bg-white/70">
                 Requisitos mínimos
             </div>
 
@@ -77,22 +91,35 @@ function PasswordRules({ meets }) {
                 </ul>
 
                 <div className="mt-4" aria-live="polite">
-                    <label htmlFor="pwd-strength" className="text-xs font-medium text-gray-700">
-                        Força da senha: <span className="font-semibold">{strengthLabel}</span>
+                    <label
+                        htmlFor="pwd-strength"
+                        className="text-xs font-medium text-slate-700"
+                    >
+                        Força da senha:{' '}
+                        <span className="font-semibold">{strengthLabel}</span>
                     </label>
-                    <div className="mt-1 h-2 w-full rounded bg-gray-200" id="pwd-strength" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={5}>
+                    <div
+                        className="mt-1 h-2 w-full rounded bg-slate-200"
+                        id="pwd-strength"
+                        role="progressbar"
+                        aria-valuenow={score}
+                        aria-valuemin={0}
+                        aria-valuemax={5}
+                    >
                         <div
                             className={`h-2 rounded ${barColor} transition-all`}
                             style={{ width: `${percent}%` }}
                         />
                     </div>
-                    <p className="mt-1 text-[11px] text-gray-500">
+                    <p className="mt-1 text-[11px] text-slate-500">
                         Dica: combine letras, números e símbolos. Evite sequências (1234, abcd) e dados pessoais.
                     </p>
                 </div>
 
-                <div className="mt-3 pt-3 border-t">
-                    <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Confirmação</div>
+                <div className="mt-3 pt-3 border-t border-slate-200">
+                    <div className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                        Confirmação
+                    </div>
                     <ul className="mt-2">
                         <Rule ok={meets.match}>A confirmação confere com a nova senha</Rule>
                     </ul>
@@ -117,16 +144,21 @@ const AlterarSenha = () => {
     const [logoError, setLogoError] = useState(false) // fallback da logo
 
     const flags = readPwdFlags()
-    const reason = location.state?.reason || (flags.mustChange ? 'reset' : flags.expired ? 'expired' : null)
+    const reason =
+        location.state?.reason ||
+        (flags.mustChange ? 'reset' : flags.expired ? 'expired' : null)
 
-    const meets = useMemo(() => ({
-        min: hasMin(pwd),
-        upper: hasUpper(pwd),
-        lower: hasLower(pwd),
-        digit: hasDigit(pwd),
-        symbol: hasSymbol(pwd),
-        match: pwd && confirm && pwd === confirm,
-    }), [pwd, confirm])
+    const meets = useMemo(
+        () => ({
+            min: hasMin(pwd),
+            upper: hasUpper(pwd),
+            lower: hasLower(pwd),
+            digit: hasDigit(pwd),
+            symbol: hasSymbol(pwd),
+            match: pwd && confirm && pwd === confirm,
+        }),
+        [pwd, confirm]
+    )
 
     useEffect(() => {
         // rota protegida, mas sem layout
@@ -179,132 +211,198 @@ const AlterarSenha = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-            <Card className="w-full max-w-md shadow-xl">
-                <CardHeader className="space-y-1 text-center">
-                    <div className="flex justify-center mb-4">
-                        {!logoError ? (
-                            <img
-                                src="/logo.png"
-                                alt="Logo"
-                                className="h-12 w-auto"
-                                onError={() => setLogoError(true)}
-                            />
-                        ) : (
-                            <div className="p-3 bg-blue-100 rounded-full">
-                                <Scale className="h-8 w-8 text-blue-600" />
-                            </div>
-                        )}
-                    </div>
-                    <CardTitle className="text-2xl font-bold">Scale - Alterar Senha</CardTitle>
-                    <CardDescription>
-                        {reason === 'reset' && 'Sua senha foi redefinida pelo administrador. Defina uma nova senha para continuar.'}
-                        {reason === 'expired' && 'Sua senha expirou. Defina uma nova senha para continuar.'}
-                        {!reason && 'Por segurança, altere sua senha.'}
-                    </CardDescription>
-                </CardHeader>
+            <div className="relative w-full max-w-md">
+                {/* Glow laranja discreto atrás do card, igual ao login */}
+                <div className="pointer-events-none absolute inset-0 -z-10">
+                    <div className="absolute -inset-10 bg-gradient-to-tr from-orange-500/20 via-transparent to-orange-400/20 blur-3xl" />
+                </div>
 
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-                        {/* Senha atual */}
-                        <div className="space-y-2">
-                            <Label htmlFor="current">Senha atual</Label>
-                            <div className="relative">
-                                <Input
-                                    id="current"
-                                    type={showCurrent ? 'text' : 'password'}
-                                    value={current}
-                                    onChange={(e) => { setCurrent(e.target.value); setError('') }}
-                                    autoComplete="current-password"
-                                    required
-                                    disabled={loading}
-                                    className="pr-10"
+                <Card className="w-full shadow-2xl border border-white/10 bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300">
+                    <CardHeader className="space-y-1 text-center relative pb-6">
+                        {/* Faixa laranja no topo, igual login */}
+                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
+
+                        <div className="flex justify-center mt-4 mb-4">
+                            {!logoError ? (
+                                <img
+                                    src="/logo.png"
+                                    alt="Logo"
+                                    className="h-20 w-auto drop-shadow-md"
+                                    onError={() => setLogoError(true)}
                                 />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                    onClick={() => setShowCurrent(v => !v)}
-                                    aria-label={showCurrent ? 'Ocultar senha atual' : 'Mostrar senha atual'}
-                                >
-                                    {showCurrent ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
-                                </Button>
-                            </div>
+                            ) : (
+                                <div className="p-3 bg-orange-50 rounded-full border border-orange-200">
+                                    <Scale className="h-8 w-8 text-orange-500" />
+                                </div>
+                            )}
                         </div>
 
-                        {/* Nova senha */}
-                        <div className="space-y-2">
-                            <Label htmlFor="new">Nova senha</Label>
-                            <div className="relative">
-                                <Input
-                                    id="new"
-                                    type={showNew ? 'text' : 'password'}
-                                    value={pwd}
-                                    onChange={(e) => { setPwd(e.target.value); setError('') }}
-                                    autoComplete="new-password"
-                                    required
-                                    disabled={loading}
-                                    className="pr-10"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                    onClick={() => setShowNew(v => !v)}
-                                    aria-label={showNew ? 'Ocultar nova senha' : 'Mostrar nova senha'}
+                        <CardTitle className="text-2xl font-bold text-slate-900">
+                            Alterar senha
+                        </CardTitle>
+                        <CardDescription className="text-sm text-slate-500">
+                            {reason === 'reset' &&
+                                'Sua senha foi redefinida pelo administrador. Defina uma nova senha para continuar.'}
+                            {reason === 'expired' &&
+                                'Sua senha expirou. Defina uma nova senha para continuar.'}
+                            {!reason && 'Por segurança, altere sua senha regularmente.'}
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="pb-6">
+                        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                            {/* Senha atual */}
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="current"
+                                    className="text-sm font-medium text-slate-700"
                                 >
-                                    {showNew ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
-                                </Button>
+                                    Senha atual
+                                </Label>
+                                <div className="relative">
+                                    <Input
+                                        id="current"
+                                        type={showCurrent ? 'text' : 'password'}
+                                        value={current}
+                                        onChange={(e) => {
+                                            setCurrent(e.target.value)
+                                            setError('')
+                                        }}
+                                        autoComplete="current-password"
+                                        required
+                                        disabled={loading}
+                                        className="w-full pr-10 bg-slate-50/80 border-slate-200 
+                    focus-visible:ring-2 focus-visible:ring-orange-500
+                    focus-visible:border-orange-500
+                    focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-slate-400 hover:text-orange-500 transition-colors"
+                                        onClick={() => setShowCurrent((v) => !v)}
+                                        aria-label={showCurrent ? 'Ocultar senha atual' : 'Mostrar senha atual'}
+                                    >
+                                        {showCurrent ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Confirmar senha */}
-                        <div className="space-y-2">
-                            <Label htmlFor="confirm">Confirmar nova senha</Label>
-                            <div className="relative">
-                                <Input
-                                    id="confirm"
-                                    type={showConfirm ? 'text' : 'password'}
-                                    value={confirm}
-                                    onChange={(e) => { setConfirm(e.target.value); setError('') }}
-                                    autoComplete="new-password"
-                                    required
-                                    disabled={loading}
-                                    className="pr-10"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                    onClick={() => setShowConfirm(v => !v)}
-                                    aria-label={showConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'}
+                            {/* Nova senha */}
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="new"
+                                    className="text-sm font-medium text-slate-700"
                                 >
-                                    {showConfirm ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
-                                </Button>
+                                    Nova senha
+                                </Label>
+                                <div className="relative">
+                                    <Input
+                                        id="new"
+                                        type={showNew ? 'text' : 'password'}
+                                        value={pwd}
+                                        onChange={(e) => {
+                                            setPwd(e.target.value)
+                                            setError('')
+                                        }}
+                                        autoComplete="new-password"
+                                        required
+                                        disabled={loading}
+                                        className="w-full pr-10 bg-slate-50/80 border-slate-200 
+                    focus-visible:ring-2 focus-visible:ring-orange-500
+                    focus-visible:border-orange-500
+                    focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-slate-400 hover:text-orange-500 transition-colors"
+                                        onClick={() => setShowNew((v) => !v)}
+                                        aria-label={showNew ? 'Ocultar nova senha' : 'Mostrar nova senha'}
+                                    >
+                                        {showNew ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Regras de senha (organizado) */}
-                        <PasswordRules meets={meets} />
+                            {/* Confirmar senha */}
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="confirm"
+                                    className="text-sm font-medium text-slate-700"
+                                >
+                                    Confirmar nova senha
+                                </Label>
+                                <div className="relative">
+                                    <Input
+                                        id="confirm"
+                                        type={showConfirm ? 'text' : 'password'}
+                                        value={confirm}
+                                        onChange={(e) => {
+                                            setConfirm(e.target.value)
+                                            setError('')
+                                        }}
+                                        autoComplete="new-password"
+                                        required
+                                        disabled={loading}
+                                        className="w-full pr-10 bg-slate-50/80 border-slate-200 
+                    focus-visible:ring-2 focus-visible:ring-orange-500
+                    focus-visible:border-orange-500
+                    focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-slate-400 hover:text-orange-500 transition-colors"
+                                        onClick={() => setShowConfirm((v) => !v)}
+                                        aria-label={showConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'}
+                                    >
+                                        {showConfirm ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
 
-                        {error && (
-                            <Alert variant="destructive">
-                                <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                        )}
+                            {/* Regras de senha */}
+                            <PasswordRules meets={meets} />
 
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? 'Salvando...' : 'Salvar nova senha'}
-                        </Button>
+                            {error && (
+                                <Alert className="border-red-300 bg-red-50 text-red-700" variant="destructive">
+                                    <AlertDescription>{error}</AlertDescription>
+                                </Alert>
+                            )}
 
-                        <p className="text-xs text-gray-500 text-center">
-                            Evite repetir senhas antigas e não use informações pessoais óbvias.
-                        </p>
-                    </form>
-                </CardContent>
-            </Card>
+                            <Button
+                                type="submit"
+                                className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold
+                shadow-md shadow-orange-500/40 border-0 transition-all duration-200
+                active:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
+                                disabled={loading}
+                            >
+                                {loading ? 'Salvando...' : 'Salvar nova senha'}
+                            </Button>
+
+                            <p className="text-xs text-slate-400 text-center pt-2">
+                                Evite repetir senhas antigas e não use informações pessoais óbvias.
+                            </p>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     )
 }

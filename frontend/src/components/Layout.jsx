@@ -166,48 +166,67 @@ const Layout = ({ user, onLogout }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 text-slate-900 relative">
+      {/* Glows de fundo (mesma linguagem do login/alterar senha) */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute -left-32 top-0 h-72 w-72 bg-gradient-to-tr from-orange-500/20 via-transparent to-orange-400/20 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-80 w-80 bg-gradient-to-tr from-indigo-500/15 via-transparent to-orange-400/15 blur-3xl" />
+      </div>
+
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div
-          className="fixed inset-0 bg-gray-600 bg-opacity-75"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
-          <div className="flex h-16 items-center justify-between px-4 border-b">
-            <div className="flex items-center gap-2">
+        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white/95 backdrop-blur-md border-r border-white/10 shadow-2xl rounded-r-2xl overflow-hidden">
+          <div className="relative flex h-16 items-center justify-between px-4 border-b border-white/20 bg-white/80">
+            {/* Faixinha laranja no topo da sidebar mobile */}
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
+            <div className="flex items-center gap-2 mt-1">
               <img
                 src={logoError ? '/logo.png' : '/logo2.png'}
                 alt="Logo"
-                className="h-12 w-auto"
+                className="h-10 w-auto drop-shadow-md"
                 onError={() => setLogoError(true)}
               />
-              <h1 className="text-xl font-bold text-gray-800">Scale v1.0</h1>
+              <span className="text-[11px] font-semibold text-slate-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                v1.0 Homologação
+              </span>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-slate-500 hover:text-orange-600 hover:bg-orange-50/60"
+              onClick={() => setSidebarOpen(false)}
+            >
               <X className="h-5 w-5" />
             </Button>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
             {visibleNav.map((item) => {
               const Icon = item.icon
+              const active = isActive(item.href)
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${active
+                      ? 'bg-orange-500/10 text-orange-700 border border-orange-200 shadow-sm'
+                      : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
                     }`}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
+                  <Icon
+                    className={`mr-3 h-5 w-5 ${active ? 'text-orange-600' : 'text-slate-400 group-hover:text-orange-500'
+                      }`}
+                  />
                   {item.name}
                 </Link>
               )
             })}
             {visibleNav.length === 0 && (
-              <div className="px-2 text-sm text-gray-500">
+              <div className="px-2 text-sm text-slate-500">
                 {loadingMe ? 'Carregando permissões…' : 'Nenhuma tela disponível.'}
               </div>
             )}
@@ -217,32 +236,51 @@ const Layout = ({ user, onLogout }) => {
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
-          <div className="flex h-16 items-center px-4 border-b">
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Logo Scale" className="h-7 w-7" />
-              <h1 className="text-xl font-bold text-gray-900">Scale 1.0</h1>
+        <div className="flex flex-col flex-grow bg-white/90 backdrop-blur-sm border-r border-white/20 shadow-2xl rounded-r-3xl overflow-hidden">
+          <div className="relative flex h-16 items-center px-4 border-b border-white/20 bg-white/80">
+            {/* Faixa laranja fina no topo da sidebar desktop, igual linguagem do login */}
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
+            <div className="flex items-center gap-3 mt-1">
+              <div className="p-2 bg-orange-50 rounded-xl border border-orange-100">
+                <img
+                  src="/logo.png"
+                  alt="Logo Scale"
+                  className="h-7 w-7 drop-shadow-md"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-base font-bold text-slate-900 leading-none">
+                  Scale 1.0
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Ambiente de homologação
+                </span>
+              </div>
             </div>
           </div>
-          <nav className="flex-1 space-y-1 px-2 py-4">
+          <nav className="flex-1 space-y-1 px-3 py-4">
             {visibleNav.map((item) => {
               const Icon = item.icon
+              const active = isActive(item.href)
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${active
+                      ? 'bg-orange-500/10 text-orange-700 border border-orange-200 shadow-sm'
+                      : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
                     }`}
                 >
-                  <Icon className="mr-3 h-5 w-5" />
+                  <Icon
+                    className={`mr-3 h-5 w-5 ${active ? 'text-orange-600' : 'text-slate-400 group-hover:text-orange-500'
+                      }`}
+                  />
                   {item.name}
                 </Link>
               )
             })}
             {visibleNav.length === 0 && (
-              <div className="px-2 text-sm text-gray-500">
+              <div className="px-2 text-sm text-slate-500">
                 {loadingMe ? 'Carregando permissões…' : 'Nenhuma tela disponível.'}
               </div>
             )}
@@ -253,19 +291,23 @@ const Layout = ({ user, onLogout }) => {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8 relative">
+        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-white/30 bg-white/90 backdrop-blur-sm px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8 relative">
+          {/* mini faixinha no topo da topbar (continuidade visual) */}
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
+
           <Button
             variant="ghost"
             size="sm"
-            className="lg:hidden"
+            className="lg:hidden text-slate-600 hover:text-orange-600 hover:bg-orange-50/60"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* “Homologação” centralizado */}
+          {/* “Homologação” centralizado, com pill */}
           <div className="absolute inset-x-0 flex justify-center items-center pointer-events-none">
-            <span className="text-sm font-semibold text-gray-700 tracking-wide uppercase">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 tracking-wide uppercase bg-orange-50/90 text-orange-700 px-3 py-1 rounded-full border border-orange-200 shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
               Homologação
             </span>
           </div>
@@ -275,16 +317,20 @@ const Layout = ({ user, onLogout }) => {
             <div className="flex items-center gap-x-2">
               <Link
                 to="/perfil"
-                className="flex items-center gap-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                className="flex items-center gap-x-2 text-sm font-medium text-slate-700 hover:text-slate-900"
               >
-                <User className="h-5 w-5" />
-                <span className="hidden sm:block">{displayName}</span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-50 border border-orange-100">
+                  <User className="h-4 w-4 text-orange-600" />
+                </div>
+                <span className="hidden sm:block max-w-[160px] truncate">
+                  {displayName}
+                </span>
               </Link>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onLogout}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-slate-500 hover:text-red-600 hover:bg-red-50/70"
               >
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -295,6 +341,8 @@ const Layout = ({ user, onLogout }) => {
         {/* Page content */}
         <main className="py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            {/* Dá pra manter o conteúdo interno em cards com a mesma linguagem,
+                mas isso já fica para cada página específica */}
             <Outlet context={{ user: effectiveUser || user, onLogout }} />
           </div>
         </main>
