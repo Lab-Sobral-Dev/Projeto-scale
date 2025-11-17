@@ -127,7 +127,7 @@ const Login = ({ onLogin }) => {
               <img
                 src="/logo.png"
                 alt="Logo"
-                className="h-24 w-auto"
+                className="h-28 w-auto"
                 onError={() => setLogoError(true)}
               />
             ) : (
@@ -137,7 +137,7 @@ const Login = ({ onLogin }) => {
             )}
           </div>
 
-          <CardTitle className="text-2xl font-bold">Scale - Sistema de Pesagem</CardTitle>
+          <CardTitle className="text-2xl font-bold">Sistema de Pesagem</CardTitle>
           <CardDescription>Entre com suas credenciais para acessar o sistema</CardDescription>
         </CardHeader>
 
