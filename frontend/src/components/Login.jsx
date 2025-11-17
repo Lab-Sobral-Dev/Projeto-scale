@@ -127,7 +127,7 @@ const Login = ({ onLogin }) => {
               <img
                 src="/logo.png"
                 alt="Logo"
-                className="h-28 w-auto"
+                className="h-20 w-auto"
                 onError={() => setLogoError(true)}
               />
             ) : (
