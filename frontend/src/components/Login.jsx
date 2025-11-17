@@ -119,15 +119,17 @@ const Login = ({ onLogin }) => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <div className="relative w-full max-w-md">
-        {/* Glow laranja atrás do card */}
+
+        {/* Glow laranja discreto atrás do card (mantido) */}
         <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -inset-10 bg-gradient-to-tr from-orange-500/25 via-transparent to-orange-400/30 blur-3xl" />
+          <div className="absolute -inset-10 bg-gradient-to-tr from-orange-500/20 via-transparent to-orange-400/20 blur-3xl" />
         </div>
 
-        <Card className="w-full shadow-2xl border border-white/10 bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-orange-500/30 hover:-translate-y-1">
+        <Card className="w-full shadow-2xl border border-white/10 bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300">
           <CardHeader className="space-y-1 text-center relative pb-6">
+
             {/* Faixa laranja no topo */}
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
 
@@ -156,6 +158,7 @@ const Login = ({ onLogin }) => {
 
           <CardContent className="pb-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+
               <div className="space-y-2">
                 <Label htmlFor="usuario" className="text-sm font-medium text-slate-700">
                   Usuário
@@ -168,7 +171,10 @@ const Login = ({ onLogin }) => {
                   value={formData.usuario}
                   onChange={handleChange}
                   required
-                  className="w-full bg-slate-50/80 border-slate-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:border-orange-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
+                  className="w-full bg-slate-50/80 border-slate-200 
+                  focus-visible:ring-2 focus-visible:ring-orange-500
+                  focus-visible:border-orange-500
+                  focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
                   autoComplete="username"
                   disabled={loading}
                 />
@@ -187,10 +193,14 @@ const Login = ({ onLogin }) => {
                     value={formData.senha}
                     onChange={handleChange}
                     required
-                    className="w-full pr-10 bg-slate-50/80 border-slate-200 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:border-orange-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
+                    className="w-full pr-10 bg-slate-50/80 border-slate-200
+                    focus-visible:ring-2 focus-visible:ring-orange-500
+                    focus-visible:border-orange-500
+                    focus-visible:ring-offset-1 focus-visible:ring-offset-white transition-all"
                     autoComplete="current-password"
                     disabled={loading}
                   />
+
                   <Button
                     type="button"
                     variant="ghost"
@@ -199,11 +209,7 @@ const Login = ({ onLogin }) => {
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
@@ -216,13 +222,14 @@ const Login = ({ onLogin }) => {
 
               <Button
                 type="submit"
-                className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-md shadow-orange-500/40 border-0 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold
+                shadow-md shadow-orange-500/40 border-0 transition-all duration-200
+                active:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none"
                 disabled={loading}
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </Button>
 
-              {/* Linha sutil no rodapé do form */}
               <div className="pt-2 text-xs text-center text-slate-400">
                 <span className="inline-flex items-center gap-1">
                   <span className="h-px w-6 bg-gradient-to-r from-transparent via-orange-300/70 to-transparent" />
@@ -230,6 +237,7 @@ const Login = ({ onLogin }) => {
                   <span className="h-px w-6 bg-gradient-to-r from-transparent via-orange-300/70 to-transparent" />
                 </span>
               </div>
+
             </form>
           </CardContent>
         </Card>
