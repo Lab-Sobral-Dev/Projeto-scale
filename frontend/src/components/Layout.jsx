@@ -248,14 +248,7 @@ const Layout = ({ user, onLogout }) => {
                   className="h-7 w-7 drop-shadow-md"
                 />
               </div>
-              <div className="flex flex-col">
-                <span className="text-base font-bold text-slate-900 leading-none">
-                  Scale 1.0
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  Ambiente de homologação
-                </span>
-              </div>
+              
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-3 py-4">
