@@ -241,11 +241,11 @@ const Layout = ({ user, onLogout }) => {
             {/* Faixa laranja fina no topo da sidebar desktop, igual linguagem do login */}
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
             <div className="flex items-center gap-3 mt-1">
-              <div className="p-2 bg-orange-50 rounded-xl border border-orange-100">
+              <div className="p-2">
                 <img
                   src="/logo.png"
                   alt="Logo Scale"
-                  className="h-7 w-7 drop-shadow-md"
+                  className="h-20 w-auto drop-shadow-md"
                 />
               </div>
               
