@@ -474,31 +474,48 @@ def gerar_etiqueta_pdf(request, pk):
     p = canvas.Canvas(response, pagesize=etiqueta_size)
     width, height = etiqueta_size
 
-    # Cabeçalho com logo
+    # =====================================================================
+    # Cabeçalho com logo - agora mantendo proporção e tamanho ajustável
+    # =====================================================================
     logo_path = os.path.join(settings.BASE_DIR, 'registro', 'static', 'logo.png')
-    p.setFont("Helvetica-Bold", 11)
     titulo = "THEODORO F. SOBRAL"
 
     if os.path.exists(logo_path):
         logo = ImageReader(logo_path)
-        logo_width = 20
-        logo_height = 26
-        text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
-        total_width = logo_width + 1 + text_width
-        start_x = (width - total_width) / 2
-        y_pos = height - 15
 
+        # Dimensões reais do arquivo (1000x419)
+        orig_w, orig_h = logo.getSize()
+        aspect = orig_h / orig_w  # ≈ 0.419 (mantém proporção)
+
+        # ====================
+        # Ajuste aqui o tamanho da logo
+        desired_width = 60  # <<< ALTERE AQUI PARA AUMENTAR/DIMINUIR A LOGO
+        desired_height = desired_width * aspect
+        # ====================
+
+        p.setFont("Helvetica-Bold", 12)
+        text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
+
+        total_width = desired_width + 8 + text_width
+        start_x = (width - total_width) / 2
+        y_pos = height - 18
+
+        # Desenha a logo com proporção correta
         p.drawImage(
             logo,
             x=start_x,
-            y=y_pos - logo_height + 5,
-            width=logo_width,
-            height=logo_height,
+            y=y_pos - desired_height + 3,
+            width=desired_width,
+            height=desired_height,
             mask='auto',
         )
-        text_y = y_pos - (logo_height / 2) + 4
-        p.drawString(start_x + logo_width + 8, text_y, titulo)
+
+        # Texto alinhado verticalmente com a logo
+        text_y = y_pos - (desired_height / 2) + 1
+        p.drawString(start_x + desired_width + 8, text_y, titulo)
+
     else:
+        p.setFont("Helvetica-Bold", 12)
         text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
         p.drawString((width - text_width) / 2, height - 20, titulo)
 
@@ -533,7 +550,7 @@ def gerar_etiqueta_pdf(request, pk):
     tara_g = Decimal(pesagem.tara or 0) * KG_TO_G
     liquido_g = Decimal(pesagem.liquido or 0)  # já em g no banco
 
-    # Conteúdo
+    # Conteúdo da etiqueta
     linha = height - 50
     base_font = "Helvetica"
     base_size = 9
@@ -588,6 +605,7 @@ def gerar_etiqueta_pdf(request, pk):
     )
     if lote_mp_txt:
         escrever(f"Lote MP: {lote_mp_txt}")
+
     escrever(f"Peso Bruto: {fmt_g3_ptbr(bruto_g)}")
     escrever(f"Tara: {fmt_g3_ptbr(tara_g)}")
     escrever(f"Peso Líquido: {fmt_g3_ptbr(liquido_g)}")
