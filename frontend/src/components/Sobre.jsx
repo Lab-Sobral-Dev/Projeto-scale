@@ -20,7 +20,9 @@ const getBuildDate = () => {
     const raw = import.meta.env?.VITE_BUILD_DATE
     if (!raw) return '—'
     const d = new Date(raw)
-    return isNaN(d.getTime()) ? '—' : d.toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
+    return isNaN(d.getTime())
+        ? '—'
+        : d.toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
 }
 
 const Sobre = () => {
@@ -28,55 +30,60 @@ const Sobre = () => {
     const versao = getVersao()
     const buildDate = getBuildDate()
 
-    const pilares = useMemo(() => ([
-        {
-            title: 'Registro de Pesagens',
-            desc: 'Interface rápida para lançar o peso bruto, tara e cálculo automático do líquido com regras de validação.',
-            icon: Scale,
-            color: 'text-blue-600',
-        },
-        {
-            title: 'Etiquetas Automáticas',
-            desc: 'Geração de etiquetas prontas para impressão a partir dos dados da pesagem e da OP.',
-            icon: Printer,
-            color: 'text-rose-600',
-        },
-        {
-            title: 'Histórico e Auditoria',
-            desc: 'Consulta por Produto, MP, OP, Lote e Data, com rastreabilidade do operador e data/hora.',
-            icon: History,
-            color: 'text-emerald-600',
-        },
-        {
-            title: 'Cadastro Padronizado',
-            desc: 'Produtos e matérias-primas com campos-chave, ativos/inativos e integração futura.',
-            icon: Package,
-            color: 'text-purple-600',
-        },
-        {
-            title: 'Estruturas e OPs',
-            desc: 'Criação de OP a partir da estrutura do produto e acompanhamento de progresso por itens.',
-            icon: ListChecks,
-            color: 'text-indigo-600',
-        },
-        {
-            title: 'Camadas e Processos',
-            desc: 'Fluxos claros entre cadastro, pesagem, etiqueta e histórico — tudo conectado.',
-            icon: Layers,
-            color: 'text-orange-600',
-        },
-    ]), [])
+    const pilares = useMemo(
+        () => [
+            {
+                title: 'Registro de Pesagens',
+                desc: 'Interface rápida para lançar o peso bruto, tara e cálculo automático do líquido com regras de validação.',
+                icon: Scale,
+                color: 'text-blue-600',
+            },
+            {
+                title: 'Etiquetas Automáticas',
+                desc: 'Geração de etiquetas prontas para impressão a partir dos dados da pesagem e da OP.',
+                icon: Printer,
+                color: 'text-rose-600',
+            },
+            {
+                title: 'Histórico e Auditoria',
+                desc: 'Consulta por Produto, MP, OP, Lote e Data, com rastreabilidade do operador e data/hora.',
+                icon: History,
+                color: 'text-emerald-600',
+            },
+            {
+                title: 'Cadastro Padronizado',
+                desc: 'Produtos e matérias-primas com campos-chave, ativos/inativos e integração futura.',
+                icon: Package,
+                color: 'text-purple-600',
+            },
+            {
+                title: 'Estruturas e OPs',
+                desc: 'Criação de OP a partir da estrutura do produto e acompanhamento de progresso por itens.',
+                icon: ListChecks,
+                color: 'text-indigo-600',
+            },
+            {
+                title: 'Camadas e Processos',
+                desc: 'Fluxos claros entre cadastro, pesagem, etiqueta e histórico — tudo conectado.',
+                icon: Layers,
+                color: 'text-orange-600',
+            },
+        ],
+        []
+    )
 
     return (
-        <div className="space-y-6">
+        <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
             {/* Cabeçalho */}
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 border-b pb-4">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                    <Info className="h-6 w-6 text-orange-600" />
+                </div>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Info className="h-6 w-6 text-gray-700" />
+                    <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2 tracking-tight">
                         Sobre o Sistema de Gerenciamento de Pesagem
                     </h1>
-                    <p className="text-gray-600 mt-1">
+                    <p className="text-gray-600 mt-1 text-sm md:text-base">
                         Plataforma web para digitalizar e padronizar o processo de pesagem de matérias-primas,
                         com foco em rastreabilidade, usabilidade e conformidade.
                     </p>
@@ -85,25 +92,26 @@ const Sobre = () => {
 
             {/* Missão / Em resumo */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 hover:shadow-lg transition-shadow">
+                <Card className="lg:col-span-2 hover:shadow-lg transition-shadow shadow-sm border-t-4 border-orange-400/80">
                     <CardHeader>
                         <CardTitle className="text-gray-900">Missão</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0">
                         <p className="text-gray-700 leading-relaxed">
-                            Garantir que cada pesagem seja <span className="font-semibold">rápida, precisa e auditável</span>,
-                            reduzindo erros manuais, padronizando cadastros e gerando etiquetas automaticamente para
-                            o fluxo de produção.
+                            Garantir que cada pesagem seja{' '}
+                            <span className="font-semibold">rápida, precisa e auditável</span>, reduzindo erros
+                            manuais, padronizando cadastros e gerando etiquetas automaticamente para o fluxo de
+                            produção.
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card className="hover:shadow-lg transition-shadow">
+                <Card className="hover:shadow-lg transition-shadow shadow-sm border-t-4 border-orange-400/80">
                     <CardHeader>
                         <CardTitle className="text-gray-900">Em resumo</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0 text-gray-700">
-                        <ul className="list-disc list-inside space-y-1">
+                        <ul className="list-disc list-inside space-y-1 text-sm">
                             <li>Cadastro de produtos e MPs padronizado</li>
                             <li>Registro de pesagens com cálculo automático</li>
                             <li>Etiquetas em PDF para impressão imediata</li>
@@ -120,7 +128,10 @@ const Sobre = () => {
                     {pilares.map((p, i) => {
                         const Icon = p.icon
                         return (
-                            <Card key={i} className="hover:shadow-lg transition-all">
+                            <Card
+                                key={i}
+                                className="hover:shadow-lg transition-all shadow-sm border-t-4 border-orange-400/60"
+                            >
                                 <CardContent className="p-6">
                                     <div className="flex items-start gap-4">
                                         <div className="shrink-0">
@@ -139,12 +150,12 @@ const Sobre = () => {
             </div>
 
             {/* Boas Práticas — Largura total */}
-            <Card className="hover:shadow-lg transition-shadow">
+            <Card className="hover:shadow-lg transition-shadow shadow-sm border-t-4 border-orange-400/80">
                 <CardHeader>
                     <CardTitle className="text-gray-900">Boas Práticas</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0 text-gray-700">
-                    <ul className="list-disc list-inside space-y-1">
+                    <ul className="list-disc list-inside space-y-1 text-sm">
                         <li>Manter cadastros de Produto/MP atualizados</li>
                         <li>Validar tara e checagem do equipamento</li>
                         <li>Respeitar perfis de acesso (operador/admin)</li>
@@ -153,8 +164,8 @@ const Sobre = () => {
                 </CardContent>
             </Card>
 
-            {/* Ambiente / Versão — Largura total e logo abaixo das Boas Práticas */}
-            <Card className="hover:shadow-lg transition-shadow">
+            {/* Ambiente / Versão / Build */}
+            <Card className="hover:shadow-lg transition-shadow shadow-sm border-t-4 border-orange-400/80">
                 <CardHeader>
                     <CardTitle className="text-gray-900">Ambiente & Versão</CardTitle>
                 </CardHeader>
@@ -168,35 +179,40 @@ const Sobre = () => {
                             <p className="text-xs text-gray-500">Versão</p>
                             <p className="font-semibold text-gray-900">{versao}</p>
                         </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Build</p>
+                            <p className="font-semibold text-gray-900">{buildDate}</p>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Equipe & Suporte */}
-            <Card className="hover:shadow-lg transition-shadow">
+            {/* Suporte */}
+            <Card className="hover:shadow-lg transition-shadow shadow-sm border-t-4 border-orange-400/60">
                 <CardHeader>
                     <CardTitle className="text-gray-900">Suporte</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0 text-gray-700">
+                <CardContent className="pt-0 text-gray-700 text-sm">
                     <p className="mb-3">
-                        Para dúvidas, melhorias e relatos de bugs, entre em contato com a equipe de desenvolvimento.
+                        Para dúvidas, melhorias e relatos de bugs, entre em contato com a equipe de
+                        desenvolvimento.
                     </p>
                 </CardContent>
             </Card>
 
             {/* Desenvolvedores */}
-            <Card className="hover:shadow-lg transition-shadow">
+            <Card className="hover:shadow-lg transition-shadow shadow-sm border-t-4 border-orange-400/60">
                 <CardHeader>
                     <CardTitle className="text-gray-900">Desenvolvedores</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0 text-gray-700 space-y-4">
+                <CardContent className="pt-0 text-gray-700 space-y-4 text-sm">
                     <div>
                         <p className="font-semibold text-gray-900">Daniel de Sousa Barbosa</p>
-                        <p className="text-sm">Analista e Desenvolvedor de Sistemas</p>
-                        <p className="text-sm">Especialista em Segurança da Informação</p>
+                        <p>Analista e Desenvolvedor de Sistemas</p>
+                        <p>Especialista em Segurança da Informação</p>
                         <a
                             href="mailto:daniel.barbosa@laboratoriosobral.com.br"
-                            className="text-sm text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline"
                         >
                             daniel.barbosa@laboratoriosobral.com.br
                         </a>
@@ -204,18 +220,17 @@ const Sobre = () => {
 
                     <div>
                         <p className="font-semibold text-gray-900">Hian Claudio de Sousa Costa</p>
-                        <p className="text-sm">Analista e Desenvolvedor de Sistemas</p>
-                        <p className="text-sm">Especialista em Projetos de Cloud Computing</p>
+                        <p>Analista e Desenvolvedor de Sistemas</p>
+                        <p>Especialista em Projetos de Cloud Computing</p>
                         <a
                             href="mailto:hian.claudio@laboratoriosobral.com.br"
-                            className="text-sm text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline"
                         >
                             hian.claudio@laboratoriosobral.com.br
                         </a>
                     </div>
                 </CardContent>
             </Card>
-
         </div>
     )
 }
