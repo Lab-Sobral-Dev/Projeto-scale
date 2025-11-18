@@ -60,10 +60,34 @@ const Dashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(null)
 
   const quickActions = useMemo(() => ([
-    { title: 'Nova Pesagem', description: 'Registrar uma nova pesagem', icon: Scale, href: '/nova-pesagem', color: 'bg-blue-500 hover:bg-blue-600' },
-    { title: 'Histórico', description: 'Consultar pesagens anteriores', icon: History, href: '/historico', color: 'bg-green-500 hover:bg-green-600' },
-    { title: 'Ordens de Produção', description: 'Status e itens das OPs', icon: Factory, href: '/ops', color: 'bg-indigo-500 hover:bg-indigo-600' },
-    { title: 'Nova OP', description: 'Criar OP a partir da estrutura', icon: ListChecks, href: '/ops/nova', color: 'bg-rose-500 hover:bg-rose-600' },
+    {
+      title: 'Nova Pesagem',
+      description: 'Registrar uma nova pesagem',
+      icon: Scale,
+      href: '/nova-pesagem',
+      color: 'bg-orange-500 hover:bg-orange-600'
+    },
+    {
+      title: 'Histórico',
+      description: 'Consultar pesagens anteriores',
+      icon: History,
+      href: '/historico',
+      color: 'bg-orange-500/90 hover:bg-orange-600'
+    },
+    {
+      title: 'Ordens de Produção',
+      description: 'Status e itens das OPs',
+      icon: Factory,
+      href: '/ops',
+      color: 'bg-orange-500/95 hover:bg-orange-600'
+    },
+    {
+      title: 'Nova OP',
+      description: 'Criar OP a partir da estrutura',
+      icon: ListChecks,
+      href: '/ops/nova',
+      color: 'bg-orange-500 hover:bg-orange-600'
+    },
   ]), [])
 
   const fetchData = useCallback(async () => {
@@ -105,7 +129,7 @@ const Dashboard = () => {
         opsAndamento: em,
       })
 
-      // Últimas 10 pesagens (compatível com novo serializer: produto_nome / materia_prima_nome)
+      // Últimas 10 pesagens
       const sorted = [...pesList].sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
       const top10 = sorted.slice(0, 10).map(p => {
         const produtoNome =
@@ -133,8 +157,11 @@ const Dashboard = () => {
       })
       setUltimasPesagens(top10)
 
-      // OPs pendentes (top 5 mais recentes) + progresso/saldo
-      const pendentes = opsList.filter(o => ['aberta', 'em_andamento'].includes(o.status)).slice(0, 5)
+      // OPs pendentes (top 5) + progresso/saldo
+      const pendentes = opsList
+        .filter(o => ['aberta', 'em_andamento'].includes(o.status))
+        .slice(0, 5)
+
       const itensByOp = await Promise.all(
         pendentes.map(o => api.getOPItems(o.id).then(normalize).catch(() => []))
       )
@@ -183,29 +210,44 @@ const Dashboard = () => {
   }, [fetchData])
 
   const statCardsTop = [
-    { title: 'Pesagens Hoje', value: stats.pesagensHoje, icon: Calendar, color: 'text-blue-600' },
-    { title: 'Pesagens esta Semana', value: stats.pesagensSemana, icon: TrendingUp, color: 'text-green-600' },
-    { title: 'Produtos Cadastrados', value: stats.produtosCadastrados, icon: Package, color: 'text-purple-600' },
-    { title: 'Matérias-Primas', value: stats.materiasPrimas, icon: Layers, color: 'text-orange-600' },
+    { title: 'Pesagens Hoje', value: stats.pesagensHoje, icon: Calendar, color: 'text-orange-500' },
+    { title: 'Pesagens esta Semana', value: stats.pesagensSemana, icon: TrendingUp, color: 'text-orange-500' },
+    { title: 'Produtos Cadastrados', value: stats.produtosCadastrados, icon: Package, color: 'text-orange-500' },
+    { title: 'Matérias-Primas', value: stats.materiasPrimas, icon: Layers, color: 'text-orange-500' },
   ]
   const statCardsOP = [
-    { title: 'OPs Pendentes', value: stats.opsPendentes, icon: CalendarClock, color: 'text-indigo-600' },
-    { title: 'OPs em Andamento', value: stats.opsAndamento, icon: CalendarFold, color: 'text-rose-600' },
+    { title: 'OPs Pendentes', value: stats.opsPendentes, icon: CalendarClock, color: 'text-orange-500' },
+    { title: 'OPs em Andamento', value: stats.opsAndamento, icon: CalendarFold, color: 'text-orange-500' },
   ]
 
   return (
     <div className="space-y-6">
+      {/* Cabeçalho do dashboard */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-gray-600 mt-2">Bem-vindo ao Sistema de Gerenciamento de Pesagem</p>
+          <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-100 px-3 py-1 mb-1">
+            <Scale className="h-4 w-4 text-orange-500" />
+            <span className="text-xs font-semibold text-orange-700 uppercase tracking-wide">
+              Dashboard de Pesagem
+            </span>
+          </div>
+          <p className="text-slate-700 mt-1">
+            Bem-vindo ao Sistema de Gerenciamento de Pesagem
+          </p>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           {lastUpdated && (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-slate-500">
               Atualizado em {formatDateTimeISOToBR(lastUpdated.toISOString())}
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData} aria-label="Recarregar">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchData}
+          aria-label="Recarregar"
+          className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
+        >
           <RefreshCw className="h-4 w-4 mr-2" /> Recarregar
         </Button>
       </div>
@@ -215,16 +257,21 @@ const Dashboard = () => {
         {statCardsTop.map((stat, index) => {
           const Icon = stat.icon
           return (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
+            <Card
+              key={index}
+              className="hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 border border-white/60 bg-white/90"
+            >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                    <p className="text-3xl font-bold text-gray-900">
+                    <p className="text-sm font-medium text-slate-600">{stat.title}</p>
+                    <p className="text-3xl font-bold text-slate-900">
                       {loading ? '—' : stat.value}
                     </p>
                   </div>
-                  <Icon className={`h-8 w-8 ${stat.color}`} />
+                  <div className="h-12 w-12 rounded-full bg-orange-50 flex items-center justify-center border border-orange-100">
+                    <Icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -237,16 +284,21 @@ const Dashboard = () => {
         {statCardsOP.map((stat, index) => {
           const Icon = stat.icon
           return (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
+            <Card
+              key={index}
+              className="hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 border border-white/60 bg-white/90"
+            >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                    <p className="text-3xl font-bold text-gray-900">
+                    <p className="text-sm font-medium text-slate-600">{stat.title}</p>
+                    <p className="text-3xl font-bold text-slate-900">
                       {loading ? '—' : stat.value}
                     </p>
                   </div>
-                  <Icon className={`h-8 w-8 ${stat.color}`} />
+                  <div className="h-12 w-12 rounded-full bg-orange-50 flex items-center justify-center border border-orange-100">
+                    <Icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -256,19 +308,19 @@ const Dashboard = () => {
 
       {/* Ações rápidas */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ações Rápidas</h2>
+        <h2 className="text-xl font-semibold text-slate-900 mb-4">Ações Rápidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action, index) => {
             const Icon = action.icon
             return (
               <Link key={index} to={action.href}>
-                <Card className="hover:shadow-lg transition-all duration-200 hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <Card className="hover:shadow-lg transition-all duration-200 hover:scale-105 cursor-pointer border border-white/60 bg-white/95 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-orange-500">
                   <CardContent className="p-6 text-center">
-                    <div className={`inline-flex p-3 rounded-full text-white mb-4 ${action.color}`}>
+                    <div className={`inline-flex p-3 rounded-full text-white mb-4 shadow-md shadow-orange-500/40 ${action.color}`}>
                       <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">{action.title}</h3>
-                    <p className="text-sm text-gray-600">{action.description}</p>
+                    <h3 className="font-semibold text-slate-900 mb-2">{action.title}</h3>
+                    <p className="text-sm text-slate-600">{action.description}</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -280,50 +332,67 @@ const Dashboard = () => {
       {/* OPs pendentes */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">OPs Pendentes</h2>
+          <h2 className="text-xl font-semibold text-slate-900">OPs Pendentes</h2>
           <Link to="/ops">
-            <Button variant="outline" size="sm">Ver OPs</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
+            >
+              Ver OPs
+            </Button>
           </Link>
         </div>
 
-        <Card>
+        <Card className="border border-white/60 bg-white/95">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-orange-50/70">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OP</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lote</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progresso</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criada em</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">OP</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Produto</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Lote</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Progresso</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Saldo Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Criada em</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-100">
                   {loading && pendingOps.length === 0 && (
-                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">Carregando…</td></tr>
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-sm text-slate-500">
+                        Carregando…
+                      </td>
+                    </tr>
                   )}
                   {!loading && pendingOps.length === 0 && (
-                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">Nenhuma OP pendente.</td></tr>
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-sm text-slate-500">
+                        Nenhuma OP pendente.
+                      </td>
+                    </tr>
                   )}
                   {pendingOps.map(op => (
-                    <tr key={op.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{op.numero}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{op.produto}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{op.lote}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <tr key={op.id} className="hover:bg-orange-50/40">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{op.numero}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{op.produto}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{op.lote}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         <div className="w-48">
-                          <div className="h-2 bg-gray-200 rounded">
-                            <div className="h-2 bg-blue-600 rounded" style={{ width: `${op.progresso.toFixed(0)}%` }} />
+                          <div className="h-2 bg-slate-200 rounded">
+                            <div
+                              className="h-2 bg-orange-500 rounded transition-all"
+                              style={{ width: `${op.progresso.toFixed(0)}%` }}
+                            />
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">{op.progresso.toFixed(0)}%</div>
+                          <div className="text-xs text-slate-500 mt-1">{op.progresso.toFixed(0)}%</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {fmtG(op.restante)} (restante)
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {formatDateTimeISOToBR(op.criada_em)}
                       </td>
                     </tr>
@@ -338,56 +407,62 @@ const Dashboard = () => {
       {/* Últimas pesagens */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Últimas Pesagens</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Últimas Pesagens</h2>
           <Link to="/historico">
-            <Button variant="outline" size="sm">Ver Todas</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
+            >
+              Ver Todas
+            </Button>
           </Link>
         </div>
-        <Card>
+        <Card className="border border-white/60 bg-white/95">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-orange-50/70">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matéria-Prima</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Peso Líquido</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pesador</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Produto</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Matéria-Prima</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Peso Líquido</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Data/Hora</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Pesador</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-100">
                   {loading && ultimasPesagens.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-500">
                         Carregando…
                       </td>
                     </tr>
                   )}
                   {!loading && ultimasPesagens.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-500">
                         Nenhuma pesagem encontrada.
                       </td>
                     </tr>
                   )}
                   {ultimasPesagens.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{p.produto}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.materiaPrima}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <tr key={p.id} className="hover:bg-orange-50/40">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{p.produto}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{p.materiaPrima}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         <div className="flex items-center">
-                          <Weight className="h-4 w-4 mr-1 text-gray-400" />
+                          <Weight className="h-4 w-4 mr-1 text-orange-400" />
                           {p.pesoLiquido == null ? '-' : fmtG(p.pesoLiquido)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1 text-gray-400" />
+                          <Clock className="h-4 w-4 mr-1 text-orange-400" />
                           {p.data}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.pesador}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{p.pesador}</td>
                     </tr>
                   ))}
                 </tbody>
