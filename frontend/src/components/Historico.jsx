@@ -315,13 +315,19 @@ const Historico = () => {
   const mpSelecionada = filtros.materiaPrima ? filtros.materiaPrima : 'Todas'
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <History className="h-8 w-8 text-green-600" />
+      <div className="flex items-center gap-3 border-b pb-4">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+          <History className="h-6 w-6 text-orange-600" />
+        </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Histórico de Pesagens</h1>
-          <p className="text-gray-600">Consulte e gerencie as pesagens registradas</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            Histórico de Pesagens
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Consulte e gerencie as pesagens registradas.
+          </p>
         </div>
       </div>
 
@@ -394,26 +400,48 @@ const Historico = () => {
 
             <div className="space-y-2 min-w-0">
               <Label htmlFor="op">OP</Label>
-              <Input id="op" placeholder="Buscar por OP" value={filtros.op} onChange={(e) => handleFiltroChange('op', e.target.value)} />
+              <Input
+                id="op"
+                placeholder="Buscar por OP"
+                value={filtros.op}
+                onChange={(e) => handleFiltroChange('op', e.target.value)}
+              />
             </div>
 
             <div className="space-y-2 min-w-0">
               <Label htmlFor="pesador">Pesador</Label>
-              <Input id="pesador" placeholder="Buscar por pesador" value={filtros.pesador} onChange={(e) => handleFiltroChange('pesador', e.target.value)} />
+              <Input
+                id="pesador"
+                placeholder="Buscar por pesador"
+                value={filtros.pesador}
+                onChange={(e) => handleFiltroChange('pesador', e.target.value)}
+              />
             </div>
 
             <div className="space-y-2 min-w-0">
               <Label htmlFor="dataInicio">Data Início</Label>
-              <Input id="dataInicio" type="date" value={filtros.dataInicio} onChange={(e) => handleFiltroChange('dataInicio', e.target.value)} />
+              <Input
+                id="dataInicio"
+                type="date"
+                value={filtros.dataInicio}
+                onChange={(e) => handleFiltroChange('dataInicio', e.target.value)}
+              />
             </div>
 
             <div className="space-y-2 min-w-0">
               <Label htmlFor="dataFim">Data Fim</Label>
-              <Input id="dataFim" type="date" value={filtros.dataFim} onChange={(e) => handleFiltroChange('dataFim', e.target.value)} />
+              <Input
+                id="dataFim"
+                type="date"
+                value={filtros.dataFim}
+                onChange={(e) => handleFiltroChange('dataFim', e.target.value)}
+              />
             </div>
 
             <div className="flex items-end">
-              <Button variant="outline" onClick={limparFiltros} className="w-full">Limpar Filtros</Button>
+              <Button variant="outline" onClick={limparFiltros} className="w-full">
+                Limpar Filtros
+              </Button>
             </div>
           </div>
           {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
@@ -421,7 +449,7 @@ const Historico = () => {
       </Card>
 
       {/* Tabela + Paginação */}
-      <Card>
+      <Card className="shadow-sm border-t-4 border-orange-400/80">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
@@ -438,19 +466,27 @@ const Historico = () => {
               <table className="min-w-[880px] w-full">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
-                    <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2 text-center tracking-wider w-[180px]">Data/Hora</th>
+                    <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2 text-center tracking-wider w-[180px]">
+                      Data/Hora
+                    </th>
                     <th className="px-4 py-2 text-center tracking-wider">Produto</th>
                     <th className="px-4 py-2 text-center tracking-wider hidden lg:table-cell">MP</th>
                     <th className="px-4 py-2 text-center tracking-wider">OP</th>
                     <th className="px-4 py-2 text-center tracking-wider hidden md:table-cell">Pesador</th>
                     <th className="px-4 py-2 text-center tracking-wider hidden lg:table-cell">Pesos (g)</th>
-                    <th className="sticky right-0 z-20 bg-gray-50 px-4 py-2 text-center tracking-wider w-[120px]">Ações</th>
+                    <th className="sticky right-0 z-20 bg-gray-50 px-4 py-2 text-center tracking-wider w-[120px]">
+                      Ações
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody className="bg-white divide-y divide-gray-200">
                   {!loading && pageItems.length > 0 && pageItems.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50" onDoubleClick={() => handleVerDetalhes(p.id)}>
+                    <tr
+                      key={p.id}
+                      className="hover:bg-gray-50"
+                      onDoubleClick={() => handleVerDetalhes(p.id)}
+                    >
                       <td className="sticky left-0 z-10 bg-white px-4 py-3 text-sm text-gray-900 w-[180px]">
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-1 text-gray-400" />
@@ -459,11 +495,20 @@ const Historico = () => {
                       </td>
 
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        <span className="block max-w-[260px] truncate" title={p.produto}>{p.produto}</span>
+                        <span
+                          className="block max-w-[260px] truncate"
+                          title={p.produto}
+                        >
+                          {p.produto}
+                        </span>
                       </td>
 
                       <td className="px-4 py-3 text-sm text-gray-500 hidden lg:table-cell">
-                        <Badge variant="outline" className="max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap" title={p.materiaPrima}>
+                        <Badge
+                          variant="outline"
+                          className="max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap"
+                          title={p.materiaPrima}
+                        >
                           {p.materiaPrima}
                         </Badge>
                       </td>
@@ -473,7 +518,12 @@ const Historico = () => {
                       <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">
                         <div className="flex items-center justify-center">
                           <User className="h-4 w-4 mr-1 text-gray-400" />
-                          <span className="block max-w-[200px] truncate" title={p.pesador}>{p.pesador}</span>
+                          <span
+                            className="block max-w-[200px] truncate"
+                            title={p.pesador}
+                          >
+                            {p.pesador}
+                          </span>
                         </div>
                       </td>
 
@@ -499,15 +549,31 @@ const Historico = () => {
                               <Weight className="h-3 w-3 mr-1 text-green-600" />
                               <span className="text-xs font-semibold">L:</span>
                             </span>
-                            <span className="text-xs font-semibold text-green-700 tabular-nums">{fmtG(p.liquido_g)}</span>
+                            <span className="text-xs font-semibold text-green-700 tabular-nums">
+                              {fmtG(p.liquido_g)}
+                            </span>
                           </div>
                         </div>
                       </td>
 
                       <td className="sticky right-0 z-10 bg-white px-4 py-3">
                         <div className="flex space-x-1 justify-end">
-                          <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(p.id)} className="text-blue-600 hover:text-blue-800"><Eye className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleGerarEtiqueta(p.id)} className="text-green-600 hover:text-green-800"><Printer className="h-4 w-4" /></Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleVerDetalhes(p.id)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleGerarEtiqueta(p.id)}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
 
                           {/* Editar apenas para supervisor/admin */}
                           {canEdit && (
@@ -541,10 +607,16 @@ const Historico = () => {
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700">{formatDateTime(p.dataHora)}</div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(p.id)}><Eye className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleGerarEtiqueta(p.id)}><Printer className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleVerDetalhes(p.id)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleGerarEtiqueta(p.id)}>
+                      <Printer className="h-4 w-4" />
+                    </Button>
                     {canEdit && (
-                      <Button variant="ghost" size="icon" onClick={() => handleEditar(p.id)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEditar(p.id)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -555,7 +627,9 @@ const Historico = () => {
                   <span>Pesador: <b>{p.pesador || '—'}</b></span>
                   <span>B: <b className="tabular-nums">{fmtG(p.bruto_g)} g</b></span>
                   <span>T: <b className="tabular-nums">{fmtG(p.tara_g)} g</b></span>
-                  <span className="col-span-2">L: <b className="text-green-700 tabular-nums">{fmtG(p.liquido_g)} g</b></span>
+                  <span className="col-span-2">
+                    L: <b className="text-green-700 tabular-nums">{fmtG(p.liquido_g)} g</b>
+                  </span>
                 </div>
               </div>
             ))}

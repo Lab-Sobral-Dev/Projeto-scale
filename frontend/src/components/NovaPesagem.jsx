@@ -396,16 +396,23 @@ const NovaPesagem = () => {
   const showLoteErro = !loteObrigatorioOK && triedSubmit
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Scale className="h-8 w-8 text-blue-600" />
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b pb-4">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+          <Scale className="h-6 w-6 text-orange-600" />
+        </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Nova Pesagem</h1>
-          <p className="text-gray-600">Registrar pesagem vinculada a uma OP e a um item da OP</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            Nova Pesagem
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Registrar pesagem vinculada a uma OP e a um item da OP.
+          </p>
         </div>
       </div>
 
-      <Card>
+      <Card className="shadow-sm border-t-4 border-orange-400/80">
         <CardHeader>
           <CardTitle>Dados da Pesagem</CardTitle>
           <CardDescription>
@@ -681,7 +688,11 @@ const NovaPesagem = () => {
             )}
 
             <div className="flex flex-wrap gap-3">
-              <Button type="submit" disabled={!canSave} className="flex items-center gap-2">
+              <Button
+                type="submit"
+                disabled={!canSave}
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600"
+              >
                 <Save className="h-4 w-4" />
                 {loading ? 'Salvando...' : 'Salvar'}
               </Button>
@@ -698,7 +709,12 @@ const NovaPesagem = () => {
                 Gerar Etiqueta
               </Button>
 
-              <Button type="button" variant="outline" onClick={handleLimparCampos} className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleLimparCampos}
+                className="flex items-center gap-2"
+              >
                 <RotateCcw className="h-4 w-4" />
                 Limpar
               </Button>

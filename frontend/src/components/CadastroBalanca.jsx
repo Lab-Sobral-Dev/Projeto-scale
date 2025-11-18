@@ -295,26 +295,34 @@ const CadastroBalanca = () => {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Weight className="h-8 w-8 text-emerald-600 shrink-0" />
+      <div className="flex items-center gap-3 border-b pb-4">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+          <Weight className="h-6 w-6 text-orange-600 shrink-0" />
+        </div>
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold text-gray-900 truncate">Cadastro de Balanças</h1>
-          <p className="text-gray-600">Gerencie as balanças usadas no sistema de pesagem</p>
+          <h1 className="text-3xl font-bold text-gray-900 truncate tracking-tight">
+            Cadastro de Balanças
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Gerencie as balanças usadas no sistema de pesagem.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Formulário */}
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden shadow-sm border-t-4 border-orange-400/80">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
               {editingId ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
               <span className="truncate">{editingId ? 'Editar Balança' : 'Nova Balança'}</span>
             </CardTitle>
             <CardDescription className="min-w-0">
-              {editingId ? 'Atualize os dados da balança' : 'Preencha os dados para cadastrar uma nova balança'}
+              {editingId
+                ? 'Atualize os dados da balança'
+                : 'Preencha os dados para cadastrar uma nova balança'}
             </CardDescription>
           </CardHeader>
 
@@ -346,7 +354,10 @@ const CadastroBalanca = () => {
 
               <div className="space-y-2">
                 <Label>Tipo de Conexão *</Label>
-                <Select value={formData.tipoConexao} onValueChange={(v) => handleChange('tipoConexao', v)}>
+                <Select
+                  value={formData.tipoConexao}
+                  onValueChange={(v) => handleChange('tipoConexao', v)}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
@@ -483,7 +494,11 @@ const CadastroBalanca = () => {
               )}
 
               <div className="flex flex-wrap gap-3">
-                <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600"
+                >
                   <Save className="h-4 w-4" />
                   {loading ? 'Salvando...' : (editingId ? 'Atualizar' : 'Salvar')}
                 </Button>
@@ -503,7 +518,7 @@ const CadastroBalanca = () => {
         </Card>
 
         {/* Lista */}
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden shadow-sm border-t-4 border-orange-400/80">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
@@ -536,7 +551,9 @@ const CadastroBalanca = () => {
                     {searchTerm ? 'Nenhuma balança encontrada' : 'Nenhuma balança cadastrada'}
                   </h3>
                   <p className="text-gray-500">
-                    {searchTerm ? 'Tente ajustar o termo de busca' : 'Cadastre a primeira balança usando o formulário ao lado'}
+                    {searchTerm
+                      ? 'Tente ajustar o termo de busca'
+                      : 'Cadastre a primeira balança usando o formulário ao lado'}
                   </p>
                 </div>
               ) : (
@@ -550,7 +567,10 @@ const CadastroBalanca = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 min-w-0">
                               <h3 className="font-medium text-gray-900 truncate">{b.nome}</h3>
-                              <Badge variant={b.ativo ? "default" : "secondary"} className="shrink-0">
+                              <Badge
+                                variant={b.ativo ? "default" : "secondary"}
+                                className="shrink-0"
+                              >
                                 {b.ativo ? 'Ativa' : 'Inativa'}
                               </Badge>
                             </div>
@@ -561,12 +581,15 @@ const CadastroBalanca = () => {
 
                             <p className="text-sm text-gray-500">
                               <span className="font-medium">Tipo:</span>{' '}
-                              {b.tipoConexao === 'ethernet' ? 'Ethernet' : (b.tipoConexao === 'serial' ? 'Serial' : 'USB')}
+                              {b.tipoConexao === 'ethernet'
+                                ? 'Ethernet'
+                                : (b.tipoConexao === 'serial' ? 'Serial' : 'USB')}
                             </p>
 
                             {b.tipoConexao === 'ethernet' ? (
                               <p className="text-sm text-gray-500 break-all">
-                                <span className="font-medium">IP/Porta:</span> {b.enderecoIp || '-'}{b.porta ? `:${b.porta}` : ''}
+                                <span className="font-medium">IP/Porta:</span>{' '}
+                                {b.enderecoIp || '-'}{b.porta ? `:${b.porta}` : ''}
                               </p>
                             ) : (
                               <p className="text-sm text-gray-500 break-all">
@@ -610,7 +633,9 @@ const CadastroBalanca = () => {
                               </Button>
                             ) : (
                               <Button
-                                type="button" variant="outline" size="sm"
+                                type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={cancelDeleteWithReason}
                                 className="text-gray-700"
                                 title="Cancelar exclusão"
@@ -666,7 +691,11 @@ const CadastroBalanca = () => {
                                   <Trash2 className="h-4 w-4" />
                                   {loading ? 'Excluindo...' : 'Confirmar exclusão'}
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={cancelDeleteWithReason}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={cancelDeleteWithReason}
+                                >
                                   Cancelar
                                 </Button>
                               </div>
