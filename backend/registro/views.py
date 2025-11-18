@@ -476,13 +476,13 @@ def gerar_etiqueta_pdf(request, pk):
 
     # Cabeçalho com logo
     logo_path = os.path.join(settings.BASE_DIR, 'registro', 'static', 'logo.png')
-    p.setFont("Helvetica-Bold", 12)
+    p.setFont("Helvetica-Bold", 11)
     titulo = "THEODORO F. SOBRAL"
 
     if os.path.exists(logo_path):
         logo = ImageReader(logo_path)
         logo_width = 20
-        logo_height = 20
+        logo_height = 26
         text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
         total_width = logo_width + 1 + text_width
         start_x = (width - total_width) / 2
