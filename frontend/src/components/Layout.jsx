@@ -212,8 +212,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${active
-                      ? 'bg-orange-500/10 text-orange-700 border border-orange-200 shadow-sm'
-                      : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
+                    ? 'bg-orange-500/10 text-orange-700 border border-orange-200 shadow-sm'
+                    : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
                     }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -236,7 +236,7 @@ const Layout = ({ user, onLogout }) => {
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white/90 backdrop-blur-sm border-r border-white/20 shadow-2xl rounded-r-3xl overflow-hidden">
+        <div className="flex flex-col flex-grow bg-white/90 backdrop-blur-sm border-r border-white/20 shadow-2xl overflow-hidden">
           <div className="relative flex h-16 items-center px-4 border-b border-white/20 bg-white/80">
             {/* Faixa laranja fina no topo da sidebar desktop, igual linguagem do login */}
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
@@ -245,10 +245,10 @@ const Layout = ({ user, onLogout }) => {
                 <img
                   src="/logo.png"
                   alt="Logo Scale"
-                  className="h-20 w-auto drop-shadow-md"
+                  className="h-14 w-auto drop-shadow-md"
                 />
               </div>
-              
+
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-3 py-4">
@@ -260,8 +260,8 @@ const Layout = ({ user, onLogout }) => {
                   key={item.name}
                   to={item.href}
                   className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${active
-                      ? 'bg-orange-500/10 text-orange-700 border border-orange-200 shadow-sm'
-                      : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
+                    ? 'bg-orange-500/10 text-orange-700 border border-orange-200 shadow-sm'
+                    : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
                     }`}
                 >
                   <Icon
