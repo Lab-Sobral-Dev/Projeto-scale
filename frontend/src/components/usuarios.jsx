@@ -493,14 +493,18 @@ export default function UsuariosAdmin() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b pb-4">
         <div className="flex items-center gap-3">
-          <Users className="h-8 w-8 text-blue-600" />
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+            <Users className="h-6 w-6 text-orange-600" />
+          </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Usuários</h1>
-            <p className="text-gray-600">Cadastre operadores (pesadores), supervisores e administradores; atribua papéis e telas.</p>
+            <p className="text-gray-600 text-sm md:text-base">
+              Cadastre operadores (pesadores), supervisores e administradores; atribua papéis e telas.
+            </p>
           </div>
         </div>
 
@@ -514,7 +518,7 @@ export default function UsuariosAdmin() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form de criação */}
-        <Card>
+        <Card className="shadow-sm border-t-4 border-orange-400/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5" />
@@ -678,7 +682,11 @@ export default function UsuariosAdmin() {
               </div>
 
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-              {success && <Alert className="border-green-200 bg-green-50"><AlertDescription className="text-green-800">{success}</AlertDescription></Alert>}
+              {success && (
+                <Alert className="border-green-200 bg-green-50">
+                  <AlertDescription className="text-green-800">{success}</AlertDescription>
+                </Alert>
+              )}
 
               <div className="flex items-center gap-3">
                 <Button type="submit" disabled={loading || !canSubmit} className="flex items-center gap-2">
@@ -698,7 +706,7 @@ export default function UsuariosAdmin() {
         </Card>
 
         {/* Lista de usuários */}
-        <Card>
+        <Card className="shadow-sm border-t-4 border-orange-400/80">
           <CardHeader>
             <CardTitle>Usuários Cadastrados ({users.length})</CardTitle>
             <CardDescription>Gerencie o papel e ações de segurança</CardDescription>

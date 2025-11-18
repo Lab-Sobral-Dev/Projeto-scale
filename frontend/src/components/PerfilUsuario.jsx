@@ -169,9 +169,9 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
   if (loading) {
     return (
-      <div className="space-y-6" aria-busy="true" aria-live="polite">
+      <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50" aria-busy="true" aria-live="polite">
         <div className="h-8 w-64 bg-gray-200 rounded animate-pulse" />
-        <Card>
+        <Card className="shadow-sm border-t-4 border-orange-400/80">
           <CardHeader>
             <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
             <div className="h-4 w-72 bg-gray-100 rounded mt-2 animate-pulse" />
@@ -186,7 +186,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
   if (error) {
     return (
-      <div className="space-y-4" role="status" aria-live="polite">
+      <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-4 bg-gray-50/50" role="status" aria-live="polite">
         <p className="text-red-600 text-sm">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Tentar novamente
@@ -198,19 +198,21 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
   const badge = getUserTypeBadge(user?.tipo)
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
       {/* Header com botões condicionais (Usuários + Backups para admin) */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 border-b pb-4">
         <div className="flex items-center gap-3">
-          <User className="h-8 w-8 text-blue-600" />
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+            <User className="h-6 w-6 text-orange-600" />
+          </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Perfil do Usuário</h1>
-            <p className="text-gray-600">Informações da conta e configurações</p>
+            <p className="text-gray-600 text-sm md:text-base">Informações da conta e configurações</p>
           </div>
         </div>
 
         {user?.tipo === 'admin' && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button asChild className="flex items-center gap-2">
               <Link to="/usuarios">
                 <UserPlus className="h-4 w-4" />
@@ -229,7 +231,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Informações do Usuário */}
-        <Card>
+        <Card className="shadow-sm border-t-4 border-orange-400/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
@@ -248,32 +250,32 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 text-sm">
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Nome Completo</span>
-                <span className="text-sm text-gray-900">{user?.nome || 'Não informado'}</span>
+                <span className="font-medium text-gray-600">Nome Completo</span>
+                <span className="text-gray-900">{user?.nome || 'Não informado'}</span>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Usuário</span>
-                <span className="text-sm text-gray-900">{user?.usuario || 'Não informado'}</span>
+                <span className="font-medium text-gray-600">Usuário</span>
+                <span className="text-gray-900">{user?.usuario || 'Não informado'}</span>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Tipo de Usuário</span>
+                <span className="font-medium text-gray-600">Tipo de Usuário</span>
                 <Badge variant={badge.variant}>{badge.label}</Badge>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">ID do Usuário</span>
-                <span className="text-sm text-gray-900">#{user?.id || 'N/A'}</span>
+                <span className="font-medium text-gray-600">ID do Usuário</span>
+                <span className="text-gray-900">#{user?.id || 'N/A'}</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Sessão Atual */}
-        <Card>
+        <Card className="shadow-sm border-t-4 border-orange-400/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
@@ -281,37 +283,41 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
             </CardTitle>
             <CardDescription>Informações sobre a sessão ativa</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 text-sm">
             <div className="space-y-4">
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Data de Acesso</span>
+                <span className="font-medium text-gray-600">Data de Acesso</span>
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-900">{currentDate}</span>
+                  <span className="text-gray-900">{currentDate}</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Hora Atual</span>
+                <span className="font-medium text-gray-600">Hora Atual</span>
                 <div className="flex items-center gap-1">
                   <Clock className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-900">{currentTime}</span>
+                  <span className="text-gray-900">{currentTime}</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Status da Sessão</span>
+                <span className="font-medium text-gray-600">Status da Sessão</span>
                 <Badge variant="default">Ativa</Badge>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Tipo de Autenticação</span>
-                <span className="text-sm text-gray-900">JWT Token</span>
+                <span className="font-medium text-gray-600">Tipo de Autenticação</span>
+                <span className="text-gray-900">JWT Token</span>
               </div>
             </div>
 
             <div className="pt-4">
-              <Button onClick={() => handleLogout(true)} variant="destructive" className="w-full flex items-center gap-2">
+              <Button
+                onClick={() => handleLogout(true)}
+                variant="destructive"
+                className="w-full flex items-center gap-2"
+              >
                 <LogOut className="h-4 w-4" />
                 Sair do Sistema
               </Button>
@@ -321,7 +327,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
       </div>
 
       {/* Telas permitidas (labels ao invés de codes) */}
-      <Card>
+      <Card className="shadow-sm border-t-4 border-orange-400/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5" />
@@ -329,13 +335,17 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
           </CardTitle>
           <CardDescription>Conjunto efetivo de telas habilitadas para este usuário</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+        <CardContent className="flex flex-wrap gap-2 text-sm">
           {user?.allowedScreens?.length
             ? user.allowedScreens.map(code => {
               const label = screenLabels[code] || code
-              return <Badge key={code} variant="secondary">{label}</Badge>
+              return (
+                <Badge key={code} variant="secondary">
+                  {label}
+                </Badge>
+              )
             })
-            : <span className="text-sm text-gray-500">Nenhuma tela atribuída.</span>}
+            : <span className="text-gray-500">Nenhuma tela atribuída.</span>}
         </CardContent>
       </Card>
     </div>
