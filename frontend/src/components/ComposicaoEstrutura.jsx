@@ -273,29 +273,34 @@ const ComposicaoEstrutura = () => {
     const goLast = () => setPage(totalPages)
 
     return (
-        // ⬇️ troquei para min-h e removi travas duras
         <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
             <header className="flex items-center gap-3 border-b pb-4">
-                <Button variant="outline" size="sm" onClick={() => navigate('/estruturas')} className="gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/estruturas')}
+                    className="gap-2"
+                >
                     <ArrowLeft className="h-4 w-4" /> Voltar
                 </Button>
                 <div className="min-w-0">
-                    <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight truncate">Composição da Estrutura</h1>
+                    <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight truncate">
+                        Composição da Estrutura
+                    </h1>
                     <p className="text-sm text-muted-foreground truncate">
                         Gerencie as matérias-primas desta estrutura.
                     </p>
                 </div>
             </header>
 
-            {/* ⬇️ igual à página de estruturas: linhas automáticas */}
             <div className="grid grid-cols-1 gap-6 auto-rows-max">
                 {/* Info da estrutura + formulário de item */}
-                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4">
+                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-orange-400/80">
                     <CardHeader className="sticky top-0 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                                    <Beaker className="h-5 w-5 text-emerald-600 shrink-0" />
+                                    <Beaker className="h-5 w-5 text-orange-600 shrink-0" />
                                     <span className="truncate">Estrutura</span>
                                 </CardTitle>
                                 <CardDescription className="truncate">
@@ -307,30 +312,43 @@ const ComposicaoEstrutura = () => {
                                 </CardDescription>
                             </div>
                             <div className="shrink-0 text-right">
-                                <span className="block text-xs text-muted-foreground">Lote Total (g)</span>
-                                <div className="font-mono text-lg font-bold text-gray-800">{totalLote.toLocaleString('pt-BR')}</div>
+                                <span className="block text-xs text-muted-foreground">
+                                    Lote Total (g)
+                                </span>
+                                <div className="font-mono text-lg font-bold text-gray-800">
+                                    {totalLote.toLocaleString('pt-BR')}
+                                </div>
                             </div>
                         </div>
                     </CardHeader>
 
-                    {/* ⬇️ limitei a altura do form pra liberar viewport pra lista */}
                     <CardContent className="p-4 max-h-[24vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-3">
                             <div className="text-sm text-gray-600 flex items-center gap-2">
-                                <Link2 className="h-4 w-4 text-emerald-600" />
+                                <Link2 className="h-4 w-4 text-orange-600" />
                                 {estrutura?.ativo ? (
-                                    <Badge className="bg-emerald-100 text-emerald-700">Ativa</Badge>
+                                    <Badge className="bg-orange-100 text-orange-700 border border-orange-200">
+                                        Ativa
+                                    </Badge>
                                 ) : (
                                     <Badge variant="secondary">Inativa</Badge>
                                 )}
                             </div>
-                            <Button variant="outline" size="sm" onClick={carregarItens} className="gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={carregarItens}
+                                className="gap-2"
+                            >
                                 <RefreshCw className="h-4 w-4" /> Recarregar Itens
                             </Button>
                         </div>
 
                         {/* Form Itens */}
-                        <form onSubmit={handleSubmitItem} className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3">
+                        <form
+                            onSubmit={handleSubmitItem}
+                            className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3"
+                        >
                             <div className="space-y-2 col-span-full md:col-span-2 xl:col-span-2 min-w-0">
                                 <Label className="text-sm font-medium">Matéria-prima *</Label>
                                 <Select
@@ -348,7 +366,9 @@ const ComposicaoEstrutura = () => {
                                             <SelectItem key={mp.id} value={String(mp.id)}>
                                                 <span className="inline-flex gap-2 items-baseline max-w-full">
                                                     <span className="truncate max-w-[200px]">{mp.nome}</span>
-                                                    <span className="text-xs text-gray-500 shrink-0">({mp.codigo_interno})</span>
+                                                    <span className="text-xs text-gray-500 shrink-0">
+                                                        ({mp.codigo_interno})
+                                                    </span>
                                                 </span>
                                             </SelectItem>
                                         ))}
@@ -357,7 +377,9 @@ const ComposicaoEstrutura = () => {
                             </div>
 
                             <div className="space-y-2 col-span-full md:col-span-1 xl:col-span-1">
-                                <Label htmlFor="qtd" className="text-sm font-medium">Qtd p/ lote (g) *</Label>
+                                <Label htmlFor="qtd" className="text-sm font-medium">
+                                    Qtd p/ lote (g) *
+                                </Label>
                                 <Input
                                     id="qtd"
                                     inputMode="decimal"
@@ -369,14 +391,23 @@ const ComposicaoEstrutura = () => {
                             </div>
 
                             <div className="flex items-end gap-2 pt-1 col-span-full">
-                                <Button type="submit" disabled={!estrutura || loadingItens} className="flex items-center gap-2 h-9">
+                                <Button
+                                    type="submit"
+                                    disabled={!estrutura || loadingItens}
+                                    className="flex items-center gap-2 h-9"
+                                >
                                     <Save className="h-4 w-4" />
                                     {editingItemId ? 'Atualizar Item' : 'Adicionar Item'}
                                 </Button>
                                 {editingItemId && (
                                     <Button
-                                        type="button" variant="outline" size="sm"
-                                        onClick={() => { setEditingItemId(null); setFormItem({ materiaPrimaId: '', quantidadePorLote: '' }) }}
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setEditingItemId(null)
+                                            setFormItem({ materiaPrimaId: '', quantidadePorLote: '' })
+                                        }}
                                         className="h-9"
                                     >
                                         Cancelar
@@ -393,7 +424,9 @@ const ComposicaoEstrutura = () => {
                                     )}
                                     {success && (
                                         <Alert className="border-green-300 bg-green-50">
-                                            <AlertDescription className="text-green-800">{success}</AlertDescription>
+                                            <AlertDescription className="text-green-800">
+                                                {success}
+                                            </AlertDescription>
                                         </Alert>
                                     )}
                                 </div>
@@ -402,10 +435,12 @@ const ComposicaoEstrutura = () => {
                     </CardContent>
                 </Card>
 
-                {/* Lista de Itens — ⬇️ altura generosa + linhas mais compactas */}
+                {/* Lista de Itens */}
                 <Card className="flex flex-col overflow-hidden shadow-lg min-h-[56vh]">
                     <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
-                        <CardTitle className="text-lg font-semibold">Itens da Composição</CardTitle>
+                        <CardTitle className="text-lg font-semibold">
+                            Itens da Composição
+                        </CardTitle>
                         <CardDescription>
                             {estrutura ? 'Edite ou remova itens conforme necessário.' : 'Carregando...'}
                         </CardDescription>
@@ -429,7 +464,10 @@ const ComposicaoEstrutura = () => {
                         ) : (
                             <div className="divide-y divide-gray-100">
                                 {pageItems.map(i => (
-                                    <div key={i.id} className="p-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                    <div
+                                        key={i.id}
+                                        className="p-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                    >
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2 mb-1 min-w-0">
                                                 <span className="font-medium text-gray-800 truncate max-w-[320px]">
@@ -440,12 +478,18 @@ const ComposicaoEstrutura = () => {
                                                 </Badge>
                                             </div>
                                             <div className="text-sm text-gray-600">
-                                                Quantidade: <span className="font-mono font-semibold text-gray-900">{i.quantidadePorLote}</span> g
+                                                Quantidade:{' '}
+                                                <span className="font-mono font-semibold text-gray-900">
+                                                    {i.quantidadePorLote}
+                                                </span>{' '}
+                                                g
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">
                                             <Button
-                                                type="button" variant="ghost" size="icon"
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
                                                 aria-label={`Editar item ${i.materiaPrima?.nome || ''}`}
                                                 onClick={() => handleEditarItem(i)}
                                                 className="text-blue-600 hover:bg-blue-50 h-7 w-7"
@@ -453,7 +497,9 @@ const ComposicaoEstrutura = () => {
                                                 <Edit className="h-4 w-4" />
                                             </Button>
                                             <Button
-                                                type="button" variant="ghost" size="icon"
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
                                                 aria-label={`Excluir item ${i.materiaPrima?.nome || ''}`}
                                                 onClick={() => handleExcluirItem(i.id)}
                                                 className="text-red-600 hover:bg-red-50 h-7 w-7"
@@ -471,42 +517,90 @@ const ComposicaoEstrutura = () => {
                     <div className="p-4 border-t text-sm text-gray-700 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex flex-col md:flex-row md:items-center md:gap-2">
                             <span>
-                                {totalItems > 0
-                                    ? <>Mostrando <span className="font-medium">{startIndex + 1}</span>–<span className="font-medium">{endIndex}</span> de <span className="font-medium">{totalItems}</span> itens</>
-                                    : '0 resultados'}
+                                {totalItems > 0 ? (
+                                    <>
+                                        Mostrando{' '}
+                                        <span className="font-medium">{startIndex + 1}</span>–
+                                        <span className="font-medium">{endIndex}</span> de{' '}
+                                        <span className="font-medium">{totalItems}</span> itens
+                                    </>
+                                ) : (
+                                    '0 resultados'
+                                )}
                             </span>
                             <span className="hidden md:inline text-gray-400">•</span>
-                            <span>Página <span className="font-medium">{Math.min(page, totalPages)}</span> de <span className="font-medium">{totalPages}</span></span>
+                            <span>
+                                Página <span className="font-medium">{Math.min(page, totalPages)}</span> de{' '}
+                                <span className="font-medium">{totalPages}</span>
+                            </span>
                             <span className="hidden md:inline text-gray-400">•</span>
-                            <span>Lote total: <span className="font-mono font-bold text-gray-900">{totalLote.toLocaleString('pt-BR')} g</span></span>
+                            <span>
+                                Lote total:{' '}
+                                <span className="font-mono font-bold text-gray-900">
+                                    {totalLote.toLocaleString('pt-BR')} g
+                                </span>
+                            </span>
                         </div>
 
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2">
                                 <span className="text-gray-600">Por página:</span>
-                                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                                <Select
+                                    value={String(pageSize)}
+                                    onValueChange={(v) => setPageSize(Number(v))}
+                                >
                                     <SelectTrigger className="h-8 w-[88px]">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {[10, 25, 50, 100].map(n => (
-                                            <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                            <SelectItem key={n} value={String(n)}>
+                                                {n}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             <div className="flex items-center">
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-l-md" onClick={goFirst} disabled={page <= 1} title="Primeira página">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none rounded-l-md"
+                                    onClick={goFirst}
+                                    disabled={page <= 1}
+                                    title="Primeira página"
+                                >
                                     <ChevronsLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goPrev} disabled={page <= 1} title="Anterior">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none"
+                                    onClick={goPrev}
+                                    disabled={page <= 1}
+                                    title="Anterior"
+                                >
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goNext} disabled={page >= totalPages} title="Próxima">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none"
+                                    onClick={goNext}
+                                    disabled={page >= totalPages}
+                                    title="Próxima"
+                                >
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-r-md" onClick={goLast} disabled={page >= totalPages} title="Última página">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none rounded-r-md"
+                                    onClick={goLast}
+                                    disabled={page >= totalPages}
+                                    title="Última página"
+                                >
                                     <ChevronsRight className="h-4 w-4" />
                                 </Button>
                             </div>

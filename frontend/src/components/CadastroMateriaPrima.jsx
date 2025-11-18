@@ -281,27 +281,40 @@ const CadastroMateriaPrima = () => {
     return (mp.nome || '').toLowerCase().includes(t) || (mp.codigoInterno || '').toLowerCase().includes(t)
   })
 
+  const totalAtivas = materiasPrimas.filter(mp => mp.ativo).length
+  const totalInativas = materiasPrimas.length - totalAtivas
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Layers className="h-8 w-8 text-orange-600" />
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+          <Layers className="h-6 w-6 text-orange-600" />
+        </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cadastro de Matérias-Primas</h1>
-          <p className="text-gray-600">Gerencie as matérias-primas do sistema de pesagem</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            Cadastro de Matérias-Primas
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Gerencie as matérias-primas utilizadas nas ordens de produção e pesagens.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Formulário */}
-        <Card>
+        <Card className="shadow-sm border border-orange-100/60">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {editingId ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-              {editingId ? 'Editar Matéria-Prima' : 'Nova Matéria-Prima'}
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-orange-50">
+                {editingId ? <Edit className="h-4 w-4 text-orange-600" /> : <Plus className="h-4 w-4 text-orange-600" />}
+              </span>
+              <span>{editingId ? 'Editar Matéria-Prima' : 'Nova Matéria-Prima'}</span>
             </CardTitle>
             <CardDescription>
-              {editingId ? 'Atualize os dados da matéria-prima' : 'Preencha os dados para cadastrar uma nova matéria-prima'}
+              {editingId
+                ? 'Atualize os dados da matéria-prima cadastrada.'
+                : 'Preencha os campos abaixo para cadastrar uma nova matéria-prima.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -326,7 +339,9 @@ const CadastroMateriaPrima = () => {
                   placeholder="Ex.: MP-0001"
                   required
                 />
-                <p className="text-xs text-gray-500">Deve ser único (ex.: MP-0001, MP-0002...)</p>
+                <p className="text-xs text-gray-500">
+                  Deve ser único (ex.: MP-0001, MP-0002...).
+                </p>
               </div>
 
               <div className="flex items-center space-x-2">
@@ -335,7 +350,7 @@ const CadastroMateriaPrima = () => {
                   checked={formData.ativo}
                   onCheckedChange={(checked) => handleChange('ativo', checked)}
                 />
-                <Label htmlFor="ativo">Matéria-Prima Ativa</Label>
+                <Label htmlFor="ativo">Matéria-prima ativa</Label>
               </div>
 
               {error && (
@@ -351,7 +366,11 @@ const CadastroMateriaPrima = () => {
               )}
 
               <div className="flex gap-3">
-                <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
                   <Save className="h-4 w-4" />
                   {loading ? 'Salvando...' : (editingId ? 'Atualizar' : 'Salvar')}
                 </Button>
@@ -373,14 +392,16 @@ const CadastroMateriaPrima = () => {
         </Card>
 
         {/* Lista */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Matérias-Primas Cadastradas ({materiasPrimas.length})
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50">
+                <Search className="h-4 w-4 text-gray-600" />
+              </span>
+              <span>Matérias-primas cadastradas ({materiasPrimas.length})</span>
             </CardTitle>
             <CardDescription>
-              Lista de todas as matérias-primas cadastradas no sistema
+              Visualize, filtre e gerencie as matérias-primas do sistema.
             </CardDescription>
             <div className="mt-4">
               <Input
@@ -395,12 +416,14 @@ const CadastroMateriaPrima = () => {
             <div className="max-h-96 overflow-y-auto">
               {materiasPrimasFiltradas.length === 0 ? (
                 <div className="text-center py-8">
-                  <Layers className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <Layers className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
                     {searchTerm ? 'Nenhuma matéria-prima encontrada' : 'Nenhuma matéria-prima cadastrada'}
                   </h3>
-                  <p className="text-gray-500">
-                    {searchTerm ? 'Tente ajustar o termo de busca' : 'Cadastre a primeira matéria-prima usando o formulário ao lado'}
+                  <p className="text-gray-500 text-sm">
+                    {searchTerm
+                      ? 'Tente ajustar o termo de busca.'
+                      : 'Cadastre a primeira matéria-prima usando o formulário ao lado.'}
                   </p>
                 </div>
               ) : (
@@ -408,25 +431,36 @@ const CadastroMateriaPrima = () => {
                   {materiasPrimasFiltradas.map((materiaPrima) => {
                     const isDeleting = deleteTargetId === materiaPrima.id
                     return (
-                      <div key={materiaPrima.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                      <div key={materiaPrima.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-medium text-gray-900">{materiaPrima.nome}</h3>
-                              <Badge variant={materiaPrima.ativo ? "default" : "secondary"}>
+                              <h3 className="font-medium text-gray-900 truncate">
+                                {materiaPrima.nome}
+                              </h3>
+                              <Badge
+                                variant={materiaPrima.ativo ? "default" : "secondary"}
+                                className={materiaPrima.ativo
+                                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                  : "bg-gray-100 text-gray-700 border-gray-200"
+                                }
+                              >
                                 {materiaPrima.ativo ? 'Ativa' : 'Inativa'}
                               </Badge>
                             </div>
                             <p className="text-sm text-gray-500">
-                              Código: <span className="font-mono">{materiaPrima.codigoInterno || '-'}</span>
+                              Código:{' '}
+                              <span className="font-mono text-gray-800">
+                                {materiaPrima.codigoInterno || '-'}
+                              </span>
                             </p>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 shrink-0">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditar(materiaPrima)}
-                              className="text-blue-600 hover:text-blue-800"
+                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -435,7 +469,7 @@ const CadastroMateriaPrima = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleExcluirClick(materiaPrima.id)}
-                                className="text-red-600 hover:text-red-800"
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -513,36 +547,48 @@ const CadastroMateriaPrima = () => {
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{materiasPrimas.length}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {materiasPrimas.length}
+                </p>
               </div>
-              <Layers className="h-8 w-8 text-gray-400" />
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-50">
+                <Layers className="h-6 w-6 text-orange-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Ativas</p>
-                <p className="text-2xl font-bold text-green-600">{materiasPrimas.filter(mp => mp.ativo).length}</p>
+                <p className="text-2xl font-bold text-emerald-600">
+                  {totalAtivas}
+                </p>
               </div>
-              <Layers className="h-8 w-8 text-green-400" />
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+                <Layers className="h-6 w-6 text-emerald-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Inativas</p>
-                <p className="text-2xl font-bold text-red-600">{materiasPrimas.filter(mp => !mp.ativo).length}</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {totalInativas}
+                </p>
               </div>
-              <Layers className="h-8 w-8 text-red-400" />
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <Layers className="h-6 w-6 text-red-500" />
+              </div>
             </div>
           </CardContent>
         </Card>

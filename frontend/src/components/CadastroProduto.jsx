@@ -289,27 +289,44 @@ const CadastroProduto = () => {
     (produto.codigoInterno || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   )
 
+  const totalAtivos = produtos.filter(p => p.ativo).length
+  const totalInativos = produtos.length - totalAtivos
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Package className="h-8 w-8 text-purple-600" />
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+          <Package className="h-6 w-6 text-orange-600" />
+        </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cadastro de Produtos</h1>
-          <p className="text-gray-600">Gerencie os produtos do sistema de pesagem</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            Cadastro de Produtos
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Gerencie os produtos disponíveis nas ordens de produção e pesagens.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Formulário */}
-        <Card>
+        <Card className="shadow-sm border border-orange-100/60">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {editingId ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-              {editingId ? 'Editar Produto' : 'Novo Produto'}
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-orange-50">
+                {editingId ? (
+                  <Edit className="h-4 w-4 text-orange-600" />
+                ) : (
+                  <Plus className="h-4 w-4 text-orange-600" />
+                )}
+              </span>
+              <span>{editingId ? 'Editar Produto' : 'Novo Produto'}</span>
             </CardTitle>
             <CardDescription>
-              {editingId ? 'Atualize os dados do produto' : 'Preencha os dados para cadastrar um novo produto'}
+              {editingId
+                ? 'Atualize os dados do produto cadastrado.'
+                : 'Preencha os campos abaixo para cadastrar um novo produto.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -342,7 +359,7 @@ const CadastroProduto = () => {
                   checked={formData.ativo}
                   onCheckedChange={(checked) => handleChange('ativo', checked)}
                 />
-                <Label htmlFor="ativo">Produto Ativo</Label>
+                <Label htmlFor="ativo">Produto ativo</Label>
               </div>
 
               {error && (
@@ -358,7 +375,11 @@ const CadastroProduto = () => {
               )}
 
               <div className="flex gap-3">
-                <Button type="submit" disabled={loading} className="flex items-center gap-2">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
                   <Save className="h-4 w-4" />
                   {loading ? 'Salvando...' : (editingId ? 'Atualizar' : 'Salvar')}
                 </Button>
@@ -380,14 +401,16 @@ const CadastroProduto = () => {
         </Card>
 
         {/* Lista de Produtos */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Produtos Cadastrados ({produtos.length})
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50">
+                <Search className="h-4 w-4 text-gray-600" />
+              </span>
+              <span>Produtos cadastrados ({produtos.length})</span>
             </CardTitle>
             <CardDescription>
-              Lista de todos os produtos cadastrados no sistema
+              Lista de todos os produtos cadastrados no sistema.
             </CardDescription>
             <div className="mt-4">
               <Input
@@ -402,12 +425,14 @@ const CadastroProduto = () => {
             <div className="max-h-96 overflow-y-auto">
               {produtosFiltrados.length === 0 ? (
                 <div className="text-center py-8">
-                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
                     {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
                   </h3>
-                  <p className="text-gray-500">
-                    {searchTerm ? 'Tente ajustar o termo de busca' : 'Cadastre o primeiro produto usando o formulário ao lado'}
+                  <p className="text-gray-500 text-sm">
+                    {searchTerm
+                      ? 'Tente ajustar o termo de busca.'
+                      : 'Cadastre o primeiro produto usando o formulário ao lado.'}
                   </p>
                 </div>
               ) : (
@@ -415,26 +440,37 @@ const CadastroProduto = () => {
                   {produtosFiltrados.map((produto) => {
                     const isDeleting = deleteTargetId === produto.id
                     return (
-                      <div key={produto.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                      <div key={produto.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-medium text-gray-900">{produto.nome}</h3>
-                              <Badge variant={produto.ativo ? "default" : "secondary"}>
+                              <h3 className="font-medium text-gray-900 truncate">
+                                {produto.nome}
+                              </h3>
+                              <Badge
+                                variant={produto.ativo ? "default" : "secondary"}
+                                className={produto.ativo
+                                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                  : "bg-gray-100 text-gray-700 border-gray-200"
+                                }
+                              >
                                 {produto.ativo ? 'Ativo' : 'Inativo'}
                               </Badge>
                             </div>
                             <p className="text-sm text-gray-500">
-                              Código: <span className="font-mono">{produto.codigoInterno}</span>
+                              Código:{' '}
+                              <span className="font-mono text-gray-800">
+                                {produto.codigoInterno}
+                              </span>
                             </p>
                           </div>
 
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 shrink-0">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditar(produto)}
-                              className="text-blue-600 hover:text-blue-800"
+                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -444,7 +480,7 @@ const CadastroProduto = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleExcluirClick(produto.id)}
-                                className="text-red-600 hover:text-red-800"
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -517,6 +553,55 @@ const CadastroProduto = () => {
                   })}
                 </div>
               )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {produtos.length}
+                </p>
+              </div>
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-50">
+                <Package className="h-6 w-6 text-orange-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Ativos</p>
+                <p className="text-2xl font-bold text-emerald-600">
+                  {totalAtivos}
+                </p>
+              </div>
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+                <Package className="h-6 w-6 text-emerald-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Inativos</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {totalInativos}
+                </p>
+              </div>
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <Package className="h-6 w-6 text-red-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
