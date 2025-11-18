@@ -45,7 +45,7 @@ const CriarOP = () => {
         setEstruturas(normalize(estRes))
       } catch (e) {
         console.error(e)
-        setError('Falha ao carregar produtos/estruturas.')
+        setError('Falha ao carregar produtos e estruturas.')
       } finally {
         setLoading(false)
       }
@@ -56,11 +56,11 @@ const CriarOP = () => {
 
   const estruturasFiltradas = useMemo(() => {
     if (!form.produto) return estruturas
-    // Estrutura vem com produto aninhado; filtramos por id
     return estruturas.filter(e => e?.produto?.id?.toString() === form.produto.toString())
   }, [estruturas, form.produto])
 
-  const canSave = form.numero && form.produto && form.estrutura && form.lote && !loading
+  const canSave =
+    form.numero && form.produto && form.estrutura && form.lote && !loading
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -86,31 +86,60 @@ const CriarOP = () => {
     }
   }
 
+  const handleLimpar = () => {
+    setForm({ numero: '', produto: '', estrutura: '', lote: '', observacoes: '' })
+    setError('')
+    setSuccess('')
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Factory className="h-8 w-8 text-purple-600" />
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b pb-4">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+          <Factory className="h-6 w-6 text-orange-600" />
+        </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Criar Ordem de Produção</h1>
-          <p className="text-gray-600">Informe número, produto, estrutura e lote</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            Criar Ordem de Produção
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Informe número, produto, estrutura e lote. Os itens serão gerados
+            automaticamente.
+          </p>
         </div>
       </div>
 
-      <Card>
+      <Card className="shadow-sm border-t-4 border-orange-400/80">
         <CardHeader>
           <CardTitle>Nova OP</CardTitle>
-          <CardDescription>Após salvar, os itens da estrutura serão gerados</CardDescription>
+          <CardDescription>
+            Após salvar, a estrutura selecionada será expandida em itens de pesagem.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form
+            onSubmit={handleSubmit}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="numero">Número *</Label>
-              <Input id="numero" value={form.numero} onChange={e => handleChange('numero', e.target.value)} />
+              <Input
+                id="numero"
+                value={form.numero}
+                onChange={e => handleChange('numero', e.target.value)}
+                placeholder="Ex.: OP-2025-001"
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="lote">Lote *</Label>
-              <Input id="lote" value={form.lote} onChange={e => handleChange('lote', e.target.value)} />
+              <Input
+                id="lote"
+                value={form.lote}
+                onChange={e => handleChange('lote', e.target.value)}
+                placeholder="Ex.: L250826-01"
+              />
             </div>
 
             <div className="space-y-2">
@@ -123,16 +152,18 @@ const CriarOP = () => {
                 <SelectTrigger>
                   <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione'} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-64">
                   {produtos.map(p => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.nome}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Estrutura</Label>
+              <Label>Estrutura *</Label>
               <Select
                 value={form.estrutura ? String(form.estrutura) : undefined}
                 onValueChange={(v) => handleChange('estrutura', v)}
@@ -141,10 +172,10 @@ const CriarOP = () => {
                 <SelectTrigger>
                   <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione'} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-64">
                   {estruturasFiltradas.map(e => (
                     <SelectItem key={e.id} value={String(e.id)}>
-                      {e.descricao || 'Estrutura'} — {e?.produto?.nome || ''}
+                      {(e.descricao || 'Estrutura') + ' — ' + (e?.produto?.nome || '')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -153,30 +184,46 @@ const CriarOP = () => {
 
             <div className="col-span-1 md:col-span-2 space-y-2">
               <Label htmlFor="observacoes">Observações</Label>
-              <Input id="observacoes" value={form.observacoes} onChange={e => handleChange('observacoes', e.target.value)} />
+              <Input
+                id="observacoes"
+                value={form.observacoes}
+                onChange={e => handleChange('observacoes', e.target.value)}
+                placeholder="Informações adicionais sobre a OP (opcional)"
+              />
             </div>
 
             {error && (
               <div className="col-span-2">
-                <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               </div>
             )}
             {success && (
               <div className="col-span-2">
                 <Alert className="border-green-200 bg-green-50">
-                  <AlertDescription className="text-green-800">{success}</AlertDescription>
+                  <AlertDescription className="text-green-800">
+                    {success}
+                  </AlertDescription>
                 </Alert>
               </div>
             )}
 
-            <div className="col-span-2 flex gap-3">
-              <Button type="submit" disabled={!canSave} className="flex items-center gap-2">
-                <Save className="h-4 w-4" /> {loading ? 'Salvando...' : 'Salvar e Gerar Itens'}
+            <div className="col-span-2 flex gap-3 pt-2">
+              <Button
+                type="submit"
+                disabled={!canSave}
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600"
+              >
+                <Save className="h-4 w-4" />{' '}
+                {loading ? 'Salvando...' : 'Salvar e gerar itens'}
               </Button>
-              <Button type="button" variant="outline" onClick={() => {
-                setForm({ numero: '', produto: '', estrutura: '', lote: '', observacoes: '' })
-                setError(''); setSuccess('')
-              }} className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleLimpar}
+                className="flex items-center gap-2"
+              >
                 <ListChecks className="h-4 w-4" /> Limpar
               </Button>
             </div>

@@ -1,12 +1,26 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useEffect, useState, useMemo } from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from '@/components/ui/drawer'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter
+} from '@/components/ui/drawer'
 import { Factory, RefreshCw, PlusCircle } from 'lucide-react'
 import api from '@/services/api'
 import { Link } from 'react-router-dom'
@@ -41,7 +55,10 @@ const useIsMobile = () => {
 
 const ProgressoBar = ({ pct }) => (
   <div className="h-2 bg-muted rounded">
-    <div className="h-2 bg-primary rounded" style={{ width: `${Math.min(Math.max(pct,0),100)}%` }} />
+    <div
+      className="h-2 bg-orange-500 rounded"
+      style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
+    />
   </div>
 )
 
@@ -78,7 +95,7 @@ const Ops = () => {
     }
   }
 
-  useEffect(() => { load() /* eslint-disable react-hooks/exhaustive-deps */ }, [])
+  useEffect(() => { load() /* eslint-disable-line react-hooks/exhaustive-deps */ }, [])
 
   const opsFiltradas = useMemo(() => {
     const f1 = ops.filter(o => (filtroStatus === 'todas' ? true : o.status === filtroStatus))
@@ -136,9 +153,14 @@ const Ops = () => {
       {opSelecionada && (
         <div className="space-y-1">
           <div className="text-sm text-muted-foreground">
-            <span className="font-medium">Status:</span> {STATUS_LABEL[opSelecionada.status] || opSelecionada.status}
+            <span className="font-medium">Status:</span>{' '}
+            {STATUS_LABEL[opSelecionada.status] || opSelecionada.status}
             {opSelecionada.criada_em && (
-              <> • <span className="font-medium">Criada em:</span> {new Date(opSelecionada.criada_em).toLocaleString('pt-BR')}</>
+              <>
+                {' '}•{' '}
+                <span className="font-medium">Criada em:</span>{' '}
+                {new Date(opSelecionada.criada_em).toLocaleString('pt-BR')}
+              </>
             )}
           </div>
         </div>
@@ -160,7 +182,9 @@ const Ops = () => {
         )}
 
         {!loadingItens && itens.length === 0 && (
-          <p className="py-6 text-center text-muted-foreground">Sem itens para esta OP.</p>
+          <p className="py-6 text-center text-muted-foreground">
+            Sem itens para esta OP.
+          </p>
         )}
 
         {!loadingItens && itens.length > 0 && (
@@ -172,24 +196,35 @@ const Ops = () => {
               const pct = progresso(it)
 
               return (
-                <div key={it.id} className="rounded-md border p-4 space-y-3">
+                <div
+                  key={it.id}
+                  className="rounded-md border border-orange-100 bg-white p-4 space-y-3 shadow-sm"
+                >
                   <div className="text-sm font-medium">
-                    {it?.materia_prima?.codigo_interno ? `${it.materia_prima.codigo_interno} — ` : ''}
+                    {it?.materia_prima?.codigo_interno
+                      ? `${it.materia_prima.codigo_interno} — `
+                      : ''}
                     {it?.materia_prima?.nome || '—'}
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     <div className="rounded bg-muted/40 p-2">
                       <div className="text-muted-foreground">Necessário</div>
-                      <div className="font-semibold">{nec.toFixed(3)} {it.unidade}</div>
+                      <div className="font-semibold">
+                        {nec.toFixed(3)} {it.unidade}
+                      </div>
                     </div>
                     <div className="rounded bg-muted/40 p-2">
                       <div className="text-muted-foreground">Pesado</div>
-                      <div className="font-semibold">{pes.toFixed(3)} {it.unidade}</div>
+                      <div className="font-semibold">
+                        {pes.toFixed(3)} {it.unidade}
+                      </div>
                     </div>
                     <div className="rounded bg-muted/40 p-2">
                       <div className="text-muted-foreground">Restante</div>
-                      <div className="font-semibold">{rest.toFixed(3)} {it.unidade}</div>
+                      <div className="font-semibold">
+                        {rest.toFixed(3)} {it.unidade}
+                      </div>
                     </div>
                   </div>
 
@@ -210,22 +245,32 @@ const Ops = () => {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 border-b pb-4">
         <div className="flex items-center gap-3">
-          <Factory className="h-8 w-8 text-purple-600" />
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+            <Factory className="h-6 w-6 text-orange-600" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Ordens de Produção</h1>
-            <p className="text-gray-600">Criação, saldos e progresso por matéria-prima</p>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+              Ordens de Produção
+            </h1>
+            <p className="text-gray-600 text-sm">
+              Criação, saldos e progresso da pesagem por matéria-prima.
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={load} className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={load}
+            className="flex items-center gap-2"
+          >
             <RefreshCw className="h-4 w-4" /> {loading ? 'Atualizando…' : 'Atualizar'}
           </Button>
           <Link to="/ops/nova">
-            <Button className="flex items-center gap-2">
+            <Button className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600">
               <PlusCircle className="h-4 w-4" /> Nova OP
             </Button>
           </Link>
@@ -233,15 +278,20 @@ const Ops = () => {
       </div>
 
       {/* Filtros */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Pesquisar</CardTitle>
+          <CardTitle className="text-lg">Filtros de pesquisa</CardTitle>
+          <CardDescription>
+            Refine a lista por status, número, lote ou produto.
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todas">Todas</SelectItem>
                 <SelectItem value="aberta">Aberta</SelectItem>
@@ -262,11 +312,20 @@ const Ops = () => {
         </CardContent>
       </Card>
 
-      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      {/* Lista de OPs ocupa toda a largura */}
-      <Card>
-        <CardHeader><CardTitle>Lista</CardTitle></CardHeader>
+      {/* Lista de OPs */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>Ordens cadastradas</CardTitle>
+          <CardDescription>
+            Clique em uma linha para acompanhar o progresso de pesagem.
+          </CardDescription>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -283,22 +342,37 @@ const Ops = () => {
                 {opsFiltradas.map(o => (
                   <tr
                     key={o.id}
-                    className="border-b hover:bg-muted/50 cursor-pointer"
+                    className="border-b hover:bg-orange-50/50 cursor-pointer"
                     onClick={() => abrirDetalhe(o.id)}
-                    title="Toque para ver detalhes"
+                    title="Clique para ver detalhes"
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') abrirDetalhe(o.id)}}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') abrirDetalhe(o.id)
+                    }}
                   >
                     <td className="py-2">{o.numero}</td>
-                    <td className="max-w-[420px] truncate">{o?.produto?.nome || '—'}</td>
+                    <td className="max-w-[420px] truncate">
+                      {o?.produto?.nome || '—'}
+                    </td>
                     <td>{o.lote}</td>
                     <td>{STATUS_LABEL[o.status] || o.status}</td>
-                    <td>{o.criada_em ? new Date(o.criada_em).toLocaleString('pt-BR') : '—'}</td>
+                    <td>
+                      {o.criada_em
+                        ? new Date(o.criada_em).toLocaleString('pt-BR')
+                        : '—'}
+                    </td>
                   </tr>
                 ))}
                 {opsFiltradas.length === 0 && (
-                  <tr><td colSpan="5" className="py-6 text-center text-muted-foreground">Nenhuma OP encontrada</td></tr>
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-6 text-center text-muted-foreground"
+                    >
+                      Nenhuma OP encontrada.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -308,7 +382,10 @@ const Ops = () => {
 
       {/* Detalhe responsivo: Drawer no mobile, Dialog no desktop */}
       {isMobile ? (
-        <Drawer open={openDetalhe} onOpenChange={(open) => { if (!open) fecharDetalhe() }}>
+        <Drawer
+          open={openDetalhe}
+          onOpenChange={(open) => { if (!open) fecharDetalhe() }}
+        >
           <DrawerContent className="max-h-[92vh]">
             <DrawerHeader>
               <DrawerTitle>
@@ -318,7 +395,8 @@ const Ops = () => {
               </DrawerTitle>
               {opSelecionada && (
                 <DrawerDescription>
-                  Visualize saldos e acompanhe o progresso da pesagem por matéria-prima.
+                  Visualize saldos e acompanhe o progresso da pesagem por
+                  matéria-prima.
                 </DrawerDescription>
               )}
             </DrawerHeader>
@@ -328,12 +406,17 @@ const Ops = () => {
             </div>
 
             <DrawerFooter className="pt-2">
-              <Button variant="outline" onClick={fecharDetalhe}>Fechar</Button>
+              <Button variant="outline" onClick={fecharDetalhe}>
+                Fechar
+              </Button>
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
       ) : (
-        <Dialog open={openDetalhe} onOpenChange={(open) => { if (!open) fecharDetalhe() }}>
+        <Dialog
+          open={openDetalhe}
+          onOpenChange={(open) => { if (!open) fecharDetalhe() }}
+        >
           <DialogContent className="sm:max-w-5xl w-[95vw]">
             <DialogHeader>
               <DialogTitle>
@@ -343,7 +426,8 @@ const Ops = () => {
               </DialogTitle>
               {opSelecionada && (
                 <DialogDescription>
-                  Visualize saldos e acompanhe o progresso da pesagem por matéria-prima.
+                  Visualize saldos e acompanhe o progresso da pesagem por
+                  matéria-prima.
                 </DialogDescription>
               )}
             </DialogHeader>
@@ -351,7 +435,9 @@ const Ops = () => {
             <DetalheConteudo />
 
             <DialogFooter>
-              <Button variant="outline" onClick={fecharDetalhe}>Fechar</Button>
+              <Button variant="outline" onClick={fecharDetalhe}>
+                Fechar
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

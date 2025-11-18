@@ -1,4 +1,3 @@
-// src/pages/Estruturas.jsx
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -235,7 +234,7 @@ const Estruturas = () => {
                 }
                 const criado = await res.json().then(estruturaApiToUi)
                 setEstruturas(prev => [criado, ...prev])
-                setSuccess('Estrutura criado com sucesso.')
+                setSuccess('Estrutura criada com sucesso.')
                 setFormEstrutura({ produtoId: '', descricao: '', ativo: true })
             }
         } catch (err) {
@@ -348,11 +347,15 @@ const Estruturas = () => {
         <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
             {/* Header */}
             <header className="flex items-center gap-4 border-b pb-4">
-                <Boxes className="h-9 w-9 text-emerald-600 shrink-0" />
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                    <Boxes className="h-6 w-6 text-orange-600 shrink-0" />
+                </div>
                 <div className="min-w-0">
-                    <h1 className="text-3xl font-extrabold tracking-tight truncate">Gestão de Estruturas de Produtos</h1>
+                    <h1 className="text-3xl font-extrabold tracking-tight truncate">
+                        Gestão de Estruturas de Produtos
+                    </h1>
                     <p className="text-sm text-muted-foreground truncate">
-                        Cadastre e liste estruturas. Clique para abrir a página de composição.
+                        Cadastre as estruturas e clique para abrir a composição de matérias-primas.
                     </p>
                 </div>
             </header>
@@ -360,7 +363,7 @@ const Estruturas = () => {
             {/* Layout vertical: formulário + lista */}
             <div className="grid grid-cols-1 gap-6 auto-rows-max">
                 {/* Formulário */}
-                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4">
+                <Card className="flex flex-col overflow-hidden shadow-xl border-t-4 border-orange-400/80">
                     <CardHeader className="bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
@@ -374,17 +377,24 @@ const Estruturas = () => {
                             <div className="shrink-0 flex gap-2">
                                 {editingId && (
                                     <Button
-                                        type="button" variant="outline" size="sm"
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
                                         onClick={limparFormularioEstrutura}
                                         className="gap-2"
                                     >
                                         <X className="h-4 w-4" />
-                                        Cancelar Edição
+                                        Cancelar edição
                                     </Button>
                                 )}
-                                <Button type="submit" form="form-estrutura" size="sm" className="gap-2">
+                                <Button
+                                    type="submit"
+                                    form="form-estrutura"
+                                    size="sm"
+                                    className="gap-2"
+                                >
                                     <Save className="h-4 w-4" />
-                                    {editingId ? 'Atualizar Estrutura' : 'Salvar Estrutura'}
+                                    {editingId ? 'Atualizar estrutura' : 'Salvar estrutura'}
                                 </Button>
                             </div>
                         </div>
@@ -413,7 +423,9 @@ const Estruturas = () => {
                                             <SelectItem key={p.id} value={String(p.id)}>
                                                 <span className="inline-flex gap-2 items-baseline max-w-full">
                                                     <span className="truncate max-w-[260px]">{p.nome}</span>
-                                                    <span className="text-xs text-muted-foreground shrink-0">({p.codigo_interno})</span>
+                                                    <span className="text-xs text-muted-foreground shrink-0">
+                                                        ({p.codigo_interno})
+                                                    </span>
                                                 </span>
                                             </SelectItem>
                                         ))}
@@ -423,12 +435,14 @@ const Estruturas = () => {
 
                             {/* Descrição */}
                             <div className="space-y-2 col-span-1 md:col-span-2 min-w-0">
-                                <Label htmlFor="descricao" className="text-sm font-medium">Descrição (opcional)</Label>
+                                <Label htmlFor="descricao" className="text-sm font-medium">
+                                    Descrição (opcional)
+                                </Label>
                                 <Input
                                     id="descricao"
                                     value={formEstrutura.descricao}
                                     onChange={(e) => handleChangeEstrutura('descricao', e.target.value)}
-                                    placeholder="Ex.: Fórmula padrão, Versão 2, etc."
+                                    placeholder="Ex.: Fórmula padrão, revisão 2, etc."
                                     className="min-w-0"
                                 />
                             </div>
@@ -440,7 +454,9 @@ const Estruturas = () => {
                                     checked={formEstrutura.ativo}
                                     onCheckedChange={(checked) => handleChangeEstrutura('ativo', checked)}
                                 />
-                                <Label htmlFor="ativo" className="text-sm font-medium">Estrutura Ativa</Label>
+                                <Label htmlFor="ativo" className="text-sm font-medium">
+                                    Estrutura ativa
+                                </Label>
                             </div>
 
                             {(error || success) && (
@@ -452,7 +468,9 @@ const Estruturas = () => {
                                     )}
                                     {success && (
                                         <Alert className="border-green-300 bg-green-50">
-                                            <AlertDescription className="text-green-800">{success}</AlertDescription>
+                                            <AlertDescription className="text-green-800">
+                                                {success}
+                                            </AlertDescription>
                                         </Alert>
                                     )}
                                 </div>
@@ -464,12 +482,16 @@ const Estruturas = () => {
                 {/* Lista de Estruturas — com paginação e exclusão com motivo */}
                 <Card className="flex flex-col overflow-hidden shadow-lg min-h-[56vh]">
                     <CardHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 border-b p-4 shadow-sm">
-                        <CardTitle className="text-lg font-semibold">Catálogo de Estruturas</CardTitle>
-                        <CardDescription>Procure e clique para abrir a composição.</CardDescription>
+                        <CardTitle className="text-lg font-semibold">
+                            Catálogo de Estruturas
+                        </CardTitle>
+                        <CardDescription>
+                            Procure e clique para abrir a composição.
+                        </CardDescription>
 
                         <div className="mt-3 flex gap-2 items-center">
                             <Input
-                                placeholder="Buscar estruturas..."
+                                placeholder="Buscar por produto, código ou descrição..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full h-9 min-w-0"
@@ -479,7 +501,7 @@ const Estruturas = () => {
                                 variant="outline"
                                 onClick={carregarEstruturas}
                                 className="gap-2 shrink-0 h-9"
-                                title="Atualizar Lista"
+                                title="Atualizar lista"
                             >
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
@@ -500,7 +522,9 @@ const Estruturas = () => {
                                     {q ? 'Nenhuma estrutura encontrada' : 'Nenhuma estrutura cadastrada'}
                                 </h3>
                                 <p className="text-sm">
-                                    {q ? 'Tente ajustar o termo de busca.' : 'Use o formulário acima para criar a primeira estrutura.'}
+                                    {q
+                                        ? 'Tente ajustar o termo de busca.'
+                                        : 'Use o formulário acima para criar a primeira estrutura.'}
                                 </p>
                             </div>
                         ) : (
@@ -510,7 +534,7 @@ const Estruturas = () => {
                                     return (
                                         <div
                                             key={e.id}
-                                            className="relative p-3 transition-colors hover:bg-emerald-50/30 border-l-4 border-transparent cursor-pointer"
+                                            className="relative p-3 transition-colors hover:bg-orange-50/30 border-l-4 border-transparent cursor-pointer"
                                             onClick={() => navigate(`/estruturas/${e.id}`)}
                                             role="button"
                                         >
@@ -522,13 +546,19 @@ const Estruturas = () => {
                                                         </h3>
                                                         <Badge
                                                             variant={e.ativo ? 'default' : 'secondary'}
-                                                            className={`shrink-0 text-xs font-medium ${e.ativo ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'}`}
+                                                            className={`shrink-0 text-xs font-medium ${e.ativo
+                                                                    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
+                                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                                                                }`}
                                                         >
                                                             {e.ativo ? 'Ativa' : 'Inativa'}
                                                         </Badge>
                                                     </div>
                                                     <p className="text-xs text-gray-500">
-                                                        Cód. Produto: <span className="font-mono text-gray-700">{e.produto?.codigo_interno}</span>
+                                                        Cód. Produto:{' '}
+                                                        <span className="font-mono text-gray-700">
+                                                            {e.produto?.codigo_interno}
+                                                        </span>
                                                     </p>
                                                     {e.descricao && (
                                                         <p className="text-xs text-gray-500 truncate mt-0.5">
@@ -538,7 +568,9 @@ const Estruturas = () => {
                                                 </div>
                                                 <div className="flex gap-1 shrink-0 mt-1">
                                                     <Button
-                                                        type="button" variant="ghost" size="icon"
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
                                                         onClick={(ev) => { ev.stopPropagation(); handleEditarEstrutura(e) }}
                                                         className="text-blue-600 hover:bg-blue-50 h-7 w-7"
                                                         aria-label={`Editar estrutura de ${e.produto?.nome}`}
@@ -549,7 +581,9 @@ const Estruturas = () => {
 
                                                     {!isDeleting ? (
                                                         <Button
-                                                            type="button" variant="ghost" size="icon"
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
                                                             onClick={(ev) => { ev.stopPropagation(); handleExcluirClick(e.id) }}
                                                             className="text-red-600 hover:bg-red-50 h-7 w-7"
                                                             aria-label={`Excluir estrutura de ${e.produto?.nome}`}
@@ -559,7 +593,9 @@ const Estruturas = () => {
                                                         </Button>
                                                     ) : (
                                                         <Button
-                                                            type="button" variant="outline" size="sm"
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
                                                             onClick={(ev) => { ev.stopPropagation(); handleCancelarExclusao() }}
                                                             className="text-gray-700"
                                                             title="Cancelar exclusão"
@@ -570,7 +606,9 @@ const Estruturas = () => {
                                                     )}
 
                                                     <Button
-                                                        type="button" variant="outline" size="sm"
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
                                                         onClick={(ev) => { ev.stopPropagation(); navigate(`/estruturas/${e.id}`) }}
                                                         className="gap-1"
                                                         title="Abrir composição"
@@ -583,7 +621,10 @@ const Estruturas = () => {
 
                                             {/* Painel inline para exclusão com motivo */}
                                             {isDeleting && (
-                                                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4" onClick={(ev) => ev.stopPropagation()}>
+                                                <div
+                                                    className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4"
+                                                    onClick={(ev) => ev.stopPropagation()}
+                                                >
                                                     <p className="text-sm font-medium text-red-800 mb-3">
                                                         Para excluir esta estrutura, informe o motivo.
                                                     </p>
@@ -625,7 +666,11 @@ const Estruturas = () => {
                                                                 <Trash2 className="h-4 w-4" />
                                                                 {loading ? 'Excluindo...' : 'Confirmar exclusão'}
                                                             </Button>
-                                                            <Button variant="outline" size="sm" onClick={handleCancelarExclusao}>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={handleCancelarExclusao}
+                                                            >
                                                                 Cancelar
                                                             </Button>
                                                         </div>
@@ -643,40 +688,84 @@ const Estruturas = () => {
                     <div className="p-4 border-t text-sm text-gray-700 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-2">
                             <span>
-                                {totalItems > 0
-                                    ? <>Mostrando <span className="font-medium">{startIndex + 1}</span>–<span className="font-medium">{endIndex}</span> de <span className="font-medium">{totalItems}</span></>
-                                    : '0 resultados'}
+                                {totalItems > 0 ? (
+                                    <>
+                                        Mostrando{' '}
+                                        <span className="font-medium">{startIndex + 1}</span>–
+                                        <span className="font-medium">{endIndex}</span> de{' '}
+                                        <span className="font-medium">{totalItems}</span>
+                                    </>
+                                ) : (
+                                    '0 resultados'
+                                )}
                             </span>
                             <span className="hidden md:inline text-gray-400">•</span>
-                            <span>Página <span className="font-medium">{Math.min(page, totalPages)}</span> de <span className="font-medium">{totalPages}</span></span>
+                            <span>
+                                Página{' '}
+                                <span className="font-medium">{Math.min(page, totalPages)}</span>{' '}
+                                de <span className="font-medium">{totalPages}</span>
+                            </span>
                         </div>
 
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2">
                                 <span className="text-gray-600">Por página:</span>
-                                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                                <Select
+                                    value={String(pageSize)}
+                                    onValueChange={(v) => setPageSize(Number(v))}
+                                >
                                     <SelectTrigger className="h-8 w-[88px]">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {[10, 25, 50, 100].map(n => (
-                                            <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                            <SelectItem key={n} value={String(n)}>
+                                                {n}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             <div className="flex items-center">
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-l-md" onClick={goFirst} disabled={page <= 1} title="Primeira página">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none rounded-l-md"
+                                    onClick={goFirst}
+                                    disabled={page <= 1}
+                                    title="Primeira página"
+                                >
                                     <ChevronsLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goPrev} disabled={page <= 1} title="Anterior">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none"
+                                    onClick={goPrev}
+                                    disabled={page <= 1}
+                                    title="Anterior"
+                                >
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none" onClick={goNext} disabled={page >= totalPages} title="Próxima">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none"
+                                    onClick={goNext}
+                                    disabled={page >= totalPages}
+                                    title="Próxima"
+                                >
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-none rounded-r-md" onClick={goLast} disabled={page >= totalPages} title="Última página">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-none rounded-r-md"
+                                    onClick={goLast}
+                                    disabled={page >= totalPages}
+                                    title="Última página"
+                                >
                                     <ChevronsRight className="h-4 w-4" />
                                 </Button>
                             </div>
