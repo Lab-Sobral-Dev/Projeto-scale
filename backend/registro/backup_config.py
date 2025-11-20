@@ -63,7 +63,7 @@ class BackupConfig(models.Model):
         Cria/atualiza o PeriodicTask que chama registro.tasks.auto_backup
         conforme os campos de configuração.
         """
-        from apps.registro.tasks import auto_backup  # garante import
+        from registro.tasks.tasks import auto_backup  # garante import
 
         # Se desabilitado, só desliga o PeriodicTask
         try:
