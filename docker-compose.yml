@@ -7,15 +7,20 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      BACKUP_DIR: /var/backups/scale
+      BACKUP_ACCEL_PREFIX: /protected/backups
+      # Opcional: se precisar forçar o caminho do pg_dump
+      # PG_DUMP_BIN: /usr/bin/pg_dump
     volumes:
       - ./backend:/app
       - static_volume:/app/static
       - media_volume:/app/media
+      - backups_volume:/var/backups/scale
     expose:
       - "8000"
     depends_on:
       - db
-    
 
   frontend:
     build: ./frontend
@@ -28,7 +33,6 @@ services:
     image: nginx:stable-alpine
     container_name: scale_nginx
     restart: unless-stopped
-    # Porta SOMENTE interna via loopback (sem 443)
     ports:
       - "127.0.0.1:8091:80"
     volumes:
@@ -36,6 +40,7 @@ services:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - static_volume:/app/static:ro
       - media_volume:/app/media:ro
+      - backups_volume:/var/backups/scale:ro  # disponibiliza os arquivos de backup para o X-Accel-Redirect
     depends_on:
       - backend
       - frontend
@@ -52,9 +57,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - db_data:/var/lib/postgresql/data
-    
 
 volumes:
   db_data:
   static_volume:
   media_volume:
+  backups_volume:
