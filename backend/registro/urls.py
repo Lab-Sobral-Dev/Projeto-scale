@@ -10,6 +10,7 @@ from .views import (
 
 from .api.backups import BackupExecuteView, BackupListView
 from .api.backup_download import BackupDownloadView
+from .views_admin import admin_backup_download
 
 router = DefaultRouter()
 router.register(r'produtos', ProdutoViewSet)
@@ -38,4 +39,9 @@ urlpatterns = [
     path("backups/execute/", BackupExecuteView.as_view(), name="backup-execute"),
     path("backups/", BackupListView.as_view(), name="backup-list"),
     path("backups/<int:pk>/download/", BackupDownloadView.as_view(), name="backup-download"),
+    path(
+        "backups/<int:pk>/admin-download/",
+        admin_backup_download,
+        name="admin-backup-download",
+    ),
 ]

@@ -367,13 +367,14 @@ class BackupRecordAdmin(admin.ModelAdmin):
     status_badge.short_description = "Status"
 
     def acoes(self, obj):
-        # Link de download via rota DRF: /registro/backups/<id>/download/
+        # Link de download para o Admin (sessão Django)
         try:
-            url = reverse("backup-download", args=[obj.pk])
+            url = reverse("admin-backup-download", args=[obj.pk])
         except Exception:
-            url = f"/registro/backups/{obj.pk}/download/"
+            url = f"/api/registro/backups/{obj.pk}/admin-download/"
         return format_html('<a class="button" href="{}" target="_blank">Baixar</a>', url)
     acoes.short_description = "Ações"
+
 
     # ===== Execução do backup ao clicar em "Adicionar" =====
     def has_add_permission(self, request):
