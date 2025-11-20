@@ -14,10 +14,11 @@ from .models import (
 )
 
 # === IMPORTS PARA BACKUP ===
-# Ajuste os caminhos conforme sua estrutura:
-from registro.backup import BackupRecord   # modelo criado anteriormente
-from registro.services.backup_db import run_full_backup
-from .audit_models import AuditLog  # seu modelo de auditoria
+from registro.backup import BackupRecord   # modelo de backup
+from registro.backup_config import BackupConfig  # configuração de backup automático
+from .services.backup_db import run_full_backup
+from .audit_models import AuditLog  # modelo de auditoria
+
 
 # --- Produtos / MPs ---
 
@@ -375,7 +376,6 @@ class BackupRecordAdmin(admin.ModelAdmin):
         return format_html('<a class="button" href="{}" target="_blank">Baixar</a>', url)
     acoes.short_description = "Ações"
 
-
     # ===== Execução do backup ao clicar em "Adicionar" =====
     def has_add_permission(self, request):
         # Permite o botão "Adicionar" apenas a staff/admin
@@ -409,7 +409,11 @@ class BackupRecordAdmin(admin.ModelAdmin):
                     path=request.path, method="POST", status_code=200,
                     action="create",  # ou "backup" se você tiver essa ação
                     model="BackupRecord", object_pk=str(rec.pk),
-                    changes={"output_file": rec.output_file, "engine": rec.engine, "size": rec.size_bytes},
+                    changes={
+                        "output_file": rec.output_file,
+                        "engine": rec.engine,
+                        "size": rec.size_bytes,
+                    },
                 )
             except Exception:
                 pass
@@ -432,7 +436,9 @@ class BackupRecordAdmin(admin.ModelAdmin):
             messages.error(request, f"Falha ao executar backup: {e}")
 
         # Redireciona para a lista de backups
-        changelist_url = reverse(f"admin:{BackupRecord._meta.app_label}_{BackupRecord._meta.model_name}_changelist")
+        changelist_url = reverse(
+            f"admin:{BackupRecord._meta.app_label}_{BackupRecord._meta.model_name}_changelist"
+        )
         return HttpResponseRedirect(changelist_url)
 
     # Sem edição/exclusão manual via Admin (somos estritos aqui)
@@ -441,3 +447,41 @@ class BackupRecordAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return bool(request.user and request.user.is_superuser)
+
+
+# -------- Configuração de Backup Automático --------
+
+@admin.register(BackupConfig)
+class BackupConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        "enabled",
+        "schedule_type",
+        "time_of_day",
+        "interval_hours",
+        "retention_days",
+        "updated_at",
+    )
+    readonly_fields = ("updated_at",)
+
+    fieldsets = (
+        ("Status", {
+            "fields": ("enabled",),
+        }),
+        ("Agendamento", {
+            "fields": ("schedule_type", "time_of_day", "interval_hours"),
+            "description": "Escolha entre horário diário fixo ou intervalo em horas.",
+        }),
+        ("Retenção", {
+            "fields": ("retention_days",),
+            "description": "Ainda não usado automaticamente, mas já pode ser definido.",
+        }),
+        ("Metadados", {
+            "fields": ("updated_at",),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # Garante que só exista 1 registro de configuração
+        if BackupConfig.objects.exists():
+            return False
+        return super().has_add_permission(request)

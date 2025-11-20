@@ -10,8 +10,8 @@ services:
     environment:
       BACKUP_DIR: /var/backups/scale
       BACKUP_ACCEL_PREFIX: /protected/backups
-      # Opcional: se precisar forçar o caminho do pg_dump
-      # PG_DUMP_BIN: /usr/bin/pg_dump
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
       - ./backend:/app
       - static_volume:/app/static
@@ -21,6 +21,50 @@ services:
       - "8000"
     depends_on:
       - db
+      - redis
+
+  worker:
+    build: ./backend
+    container_name: scale_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BACKUP_DIR: /var/backups/scale
+      BACKUP_ACCEL_PREFIX: /protected/backups
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command: celery -A conf worker --loglevel=info
+    depends_on:
+      - backend
+      - redis
+    volumes:
+      - ./backend:/app
+      - backups_volume:/var/backups/scale
+
+  beat:
+    build: ./backend
+    container_name: scale_beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BACKUP_DIR: /var/backups/scale
+      BACKUP_ACCEL_PREFIX: /protected/backups
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command: celery -A conf beat --loglevel=info
+    depends_on:
+      - backend
+      - redis
+    volumes:
+      - ./backend:/app
+      - backups_volume:/var/backups/scale
+
+  redis:
+    image: redis:alpine
+    container_name: scale_redis
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
@@ -40,7 +84,7 @@ services:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - static_volume:/app/static:ro
       - media_volume:/app/media:ro
-      - backups_volume:/var/backups/scale:ro  # disponibiliza os arquivos de backup para o X-Accel-Redirect
+      - backups_volume:/var/backups/scale:ro
     depends_on:
       - backend
       - frontend

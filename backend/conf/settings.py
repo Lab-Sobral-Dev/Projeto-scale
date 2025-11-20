@@ -78,6 +78,9 @@ INSTALLED_APPS = [
     "registro",
     "usuarios",
     "reports",
+
+    #celery
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [
@@ -228,3 +231,16 @@ if AUDIT_ENABLED:
             },
         },
     }
+
+
+import os
+
+# Broker/Backend (usando Redis)
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
+
+CELERY_TIMEZONE = TIME_ZONE  # já deve existir
+CELERY_ENABLE_UTC = False
+
+# django-celery-beat usa o scheduler baseado em DB
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
