@@ -244,3 +244,28 @@ CELERY_ENABLE_UTC = False
 
 # django-celery-beat usa o scheduler baseado em DB
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+
+# =========================
+# Email / Notificações
+# =========================
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_HOST = env("EMAIL_HOST", "")
+EMAIL_PORT = int(env("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "noreply@laboratoriosobral.com.br")
+EMAIL_SUBJECT_PREFIX = "[Scale] "
+
+# Lista de e-mails que receberão alertas de falha de backup
+# Pode ser definido como CSV no .env: BACKUP_ALERT_EMAILS=ti@sobral.com,dev@sobral.com
+BACKUP_ALERT_EMAILS = env_list("BACKUP_ALERT_EMAILS", "")
+
+# Se nenhum e-mail for configurado, usa ADMINS
+ADMINS = [
+    ("TI", env("ADMIN_EMAIL", "suporte@laboratoriosobral.com")),
+]

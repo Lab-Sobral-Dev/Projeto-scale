@@ -17,6 +17,7 @@ from .models import (
 from registro.backup import BackupRecord   # modelo de backup
 from registro.backup_config import BackupConfig  # configuração de backup automático
 from .services.backup_db import run_full_backup
+from .services.backup_notify import notify_backup_failure  # envio de e-mail em falha
 from .audit_models import AuditLog  # modelo de auditoria
 
 
@@ -275,7 +276,9 @@ class AuditLogAdmin(admin.ModelAdmin):
         except Exception:
             # fallback para string crua
             pretty = str(data)
-        return mark_safe(f"<pre style='white-space:pre-wrap;max-height:400px;overflow:auto;margin:0'>{pretty}</pre>")
+        return mark_safe(
+            "<pre style='white-space:pre-wrap;max-height:400px;overflow:auto;margin:0'>{}</pre>".format(pretty)
+        )
 
     def user_agent_pre(self, obj):
         ua = obj.user_agent or ""
@@ -390,8 +393,14 @@ class BackupRecordAdmin(admin.ModelAdmin):
         ip = request.META.get("REMOTE_ADDR")
         ua = request.META.get("HTTP_USER_AGENT", "")
         rec = BackupRecord.objects.create(
-            executed_by=user, ip=ip, user_agent=ua,
-            engine="", output_file="", size_bytes=0, sha256="", status="success"
+            executed_by=user,
+            ip=ip,
+            user_agent=ua,
+            engine="",
+            output_file="",
+            size_bytes=0,
+            sha256="",
+            status="success",
         )
         try:
             result = run_full_backup()
@@ -405,10 +414,15 @@ class BackupRecordAdmin(admin.ModelAdmin):
             # Auditoria
             try:
                 AuditLog.objects.create(
-                    user=user, ip=ip, user_agent=ua,
-                    path=request.path, method="POST", status_code=200,
+                    user=user,
+                    ip=ip,
+                    user_agent=ua,
+                    path=request.path,
+                    method="POST",
+                    status_code=200,
                     action="create",  # ou "backup" se você tiver essa ação
-                    model="BackupRecord", object_pk=str(rec.pk),
+                    model="BackupRecord",
+                    object_pk=str(rec.pk),
                     changes={
                         "output_file": rec.output_file,
                         "engine": rec.engine,
@@ -423,12 +437,28 @@ class BackupRecordAdmin(admin.ModelAdmin):
             rec.status = "error"
             rec.error_message = str(e)
             rec.save()
+
+            # Envio de e-mail em caso de falha
+            notify_backup_failure(
+                error_message=str(e),
+                rec=rec,
+                context={
+                    "source": "admin_manual_backup",
+                    "user": getattr(user, "username", None),
+                },
+            )
+
             try:
                 AuditLog.objects.create(
-                    user=user, ip=ip, user_agent=ua,
-                    path=request.path, method="POST", status_code=500,
+                    user=user,
+                    ip=ip,
+                    user_agent=ua,
+                    path=request.path,
+                    method="POST",
+                    status_code=500,
                     action="error",
-                    model="BackupRecord", object_pk=str(rec.pk),
+                    model="BackupRecord",
+                    object_pk=str(rec.pk),
                     extra={"error": str(e)},
                 )
             except Exception:
