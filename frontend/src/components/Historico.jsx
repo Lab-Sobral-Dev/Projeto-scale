@@ -528,28 +528,30 @@ const Historico = () => {
                       </td>
 
                       {/* PESOS (g) */}
-                      <td className="px-4 py-3 text-sm text-gray-700 hidden lg:table-cell">
-                        <div className="grid gap-0.5">
-                          <div className="flex items-center justify-between" title="Bruto (g)">
+                      <td className="px-4 py-3 pr-12 text-sm text-gray-700 hidden lg:table-cell">
+                        <div className="grid gap-0.5 text-xs">
+                          <div className="flex items-center gap-2" title="Bruto (g)">
                             <span className="flex items-center text-gray-500">
                               <Weight className="h-3 w-3 mr-1 text-gray-400" />
-                              <span className="text-xs">B:</span>
+                              <span>B:</span>
                             </span>
-                            <span className="text-xs tabular-nums">{fmtG(p.bruto_g)}</span>
+                            <span className="tabular-nums">{fmtG(p.bruto_g)}</span>
                           </div>
-                          <div className="flex items-center justify-between" title="Tara (g)">
+
+                          <div className="flex items-center gap-2" title="Tara (g)">
                             <span className="flex items-center text-gray-500">
                               <Weight className="h-3 w-3 mr-1 text-gray-400" />
-                              <span className="text-xs">T:</span>
+                              <span>T:</span>
                             </span>
-                            <span className="text-xs tabular-nums">{fmtG(p.tara_g)}</span>
+                            <span className="tabular-nums">{fmtG(p.tara_g)}</span>
                           </div>
-                          <div className="flex items-center justify-between" title="Líquido (g)">
+
+                          <div className="flex items-center gap-2" title="Líquido (g)">
                             <span className="flex items-center text-green-700">
                               <Weight className="h-3 w-3 mr-1 text-green-600" />
-                              <span className="text-xs font-semibold">L:</span>
+                              <span className="font-semibold">L:</span>
                             </span>
-                            <span className="text-xs font-semibold text-green-700 tabular-nums">
+                            <span className="font-semibold text-green-700 tabular-nums">
                               {fmtG(p.liquido_g)}
                             </span>
                           </div>
