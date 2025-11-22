@@ -6,7 +6,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { History, Search, Eye, Printer, Edit, Filter, Calendar, Weight, User } from 'lucide-react'
+import {
+  History,
+  Search,
+  Eye,
+  Printer,
+  Edit,
+  Filter,
+  Calendar,
+  Weight,
+  User,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight
+} from 'lucide-react'
 import api from '@/services/api'
 
 // Helpers
@@ -147,7 +161,9 @@ const Historico = () => {
 
             const brutoG = kgToG(brutoKg)
             const taraG = kgToG(taraKg)
-            const liquidoFinalG = liquidoG != null ? liquidoG : (brutoG != null && taraG != null ? (brutoG - taraG) : null)
+            const liquidoFinalG = liquidoG != null
+              ? liquidoG
+              : (brutoG != null && taraG != null ? (brutoG - taraG) : null)
 
             return {
               id: p.id,
@@ -288,7 +304,11 @@ const Historico = () => {
     return filtered
   }, [pesagens, filtros])
 
+  // resetar para página 1 quando filtros ou dados mudarem
   useEffect(() => { setPage(1) }, [filtros, pesagens])
+
+  // resetar quando mudar o pageSize
+  useEffect(() => { setPage(1) }, [pageSize])
 
   const total = filteredPesagens.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
@@ -296,6 +316,11 @@ const Historico = () => {
   const startIndex = (clampedPage - 1) * pageSize
   const endIndex = Math.min(startIndex + pageSize, total)
   const pageItems = filteredPesagens.slice(startIndex, endIndex)
+
+  const goFirst = () => setPage(1)
+  const goPrev = () => setPage(p => Math.max(1, p - 1))
+  const goNext = () => setPage(p => Math.min(totalPages, p + 1))
+  const goLast = () => setPage(totalPages)
 
   const handleVerDetalhes = (id) => navigate(`/pesagens/${id}`)
   const handleEditar = (id) => navigate(`/pesagens/${id}/editar`)
@@ -460,7 +485,7 @@ const Historico = () => {
         </CardHeader>
 
         <CardContent className="p-0">
-          {/* Tabela */}
+          {/* Tabela (desktop) */}
           <div className="relative hidden md:block">
             <div className="overflow-x-auto">
               <table className="min-w-[880px] w-full">
@@ -635,6 +660,93 @@ const Historico = () => {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Footer de paginação */}
+          <div className="border-t px-4 py-3 text-xs text-gray-700 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+              <span>
+                {total > 0 ? (
+                  <>
+                    Mostrando{' '}
+                    <span className="font-medium">{startIndex + 1}</span>–
+                    <span className="font-medium">{endIndex}</span> de{' '}
+                    <span className="font-medium">{total}</span> pesagens
+                  </>
+                ) : (
+                  '0 resultados'
+                )}
+              </span>
+              <span className="hidden md:inline text-gray-400">•</span>
+              <span>
+                Página <span className="font-medium">{clampedPage}</span> de{' '}
+                <span className="font-medium">{totalPages}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">Por página:</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => setPageSize(Number(v))}
+                >
+                  <SelectTrigger className="h-8 w-[88px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 25, 50, 100].map(n => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-none rounded-l-md"
+                  onClick={goFirst}
+                  disabled={clampedPage <= 1}
+                  title="Primeira página"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-none"
+                  onClick={goPrev}
+                  disabled={clampedPage <= 1}
+                  title="Anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-none"
+                  onClick={goNext}
+                  disabled={clampedPage >= totalPages}
+                  title="Próxima"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-none rounded-r-md"
+                  onClick={goLast}
+                  disabled={clampedPage >= totalPages}
+                  title="Última página"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
