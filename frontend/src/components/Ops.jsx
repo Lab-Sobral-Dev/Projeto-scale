@@ -37,6 +37,18 @@ const MANY_ITEMS_THRESHOLD = 10 // a partir daqui, limitar a 2 colunas
 // ---------- Helpers ----------
 const normalize = (data) => Array.isArray(data) ? data : (data?.results ?? [])
 
+/**
+ * Formata quantidade em pt-BR, até 3 casas decimais,
+ * removendo zeros desnecessários (mesmo padrão das outras telas).
+ */
+const formatG = (value) => {
+  if (value == null || value === '') return '0'
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '0'
+  const rounded = Number(num.toFixed(3))
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(rounded)
+}
+
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -211,19 +223,19 @@ const Ops = () => {
                     <div className="rounded bg-muted/40 p-2">
                       <div className="text-muted-foreground">Necessário</div>
                       <div className="font-semibold">
-                        {nec.toFixed(3)} {it.unidade}
+                        {formatG(nec)} {it.unidade}
                       </div>
                     </div>
                     <div className="rounded bg-muted/40 p-2">
                       <div className="text-muted-foreground">Pesado</div>
                       <div className="font-semibold">
-                        {pes.toFixed(3)} {it.unidade}
+                        {formatG(pes)} {it.unidade}
                       </div>
                     </div>
                     <div className="rounded bg-muted/40 p-2">
                       <div className="text-muted-foreground">Restante</div>
                       <div className="font-semibold">
-                        {rest.toFixed(3)} {it.unidade}
+                        {formatG(rest)} {it.unidade}
                       </div>
                     </div>
                   </div>

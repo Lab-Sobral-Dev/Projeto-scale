@@ -117,23 +117,31 @@ class OrdemProducaoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "status", "criada_em", "concluida_em"]
 
+
 # ============== Pesagem ==============
 
 class PesagemSerializer(serializers.ModelSerializer):
     op = OrdemProducaoSerializer(read_only=True)
     op_id = serializers.PrimaryKeyRelatedField(
-        queryset=OrdemProducao.objects.all(), write_only=True, source="op"
+        queryset=OrdemProducao.objects.all(),
+        write_only=True,
+        source="op"
     )
 
     item_op = ItemOPSerializer(read_only=True)
     item_op_id = serializers.PrimaryKeyRelatedField(
-        queryset=ItemOP.objects.all(), write_only=True, source="item_op"
+        queryset=ItemOP.objects.all(),
+        write_only=True,
+        source="item_op"
     )
 
     balanca = BalancaSerializer(read_only=True)
     balanca_id = serializers.PrimaryKeyRelatedField(
-        queryset=Balanca.objects.all(), write_only=True, source="balanca",
-        required=False, allow_null=True
+        queryset=Balanca.objects.all(),
+        write_only=True,
+        source="balanca",
+        required=False,
+        allow_null=True
     )
 
     # derivados
@@ -144,45 +152,54 @@ class PesagemSerializer(serializers.ModelSerializer):
         model = Pesagem
         fields = [
             "id",
+
             # vínculos
             "op", "op_id",
             "item_op", "item_op_id",
             "balanca", "balanca_id",
+
             # dados
-            "pesador",
+            "pesador",          # leitura
             "data_hora",
-            "bruto", "tara", "liquido",
+            "bruto",
+            "tara",
+            "liquido",
             "codigo_interno",
             "lote_mp",
-            # extras para leitura
+
+            # extras
             "produto_nome",
             "materia_prima_nome",
         ]
-        # AJUSTADO: 'bruto' continua como read_only (será calculado), mas 'liquido' e 'tara' podem ser escritos.
-        read_only_fields = ["id", "data_hora", "bruto", "pesador", "op", "item_op", "balanca"]
+
+        read_only_fields = [
+            "id", "data_hora",
+            "bruto",            # calculado no model.save()
+            "pesador",          # sempre backend
+            "op", "item_op", "balanca"
+        ]
 
     def get_produto_nome(self, obj):
-        try:
-            return obj.op.produto.nome
-        except Exception:
-            return None
+        return getattr(obj.op.produto, "nome", None)
 
     def get_materia_prima_nome(self, obj):
-        try:
-            return obj.item_op.materia_prima.nome
-        except Exception:
-            return None
+        return getattr(obj.item_op.materia_prima, "nome", None)
 
     def validate(self, attrs):
         op = attrs.get("op") or getattr(self.instance, "op", None)
         item_op = attrs.get("item_op") or getattr(self.instance, "item_op", None)
+
         if op and item_op and item_op.op_id != op.id:
-            raise serializers.ValidationError("O item_op informado não pertence à OP fornecida.")
-        # normaliza lote_mp (opcional)
-        lote = attrs.get("lote_mp")
-        if lote is not None:
-            attrs["lote_mp"] = lote.strip()
+            raise serializers.ValidationError(
+                "O item_op informado não pertence à OP fornecida."
+            )
+
+        # normaliza lote_mp
+        if "lote_mp" in attrs and attrs["lote_mp"] is not None:
+            attrs["lote_mp"] = attrs["lote_mp"].strip()
+
         return attrs
+
     
 
 class AuditLogSerializer(serializers.ModelSerializer):

@@ -340,6 +340,43 @@ class PesagemViewSet(viewsets.ModelViewSet):
         # leitura/escrita normal: supervisor ou admin, leitura para qualquer autenticado
         return [IsSupervisorOrAdminOrReadOnly()]
 
+    # -------- helper interno para pegar o nome do pesador --------
+    def _get_pesador_nome(self, user, fallback=""):
+        """
+        Retorna o nome do pesador baseado no usuário autenticado.
+        Prioriza: nome completo -> username -> fallback.
+        """
+        if not user or not user.is_authenticated:
+            return fallback
+        nome = (user.get_full_name() or "").strip()
+        if not nome:
+            nome = user.username
+        return nome or fallback
+
+    # ================== CREATE (define sempre o pesador) ==================
+    def perform_create(self, serializer):
+        pesador_nome = self._get_pesador_nome(self.request.user, fallback="")
+        try:
+            serializer.save(pesador=pesador_nome)
+        except DjangoValidationError as e:
+            msgs = getattr(e, "messages", None)
+            detail = " ".join(msgs) if msgs else str(e)
+            raise DRFValidationError({"detail": detail})
+
+    # >>> Converte ValidationError do Django em 400 (DRF) durante UPDATE <<<
+    def perform_update(self, serializer):
+        # mantém o pesador original; se estiver vazio, usa o usuário atual
+        instance = serializer.instance  # objeto antes do update
+        pesador_atual = getattr(instance, "pesador", "") or ""
+        pesador_nome = pesador_atual or self._get_pesador_nome(self.request.user, fallback="")
+
+        try:
+            serializer.save(pesador=pesador_nome)
+        except DjangoValidationError as e:
+            msgs = getattr(e, "messages", None)
+            detail = " ".join(msgs) if msgs else str(e)
+            raise DRFValidationError({"detail": detail})
+
     @action(detail=False, methods=["get"], url_path="motivos")
     def motivos(self, request):
         """
@@ -350,15 +387,6 @@ class PesagemViewSet(viewsets.ModelViewSet):
             "edit": self.EDIT_MOTIVOS,
             "delete": self.DELETE_MOTIVOS,
         })
-
-    # >>> Converte ValidationError do Django em 400 (DRF) durante UPDATE <<<
-    def perform_update(self, serializer):
-        try:
-            serializer.save()
-        except DjangoValidationError as e:
-            msgs = getattr(e, "messages", None)
-            detail = " ".join(msgs) if msgs else str(e)
-            raise DRFValidationError({"detail": detail})
 
     # ====== Edição (supervisor/admin, com motivo) ======
     def update(self, request, *args, **kwargs):
@@ -401,6 +429,7 @@ class PesagemViewSet(viewsets.ModelViewSet):
                 },
             )
         except Exception:
+            # falha de auditoria não deve quebrar a edição
             pass
         return response
 
