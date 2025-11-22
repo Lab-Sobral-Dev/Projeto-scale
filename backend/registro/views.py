@@ -457,6 +457,14 @@ class PesagemViewSet(viewsets.ModelViewSet):
 # Etiqueta PDF (g)
 # ======================
 
+from decimal import Decimal, ROUND_HALF_UP
+from django.http import HttpResponse
+from django.utils import timezone
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
+import os
+
 def gerar_etiqueta_pdf(request, pk):
     try:
         pesagem = (
@@ -519,22 +527,38 @@ def gerar_etiqueta_pdf(request, pk):
         text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
         p.drawString((width - text_width) / 2, height - 20, titulo)
 
-    # ---- formatação: 1.234,567 g (pt-BR), sempre 3 casas ----
+    # ---- formatação: até 3 casas, removendo zeros à direita ----
     def fmt_g3_ptbr(value):
         """
-        Ex.: 282000 -> 282.000,000 g
-             1234.5 -> 1.234,500 g
-             1000   -> 1.000,000 g
+        Formata valor em gramas em pt-BR, até 3 casas decimais:
+        9500     -> '9.500 g'
+        500      -> '500 g'
+        9000     -> '9.000 g'
+        1234.567 -> '1.234,567 g'
         """
         if value is None:
             return "- g"
-        d = Decimal(value).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
-        s = f"{d:.3f}"
-        inteiro, frac = s.split(".")
-        inteiro = f"{int(inteiro):,}".replace(",", ".")
-        return f"{inteiro},{frac} g"
 
-    from django.utils import timezone
+        # Garante Decimal e arredonda para 3 casas
+        d = Decimal(value).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+
+        # Representação sem notação científica
+        s = f"{d:f}"
+
+        if "." in s:
+            inteiro, frac = s.split(".")
+            frac = frac.rstrip("0")  # remove zeros à direita
+            if not frac:
+                frac = None
+        else:
+            inteiro, frac = s, None
+
+        # Milhares com ponto
+        inteiro_fmt = f"{int(inteiro):,}".replace(",", ".")
+
+        if frac:
+            return f"{inteiro_fmt},{frac} g"
+        return f"{inteiro_fmt} g"
 
     def dt_local_fmt(dt):
         if not dt:
@@ -548,7 +572,8 @@ def gerar_etiqueta_pdf(request, pk):
     KG_TO_G = Decimal('1000')
     bruto_g = Decimal(pesagem.bruto or 0) * KG_TO_G
     tara_g = Decimal(pesagem.tara or 0) * KG_TO_G
-    liquido_g = Decimal(pesagem.liquido or 0)  # já em g no banco
+    # líquido já está em g no banco
+    liquido_g = Decimal(pesagem.liquido or 0)
 
     # Conteúdo da etiqueta
     linha = height - 50
