@@ -35,6 +35,20 @@ const normalizeList = (data) => {
     return []
 }
 
+/**
+ * Formatação de quantidade em g (mesmo padrão da tela de pesagem)
+ * - Arredonda para 3 casas decimais
+ * - Formata em pt-BR
+ * - Evita lixo de ponto flutuante
+ */
+const formatG = (value) => {
+    if (value == null || value === '') return '0'
+    const num = Number(value)
+    if (!Number.isFinite(num)) return '0'
+    const rounded = Number(num.toFixed(3))
+    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(rounded)
+}
+
 const ComposicaoEstrutura = () => {
     const { id } = useParams() // id da estrutura
     const navigate = useNavigate()
@@ -316,7 +330,7 @@ const ComposicaoEstrutura = () => {
                                     Lote Total (g)
                                 </span>
                                 <div className="font-mono text-lg font-bold text-gray-800">
-                                    {totalLote.toLocaleString('pt-BR')}
+                                    {formatG(totalLote)} g
                                 </div>
                             </div>
                         </div>
@@ -478,9 +492,9 @@ const ComposicaoEstrutura = () => {
                                                 </Badge>
                                             </div>
                                             <div className="text-sm text-gray-600">
-                                                Quantidade:{' '}
+                                                Quantidade{' '}
                                                 <span className="font-mono font-semibold text-gray-900">
-                                                    {i.quantidadePorLote}
+                                                    {formatG(i.quantidadePorLote)}
                                                 </span>{' '}
                                                 g
                                             </div>
@@ -537,7 +551,7 @@ const ComposicaoEstrutura = () => {
                             <span>
                                 Lote total:{' '}
                                 <span className="font-mono font-bold text-gray-900">
-                                    {totalLote.toLocaleString('pt-BR')} g
+                                    {formatG(totalLote)} g
                                 </span>
                             </span>
                         </div>
