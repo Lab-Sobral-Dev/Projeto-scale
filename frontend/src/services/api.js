@@ -73,17 +73,29 @@ class ApiService {
 
   async post(path, body, { params, headers } = {}) {
     const url = this._abs(path) + this._qs(params);
-    return this.request(url, { method: "POST", body: JSON.stringify(body), headers });
+    return this.request(url, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers,
+    });
   }
 
   async put(path, body, { params, headers } = {}) {
     const url = this._abs(path) + this._qs(params);
-    return this.request(url, { method: "PUT", body: JSON.stringify(body), headers });
+    return this.request(url, {
+      method: "PUT",
+      body: JSON.stringify(body),
+      headers,
+    });
   }
 
   async patch(path, body, { params, headers } = {}) {
     const url = this._abs(path) + this._qs(params);
-    return this.request(url, { method: "PATCH", body: JSON.stringify(body), headers });
+    return this.request(url, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+      headers,
+    });
   }
 
   // ===== Request genérico com refresh (401) e fallback para login =====
@@ -268,7 +280,9 @@ class ApiService {
   // ===== Matérias-Primas (/api/registro/materias-primas/) =====
   async getMateriasPrimas(params = {}) {
     const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/materias-primas/${qs ? `?${qs}` : ""}`);
+    return this.request(
+      `${this.baseRegistro}/materias-primas/${qs ? `?${qs}` : ""}`
+    );
   }
   async getMateriaPrima(id) {
     return this.request(`${this.baseRegistro}/materias-primas/${id}/`);
@@ -320,7 +334,9 @@ class ApiService {
   // ===== Estruturas (BOM) (/api/registro/estruturas/) =====
   async getEstruturas(params = {}) {
     const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/estruturas/${qs ? `?${qs}` : ""}`);
+    return this.request(
+      `${this.baseRegistro}/estruturas/${qs ? `?${qs}` : ""}`
+    );
   }
   async getEstrutura(id) {
     return this.request(`${this.baseRegistro}/estruturas/${id}/`);
@@ -374,14 +390,20 @@ class ApiService {
   }
   async gerarItensOP(opId, forcar = false) {
     const qs = forcar ? "?forcar=1" : "";
-    return this.request(`${this.baseRegistro}/ops/${opId}/gerar-itens/${qs}`, {
-      method: "POST",
-    });
+    return this.request(
+      `${this.baseRegistro}/ops/${opId}/gerar-itens/${qs}`,
+      {
+        method: "POST",
+      }
+    );
   }
   async concluirSePossivelOP(opId) {
-    return this.request(`${this.baseRegistro}/ops/${opId}/concluir-se-possivel/`, {
-      method: "POST",
-    });
+    return this.request(
+      `${this.baseRegistro}/ops/${opId}/concluir-se-possivel/`,
+      {
+        method: "POST",
+      }
+    );
   }
   async getOPItems(opId) {
     return this.request(`${this.baseRegistro}/ops/${opId}/itens/`);
@@ -405,7 +427,9 @@ class ApiService {
   // ===== Pesagens (/api/registro/pesagens/) =====
   async getPesagens(params = {}) {
     const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/pesagens/${qs ? `?${qs}` : ""}`);
+    return this.request(
+      `${this.baseRegistro}/pesagens/${qs ? `?${qs}` : ""}`
+    );
   }
   async getPesagem(id) {
     return this.request(`${this.baseRegistro}/pesagens/${id}/`);
@@ -435,12 +459,29 @@ class ApiService {
     });
   }
 
+  // ===== Backups (/api/registro/backups/) =====
+  async getBackups(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(
+      `${this.baseRegistro}/backups/${qs ? `?${qs}` : ""}`
+    );
+  }
+
+  async executeBackup() {
+    return this.request(`${this.baseRegistro}/backups/execute/`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  }
+
   // ===== Etiqueta PDF (/api/registro/etiqueta/<id>/) =====
   async gerarEtiquetaPDF(id) {
     const url = `${this.baseRegistro}/etiqueta/${id}/`;
     const call = async (authToken) => {
       const res = await fetch(url, {
-        headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.blob();
@@ -464,9 +505,15 @@ class ApiService {
     const produtos = await this.getProdutos();
     const materias = await this.getMateriasPrimas();
 
-    const pesList = Array.isArray(pesagens) ? pesagens : (pesagens?.results ?? []);
-    const produtosCount = Array.isArray(produtos) ? produtos.length : (produtos?.count ?? 0);
-    const materiasCount = Array.isArray(materias) ? materias.length : (materias?.count ?? 0);
+    const pesList = Array.isArray(pesagens)
+      ? pesagens
+      : pesagens?.results ?? [];
+    const produtosCount = Array.isArray(produtos)
+      ? produtos.length
+      : produtos?.count ?? 0;
+    const materiasCount = Array.isArray(materias)
+      ? materias.length
+      : materias?.count ?? 0;
 
     const now = new Date();
     const todayKey = now.toISOString().slice(0, 10);
@@ -474,8 +521,12 @@ class ApiService {
     startWeek.setDate(startWeek.getDate() - startWeek.getDay());
     const startWeekKey = startWeek.toISOString().slice(0, 10);
 
-    const pesagensHoje = pesList.filter(p => (p.data_hora || '').startsWith(todayKey)).length;
-    const pesagensSemana = pesList.filter(p => (p.data_hora || '') >= startWeekKey).length;
+    const pesagensHoje = pesList.filter((p) =>
+      (p.data_hora || "").startsWith(todayKey)
+    ).length;
+    const pesagensSemana = pesList.filter(
+      (p) => (p.data_hora || "") >= startWeekKey
+    ).length;
 
     return {
       pesagensHoje,
