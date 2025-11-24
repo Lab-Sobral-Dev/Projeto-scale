@@ -63,7 +63,6 @@ export default function BackupConsole() {
         setLoading(true)
         try {
             const data = await api.getBackups()
-            // API retorna lista simples []
             setItems(Array.isArray(data) ? data : [])
             console.debug('Backups recebidos:', data)
         } catch (e) {
@@ -97,15 +96,58 @@ export default function BackupConsole() {
         }
     }
 
-    // --------- download ---------
-    const handleDownload = (id, status) => {
+    // --------- download com Authorization (sem redirecionar) ---------
+    const handleDownload = async (id, status) => {
         if (status !== 'success') {
             alert('Somente backups com status OK podem ser baixados.')
             return
         }
-        // usa a rota DRF de download (JWT vai no cookie/Authorization via navegador)
+
+        const token = api.access
+        if (!token) {
+            alert('Sessão expirada. Faça login novamente.')
+            return
+        }
+
         const url = `${API_BASE_URL}/registro/backups/${id}/download/`
-        window.open(url, '_blank')
+
+        try {
+            const res = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`
+                    // não precisa de Content-Type em GET de arquivo
+                }
+            })
+
+            if (!res.ok) {
+                const text = await res.text()
+                console.error('Falha no download do backup:', res.status, text)
+                throw new Error(`Erro HTTP ${res.status}`)
+            }
+
+            const blob = await res.blob()
+
+            // tenta pegar nome do arquivo do header, senão usa um padrão
+            const disp = res.headers.get('Content-Disposition') || ''
+            let filename = 'backup.dump'
+            const match = /filename="?([^"]+)"?/i.exec(disp)
+            if (match && match[1]) {
+                filename = match[1]
+            }
+
+            const blobUrl = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = blobUrl
+            a.download = filename
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            window.URL.revokeObjectURL(blobUrl)
+        } catch (e) {
+            console.error('Erro ao baixar backup:', e)
+            alert('Erro ao baixar backup.')
+        }
     }
 
     // --------- filtros ---------
