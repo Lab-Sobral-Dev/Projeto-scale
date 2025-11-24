@@ -40,6 +40,9 @@ import AuditoriaAuthErros from '@/pages/reports/AuditoriaAuthErros'
 import Backups from '@/pages/reports/Backups'
 import Restores from '@/pages/reports/Restores'
 
+import BackupConsole from '@/components/BackupConsole'
+
+
 import './App.css'
 
 /* ===== Helpers de papel no frontend ===== */
@@ -159,6 +162,16 @@ function App() {
             element={
               <RequireAdmin>
                 <LogsAuditoria />
+              </RequireAdmin>
+            }
+          />
+
+          {/* === Tela independente de BACKUP === */}
+          <Route
+            path="/sistema/backups"
+            element={
+              <RequireAdmin>
+                <BackupConsole />
               </RequireAdmin>
             }
           />
