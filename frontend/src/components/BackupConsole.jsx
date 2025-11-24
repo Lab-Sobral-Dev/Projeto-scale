@@ -1,4 +1,4 @@
-// src/pages/BackupConsole.jsx
+// src/components/BackupConsole.jsx
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,10 +20,10 @@ import {
 } from 'lucide-react'
 import api from '@/services/api'
 
-const API_BASE =
-    import.meta.env.VITE_API_BASE_URL ||
-    import.meta.env.VITE_API_URL ||
-    'http'
+const API_BASE_URL =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+    process.env.REACT_APP_API_URL ||
+    'https://apiscale.laboratoriosobral.com.br/api'
 
 function formatDate(val) {
     if (!val) return ''
@@ -58,13 +58,16 @@ export default function BackupConsole() {
         dateTo: ''
     })
 
+    // --------- carga da lista ---------
     const load = async () => {
         setLoading(true)
         try {
-            const { data } = await api.get('/registro/backups/')
+            const data = await api.getBackups()
+            // API retorna lista simples []
             setItems(Array.isArray(data) ? data : [])
+            console.debug('Backups recebidos:', data)
         } catch (e) {
-            console.error(e)
+            console.error('Erro ao carregar backups:', e)
             alert('Erro ao carregar lista de backups.')
         } finally {
             setLoading(false)
@@ -75,34 +78,37 @@ export default function BackupConsole() {
         load()
     }, [])
 
+    // --------- executar backup ---------
     const handleExecuteBackup = async () => {
         if (!window.confirm('Deseja realmente executar um backup completo agora?')) {
             return
         }
         setExecLoading(true)
         try {
-            await api.post('/registro/backups/execute/')
+            await api.executeBackup()
             alert('Backup iniciado/concluído com sucesso.')
             await load()
         } catch (e) {
-            console.error(e)
-            const msg = e?.response?.data?.detail || e.message || 'Erro desconhecido'
+            console.error('Erro ao executar backup:', e)
+            const msg = e?.payload?.detail || e.message || 'Erro desconhecido'
             alert('Falha ao executar backup: ' + msg)
         } finally {
             setExecLoading(false)
         }
     }
 
+    // --------- download ---------
     const handleDownload = (id, status) => {
         if (status !== 'success') {
             alert('Somente backups com status OK podem ser baixados.')
             return
         }
-        // Para o frontend usamos a view DRF com JWT/sessão
-        const url = `${API_BASE}/registro/backups/${id}/download/`
+        // usa a rota DRF de download (JWT vai no cookie/Authorization via navegador)
+        const url = `${API_BASE_URL}/registro/backups/${id}/download/`
         window.open(url, '_blank')
     }
 
+    // --------- filtros ---------
     const updateFilter = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }))
     }
@@ -120,24 +126,24 @@ export default function BackupConsole() {
     const filteredItems = useMemo(() => {
         return items.filter(b => {
             // status
-            if (filters.status !== 'all') {
-                if (b.status !== filters.status) return false
+            if (filters.status !== 'all' && b.status !== filters.status) {
+                return false
             }
 
             // trigger_type (manual/automatic)
             const trig = b.trigger_type || 'manual'
-            if (filters.trigger !== 'all') {
-                if (trig !== filters.trigger) return false
+            if (filters.trigger !== 'all' && trig !== filters.trigger) {
+                return false
             }
 
-            // usuário (nome)
+            // usuário
             const userName = (b.executed_by_name || '').toLowerCase()
             const userFilter = filters.user.trim().toLowerCase()
-            if (userFilter) {
-                if (!userName.includes(userFilter)) return false
+            if (userFilter && !userName.includes(userFilter)) {
+                return false
             }
 
-            // datas
+            // período
             if (filters.dateFrom || filters.dateTo) {
                 try {
                     const d = new Date(b.created_at)
@@ -164,6 +170,7 @@ export default function BackupConsole() {
         })
     }, [items, filters])
 
+    // --------- render ---------
     return (
         <div className="space-y-4">
             <Card>
