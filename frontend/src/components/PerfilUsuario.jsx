@@ -220,7 +220,7 @@ const PerfilUsuario = ({ user: userProp, onLogout }) => {
               </Link>
             </Button>
             <Button asChild variant="outline" className="flex items-center gap-2">
-              <Link to="/relatorios/backups">
+              <Link to="/backups">
                 <HardDrive className="h-4 w-4" />
                 Backups
               </Link>

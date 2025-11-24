@@ -168,7 +168,7 @@ function App() {
 
           {/* === Tela independente de BACKUP === */}
           <Route
-            path="/sistema/backups"
+            path="/backups"
             element={
               <RequireAdmin>
                 <BackupConsole />
