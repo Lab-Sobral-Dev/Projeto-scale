@@ -16,8 +16,21 @@ import {
     RefreshCcw,
     Download,
     PlayCircle,
-    Filter
+    Filter,
+    RotateCcw,
+    AlertTriangle
 } from 'lucide-react'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import api from '@/services/api'
 
 const API_BASE_URL =
@@ -49,6 +62,7 @@ export default function BackupConsole() {
     const [items, setItems] = useState([])
     const [loading, setLoading] = useState(false)
     const [execLoading, setExecLoading] = useState(false)
+    const [restoring, setRestoring] = useState(false)
 
     const [filters, setFilters] = useState({
         status: 'all', // all | success | error
@@ -96,6 +110,45 @@ export default function BackupConsole() {
         }
     }
 
+    // --------- restaurar backup ---------
+    const handleRestore = async (id) => {
+        const token = api.access
+        if (!token) {
+            alert('Sessão expirada. Faça login novamente.')
+            return
+        }
+
+        setRestoring(true)
+        try {
+            const url = `${API_BASE_URL}/registro/backups/${id}/restore/`
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+
+            if (!res.ok) {
+                const text = await res.text()
+                let msg = `Erro HTTP ${res.status}`
+                try {
+                    const json = JSON.parse(text)
+                    if (json.detail) msg = json.detail
+                } catch { /* ignore json parse error */ }
+                throw new Error(msg)
+            }
+
+            alert('Sistema restaurado com sucesso! A página será recarregada para aplicar os dados antigos.')
+            window.location.reload()
+        } catch (e) {
+            console.error('Erro ao restaurar:', e)
+            alert('ERRO CRÍTICO AO RESTAURAR: ' + e.message)
+        } finally {
+            setRestoring(false)
+        }
+    }
+
     // --------- download com Authorization (sem redirecionar) ---------
     const handleDownload = async (id, status) => {
         if (status !== 'success') {
@@ -116,7 +169,6 @@ export default function BackupConsole() {
                 method: 'GET',
                 headers: {
                     Authorization: `Bearer ${token}`
-                    // não precisa de Content-Type em GET de arquivo
                 }
             })
 
@@ -215,7 +267,7 @@ export default function BackupConsole() {
     // --------- render ---------
     return (
         <div className="space-y-4">
-            <Card>
+            <Card className="border-t-4 border-t-blue-600">
                 <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                         <HardDrive className="w-5 h-5" />
@@ -394,7 +446,7 @@ export default function BackupConsole() {
                                                     {statusLabel}
                                                 </span>
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap">
+                                            <td className="px-3 py-2 whitespace-nowrap flex gap-2">
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
@@ -404,6 +456,48 @@ export default function BackupConsole() {
                                                     <Download className="w-4 h-4 mr-1" />
                                                     Baixar
                                                 </Button>
+
+                                                {/* BOTÃO RESTAURAR */}
+                                                {statusOk && (
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button size="sm" variant="destructive">
+                                                                <RotateCcw className="w-4 h-4 mr-1" />
+                                                                Restaurar
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                                                                    <AlertTriangle className="w-6 h-6" />
+                                                                    Perigo: Restaurar Banco de Dados
+                                                                </AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Você está prestes a restaurar o backup de <strong>{formatDate(b.created_at)}</strong>.
+                                                                    <br /><br />
+                                                                    <span className="font-bold text-red-600">
+                                                                        OS DADOS ATUAIS SERÃO SUBSTITUÍDOS!
+                                                                    </span>
+                                                                    <br />
+                                                                    Um backup de segurança será criado automaticamente antes da restauração,
+                                                                    mas o sistema "voltará no tempo" para esta data.
+                                                                    <br />
+                                                                    Esta ação é crítica. Tem certeza?
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    className="bg-red-600 hover:bg-red-700"
+                                                                    onClick={() => handleRestore(b.id)}
+                                                                    disabled={restoring}
+                                                                >
+                                                                    {restoring ? 'Restaurando...' : 'Sim, Restaurar'}
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                )}
                                             </td>
                                         </tr>
                                     )
