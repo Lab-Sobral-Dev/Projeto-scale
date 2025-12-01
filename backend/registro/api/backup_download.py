@@ -8,11 +8,12 @@ from registro.backup import BackupRecord
 
 class CanDownloadBackup(permissions.BasePermission):
     """
-    Regra simples: qualquer usuário autenticado pode baixar.
-    Troque por is_staff se preferir restringir.
+    CORREÇÃO DE SEGURANÇA:
+    Alterado para permitir apenas usuários da equipe (Staff/Admin).
     """
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated)
+        # Apenas usuários logados E com permissão de staff podem baixar
+        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
 
 class BackupDownloadView(views.APIView):
     permission_classes = [CanDownloadBackup]
@@ -32,27 +33,24 @@ class BackupDownloadView(views.APIView):
             return Response({"detail": "Arquivo não encontrado no servidor."},
                             status=status.HTTP_410_GONE)
 
-        # Nome de download amigável
         download_name = path.name
 
-        # Caso Nginx esteja na frente, use X-Accel-Redirect para entrega eficiente
+        # Caso Nginx esteja na frente
         accel_prefix = getattr(settings, "BACKUP_ACCEL_PREFIX", None)
         backup_dir = Path(getattr(settings, "BACKUP_DIR"))
         try:
-            relpath = path.relative_to(backup_dir)  # segurança: deve estar sob BACKUP_DIR
+            relpath = path.relative_to(backup_dir)
         except ValueError:
-            # Não permitir arquivos fora do diretório de backups
             return Response({"detail": "Caminho inválido."}, status=status.HTTP_400_BAD_REQUEST)
 
         if accel_prefix and not settings.DEBUG:
-            # Resposta vazia, Nginx entrega o arquivo real
             resp = HttpResponse(status=200)
             resp["Content-Type"] = "application/octet-stream"
             resp["Content-Disposition"] = f'attachment; filename="{download_name}"'
             resp["X-Accel-Redirect"] = f"{accel_prefix}/{relpath.as_posix()}"
             return resp
 
-        # Ambiente de desenvolvimento (sem Nginx/Accel)
+        # Ambiente de desenvolvimento
         return FileResponse(open(path, "rb"),
                             as_attachment=True,
                             filename=download_name,
