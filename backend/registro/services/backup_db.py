@@ -1,5 +1,5 @@
 # apps/registro/services/backup_db.py
-import gzip, hashlib, os, shlex, subprocess, sys, tempfile, shutil
+import gzip, hashlib, os, shlex, subprocess, sys, tempfile, shutil, csv
 from datetime import datetime
 from django.conf import settings
 from pathlib import Path
@@ -42,7 +42,7 @@ def run_full_backup() -> dict:
     _ensure_dir(out_dir)
 
     if engine == "postgresql":
-        pg_dump = _find_pg_dump()  # <<<<<<<<<<<<<<<<<< chave da correção
+        pg_dump = _find_pg_dump()
 
         host = db.get("HOST") or "localhost"
         port = str(db.get("PORT") or "5432")
@@ -58,7 +58,7 @@ def run_full_backup() -> dict:
             env["PGPASSWORD"] = password
 
         cmd = [
-            pg_dump,           # usa o caminho encontrado
+            pg_dump,
             "-h", host,
             "-p", port,
             "-U", user,
@@ -83,6 +83,13 @@ def run_full_backup() -> dict:
         raw_path.unlink(missing_ok=True)
 
         sha = _sha256(gz_path)
+        
+        # Garante permissão de leitura para o Nginx (download)
+        try:
+            os.chmod(gz_path, 0o644)
+        except Exception:
+            pass
+
         return {
             "engine": "postgresql",
             "output_file": str(gz_path),
@@ -101,6 +108,11 @@ def run_full_backup() -> dict:
                 fout.write(chunk)
 
         sha = _sha256(out_path)
+        try:
+            os.chmod(out_path, 0o644)
+        except Exception:
+            pass
+
         return {
             "engine": "sqlite3",
             "output_file": str(out_path),
@@ -109,3 +121,163 @@ def run_full_backup() -> dict:
         }
     else:
         raise RuntimeError(f"Engine não suportado: {engine}")
+
+# =============================================================================
+#  LÓGICA DE RESTORE COM REDE DE SEGURANÇA (SAFETY NET)
+# =============================================================================
+
+def _log_restore_event(msg: str):
+    """
+    Grava logs de restore em arquivo físico (persistente ao reset do banco).
+    """
+    try:
+        backup_dir = Path(getattr(settings, "BACKUP_DIR", "/var/backups/scale"))
+        log_file = backup_dir / "restore_history.log"
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {msg}\n")
+    except Exception as e:
+        print(f"Erro ao gravar log de restore: {e}")
+
+def _export_audit_log_to_csv(backup_dir: Path):
+    """
+    Exporta a tabela de auditoria atual para CSV antes que ela seja apagada.
+    """
+    try:
+        # Import tardio para evitar ciclo
+        from registro.audit_models import AuditLog
+        
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        csv_path = backup_dir / f"audit_log_snapshot_{timestamp}.csv"
+        
+        # Pega os últimos 5000 logs para garantir histórico recente
+        logs = AuditLog.objects.all().order_by("-created_at")[:5000]
+        
+        if not logs.exists():
+            return None
+
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Data", "Usuario", "Ação", "Modelo", "ID Objeto", "Detalhes"])
+            
+            for log in logs:
+                u_name = log.user.username if log.user else "Sistema/Anon"
+                writer.writerow([
+                    log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    u_name,
+                    log.action,
+                    log.model,
+                    log.object_pk,
+                    str(log.changes or log.extra or "")
+                ])
+        
+        try:
+            os.chmod(csv_path, 0o644)
+        except:
+            pass
+            
+        return str(csv_path)
+    except Exception as e:
+        print(f"Aviso: Falha ao exportar CSV de auditoria: {e}")
+        return None
+
+def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
+    """
+    Restaura o banco com 3 camadas de segurança:
+    1. Exporta Logs de Auditoria para CSV (Rastreabilidade do intervalo perdido)
+    2. Cria Backup Full do estado atual (Recuperação em caso de erro/arrependimento)
+    3. Loga o evento em arquivo de texto (Histórico persistente)
+    """
+    _log_restore_event(f"SOLICITAÇÃO DE RESTORE por {user_info}. Alvo: {backup_file_path}")
+    backup_dir = Path(getattr(settings, "BACKUP_DIR", "/var/backups/scale"))
+
+    # 1. EXPORTA AUDITORIA
+    csv_log = _export_audit_log_to_csv(backup_dir)
+    if csv_log:
+        _log_restore_event(f"Logs de auditoria exportados para: {csv_log}")
+
+    # 2. SAFETY SNAPSHOT (Backup Preventivo)
+    try:
+        print("Criando backup de segurança...")
+        safety_backup = run_full_backup()
+        # Renomeia para identificar fácil visualmente
+        safety_path = Path(safety_backup["output_file"])
+        new_name = safety_path.parent / f"safety_before_restore_{safety_path.name}"
+        safety_path.rename(new_name)
+        
+        _log_restore_event(f"Backup de segurança criado: {new_name}")
+    except Exception as e:
+        msg = f"ABORTADO: Falha no backup de segurança: {e}"
+        _log_restore_event(msg)
+        raise RuntimeError("Restore cancelado para evitar perda de dados (falha no backup preventivo).")
+
+    # Configurações do Banco para Restore
+    alias = "default"
+    db_conf = settings.DATABASES[alias]
+    engine = db_conf["ENGINE"].split(".")[-1]
+    
+    path = Path(backup_file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Arquivo de backup não encontrado: {path}")
+
+    if engine == "postgresql":
+        pg_client = _find_pg_dump().replace("pg_dump", "psql")
+        if not Path(pg_client).exists() or "pg_dump" in pg_client:
+             pg_client = shutil.which("psql") or "/usr/bin/psql"
+
+        host = db_conf.get("HOST") or "localhost"
+        port = str(db_conf.get("PORT") or "5432")
+        name = db_conf["NAME"]
+        user = db_conf.get("USER") or ""
+        password = db_conf.get("PASSWORD") or ""
+
+        env = os.environ.copy()
+        if password:
+            env["PGPASSWORD"] = password
+
+        # 3. KILL CONNECTIONS & DROP SCHEMA
+        kill_sql = f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{name}' AND pid <> pg_backend_pid();"
+        
+        try:
+            # Mata conexões
+            subprocess.run(
+                [pg_client, "-h", host, "-p", port, "-U", user, "-d", name, "-c", kill_sql],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env
+            )
+            
+            # Limpa Schema Public (Reset do banco)
+            reset_cmd = [
+                pg_client, "-h", host, "-p", port, "-U", user, "-d", name,
+                "-c", "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+            ]
+            proc_reset = subprocess.run(reset_cmd, capture_output=True, env=env)
+            if proc_reset.returncode != 0:
+                raise RuntimeError(f"Falha ao limpar schema: {proc_reset.stderr.decode()}")
+
+            # 4. RESTORE (Aplica o backup antigo)
+            restore_cmd = f"gzip -cd {shlex.quote(str(path))} | {shlex.quote(pg_client)} -h {host} -p {port} -U {user} -d {name}"
+            
+            proc_restore = subprocess.run(restore_cmd, shell=True, env=env, stderr=subprocess.PIPE)
+            if proc_restore.returncode != 0:
+                raise RuntimeError(f"Erro no psql: {proc_restore.stderr.decode('utf-8')}")
+
+            _log_restore_event(f"SUCESSO: Banco restaurado para versão {path.name}.")
+            return True
+
+        except Exception as e:
+            _log_restore_event(f"ERRO CRÍTICO DURANTE O RESTORE: {e}")
+            raise e
+
+    elif engine == "sqlite3":
+        db_path = Path(db_conf["NAME"]).resolve()
+        shutil.copy(db_path, str(db_path) + ".safety_backup")
+        try:
+            with gzip.open(path, "rb") as f_in, open(db_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            _log_restore_event("SUCESSO: SQLite restaurado.")
+            return True
+        except Exception as e:
+            shutil.copy(str(db_path) + ".safety_backup", db_path)
+            raise e
+    else:
+        raise RuntimeError("Engine não suportada.")

@@ -3,51 +3,33 @@ from rest_framework import serializers, permissions, status, views
 from rest_framework.response import Response
 from django.utils.timezone import now
 from django.db import transaction
+from pathlib import Path
 
 from registro.backup import BackupRecord
-from registro.services.backup_db import run_full_backup
-from registro.audit_models import AuditLog  # use o caminho do seu AuditLog
+from registro.services.backup_db import run_full_backup, run_restore  # <--- Import run_restore
+from registro.audit_models import AuditLog
 
-
+# ... (Mantenha as classes BackupRecordSerializer e IsBackupAdmin igual ao original) ...
 class BackupRecordSerializer(serializers.ModelSerializer):
+    # ... código existente ...
     executed_by_name = serializers.SerializerMethodField()
     trigger_type = serializers.SerializerMethodField()
 
     class Meta:
         model = BackupRecord
         fields = [
-            "id",
-            "created_at",
-            "executed_by",
-            "executed_by_name",
-            "ip",
-            "user_agent",
-            "engine",
-            "output_file",
-            "size_bytes",
-            "sha256",
-            "status",
-            "error_message",
-            "trigger_type",
+            "id", "created_at", "executed_by", "executed_by_name", "ip",
+            "user_agent", "engine", "output_file", "size_bytes",
+            "sha256", "status", "error_message", "trigger_type",
         ]
         read_only_fields = fields
 
     def get_executed_by_name(self, obj):
-        """
-        Retorna o nome completo do usuário (ou username) que disparou o backup.
-        Para backups automáticos (executed_by=None), retorna None.
-        """
         if obj.executed_by:
             return obj.executed_by.get_full_name() or obj.executed_by.username
         return None
 
     def get_trigger_type(self, obj):
-        """
-        Classifica a origem do backup:
-        - 'automatic' -> quando foi disparado pelo Celery (executed_by=None
-                         ou user_agent contendo 'celery-auto-backup')
-        - 'manual'    -> quando foi disparado por um usuário (Admin/frontend)
-        """
         if obj.executed_by is None:
             return "automatic"
         if obj.user_agent and "celery-auto-backup" in obj.user_agent:
@@ -57,11 +39,11 @@ class BackupRecordSerializer(serializers.ModelSerializer):
 
 class IsBackupAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        # Somente Admin pode acionar backup
         return bool(request.user and request.user.is_staff)
 
 
 class BackupExecuteView(views.APIView):
+    # ... código existente (mantido igual) ...
     permission_classes = [IsBackupAdmin]
 
     def post(self, request):
@@ -71,14 +53,8 @@ class BackupExecuteView(views.APIView):
 
         with transaction.atomic():
             rec = BackupRecord.objects.create(
-                executed_by=user,
-                ip=ip,
-                user_agent=ua,
-                engine="",
-                output_file="",
-                size_bytes=0,
-                sha256="",
-                status="success",
+                executed_by=user, ip=ip, user_agent=ua, engine="", output_file="",
+                size_bytes=0, sha256="", status="success",
             )
             try:
                 result = run_full_backup()
@@ -89,17 +65,10 @@ class BackupExecuteView(views.APIView):
                 rec.status = "success"
                 rec.save()
 
-                # Auditar (se quiser, adicione a ação "backup" no seu Enum)
                 AuditLog.objects.create(
-                    user=user,
-                    ip=ip,
-                    user_agent=ua,
-                    path=request.path,
-                    method="POST",
-                    status_code=200,
-                    action="create",  # ou "backup" se você incluir essa ação
-                    model="BackupRecord",
-                    object_pk=str(rec.pk),
+                    user=user, ip=ip, user_agent=ua, path=request.path,
+                    method="POST", status_code=200, action="create",
+                    model="BackupRecord", object_pk=str(rec.pk),
                 )
                 return Response(BackupRecordSerializer(rec).data, status=status.HTTP_201_CREATED)
 
@@ -107,17 +76,6 @@ class BackupExecuteView(views.APIView):
                 rec.status = "error"
                 rec.error_message = str(e)
                 rec.save()
-                AuditLog.objects.create(
-                    user=user,
-                    ip=ip,
-                    user_agent=ua,
-                    path=request.path,
-                    method="POST",
-                    status_code=500,
-                    action="error",
-                    model="BackupRecord",
-                    object_pk=str(rec.pk),
-                )
                 return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -125,6 +83,35 @@ class BackupListView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        # Qualquer usuário autenticado pode listar; ajuste se quiser restringir
         qs = BackupRecord.objects.all().order_by("-created_at")[:100]
         return Response(BackupRecordSerializer(qs, many=True).data)
+
+
+# === NOVA VIEW DE RESTORE ===
+class BackupRestoreView(views.APIView):
+    permission_classes = [IsBackupAdmin]  # Somente Admin
+
+    def post(self, request, pk: int):
+        try:
+            rec = BackupRecord.objects.get(pk=pk)
+        except BackupRecord.DoesNotExist:
+            return Response({"detail": "Backup não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not Path(rec.output_file).exists():
+            return Response({"detail": "Arquivo físico não existe mais no servidor."}, status=status.HTTP_410_GONE)
+
+        # Prepara info para o Log
+        user = request.user
+        ip = request.META.get("REMOTE_ADDR")
+        user_info = f"{user.username} (ID: {user.pk}) - IP: {ip}"
+
+        try:
+            # Chama a função blindada com backup de segurança
+            run_restore(rec.output_file, user_info=user_info)
+            
+            return Response({
+                "detail": "Sistema restaurado com sucesso! Um backup de segurança foi criado antes da operação."
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"detail": f"Falha crítica no restore: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

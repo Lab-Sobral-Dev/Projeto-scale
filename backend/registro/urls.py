@@ -8,7 +8,7 @@ from .views import (
     PesagemViewSet, gerar_etiqueta_pdf, AuditLogViewSet
 )
 
-from .api.backups import BackupExecuteView, BackupListView
+from .api.backups import BackupExecuteView, BackupListView, BackupRestoreView
 from .api.backup_download import BackupDownloadView
 from .views_admin import admin_backup_download
 
@@ -44,4 +44,5 @@ urlpatterns = [
         admin_backup_download,
         name="admin-backup-download",
     ),
+    path("backups/<int:pk>/restore/", BackupRestoreView.as_view(), name="backup-restore"),
 ]

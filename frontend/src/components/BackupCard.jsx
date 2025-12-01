@@ -2,8 +2,19 @@
 import { useEffect, useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Download, RefreshCcw, HardDrive } from "lucide-react"
+import { Download, RefreshCcw, HardDrive, RotateCcw, AlertTriangle } from "lucide-react"
 import api from "@/services/api" // <--- Importa a instância configurada do Axios
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:8000/api")
@@ -13,6 +24,7 @@ export default function BackupCard({ isAdmin }) {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState([])
   const [canExecute, setCanExecute] = useState(!!isAdmin)
+  const [restoring, setRestoring] = useState(false) // Novo state para o restore
 
   // Descobre permissão se a prop não foi informada
   useEffect(() => {
@@ -60,29 +72,40 @@ export default function BackupCard({ isAdmin }) {
     }
   }
 
+  // --- NOVA FUNÇÃO DE RESTORE ---
+  const restaurar = async (id) => {
+    try {
+      setRestoring(true)
+      // Chama a rota que cria o snapshot de segurança e restaura o banco
+      await api.post(`/registro/backups/${id}/restore/`)
+
+      alert("Sistema restaurado com sucesso! A página será recarregada para aplicar os dados antigos.")
+      window.location.reload()
+    } catch (e) {
+      const msg = e?.response?.data?.detail || e.message
+      alert("ERRO CRÍTICO AO RESTAURAR: " + msg)
+    } finally {
+      setRestoring(false)
+    }
+  }
+
   // --- DOWNLOAD CORRIGIDO ---
   const baixar = async (id) => {
     try {
-      // 1. Faz a requisição usando a instância 'api' (já tem BaseURL e Token)
-      // Definimos responseType: 'blob' para receber binário
       const response = await api.get(`/registro/backups/${id}/download/`, {
         responseType: 'blob',
       })
 
-      // 2. Tenta extrair o nome do arquivo do header Content-Disposition
-      // Nota: Axios traz headers em lowercase
       const cd = response.headers['content-disposition']
-      let filename = `backup-${id}.sql.gz` // Nome padrão caso falhe a extração
+      let filename = `backup-${id}.sql.gz`
 
       if (cd) {
         const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
         if (match) {
-          // Remove aspas extras se houver e decodifica
           filename = decodeURIComponent(match[1].replace(/^UTF-8''/, "").replace(/['"]/g, ""))
         }
       }
 
-      // 3. Cria um link temporário para forçar o download no navegador
       const blob = new Blob([response.data], { type: response.headers['content-type'] })
       const objectUrl = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
@@ -92,15 +115,11 @@ export default function BackupCard({ isAdmin }) {
       document.body.appendChild(link)
       link.click()
 
-      // Limpeza
       link.remove()
       window.URL.revokeObjectURL(objectUrl)
 
     } catch (err) {
       console.error(err)
-
-      // Se o backend retornou um JSON de erro (ex: 404), ele virá como Blob.
-      // Precisamos ler o texto do Blob para mostrar a mensagem correta.
       if (err.response && err.response.data instanceof Blob) {
         try {
           const errorText = await err.response.data.text()
@@ -118,7 +137,7 @@ export default function BackupCard({ isAdmin }) {
   useEffect(() => { carregar() }, [])
 
   return (
-    <Card className="w-full">
+    <Card className="w-full border-t-4 border-t-blue-600">
       <CardHeader className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <HardDrive className="w-5 h-5" />
@@ -166,7 +185,7 @@ export default function BackupCard({ isAdmin }) {
                       {b.status === "success" ? "OK" : "Erro"}
                     </span>
                   </td>
-                  <td className="py-2">
+                  <td className="py-2 flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
@@ -175,6 +194,43 @@ export default function BackupCard({ isAdmin }) {
                     >
                       <Download className="w-4 h-4 mr-1" /> Baixar
                     </Button>
+
+                    {/* BOTÃO DE RESTORE (SÓ PARA ADMIN E SE STATUS=SUCCESS) */}
+                    {canExecute && b.status === "success" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="destructive">
+                            <RotateCcw className="w-4 h-4 mr-1" /> Restaurar
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                              <AlertTriangle className="w-6 h-6" /> Perigo: Restaurar Banco de Dados
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Você está prestes a restaurar o backup de <strong>{new Date(b.created_at).toLocaleString()}</strong>.
+                              <br /><br />
+                              <span className="font-bold text-red-600">
+                                ISSO SUBSTITUIRÁ OS DADOS ATUAIS PELOS DADOS DESTA DATA.
+                              </span>
+                              <br />
+                              Um backup de segurança dos dados atuais será criado automaticamente antes da operação, mas o sistema voltará no tempo. Tem certeza absoluta?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-red-600 hover:bg-red-700"
+                              onClick={() => restaurar(b.id)}
+                              disabled={restoring}
+                            >
+                              {restoring ? "Restaurando..." : "Sim, Restaurar Sistema"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </td>
                 </tr>
               ))}
