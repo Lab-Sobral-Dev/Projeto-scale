@@ -1,8 +1,9 @@
 from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.urls import reverse
-from django.http import HttpResponseRedirect
+from django.urls import reverse, path
+from django.http import HttpResponseRedirect, HttpResponse
+from django.template import Template, Context
 from django.db import models
 from django.utils.timezone import now
 import json
@@ -16,7 +17,8 @@ from .models import (
 # === IMPORTS PARA BACKUP ===
 from registro.backup import BackupRecord   # modelo de backup
 from registro.backup_config import BackupConfig  # configuração de backup automático
-from .services.backup_db import run_full_backup
+# Importamos run_restore para permitir a restauração
+from .services.backup_db import run_full_backup, run_restore
 from .services.backup_notify import notify_backup_failure  # envio de e-mail em falha
 from .audit_models import AuditLog  # modelo de auditoria
 
@@ -304,13 +306,13 @@ class AuditLogAdmin(admin.ModelAdmin):
         return False
 
 
-# -------- Backups (executar + baixar via Admin) --------
+# -------- Backups (executar + baixar + RESTAURAR via Admin) --------
 
 @admin.register(BackupRecord)
 class BackupRecordAdmin(admin.ModelAdmin):
     """
     - Clique no botão verde "Adicionar Backup record" para executar um backup agora.
-    - Lista mostra status, hash, tamanho, e link de download.
+    - Lista mostra status, hash, tamanho, link de download e RESTAURAR (Admin).
     """
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
@@ -349,6 +351,86 @@ class BackupRecordAdmin(admin.ModelAdmin):
         }),
     )
 
+    # ===== Configuração de URLs para Ação Customizada (Restore) =====
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:backup_id>/restore/',
+                self.admin_site.admin_view(self.restore_view),
+                name='registro_backuprecord_restore',
+            ),
+        ]
+        return custom_urls + urls
+
+    # ===== View Customizada de Restore com Confirmação =====
+    def restore_view(self, request, backup_id):
+        # Segurança: Apenas Superusuários podem restaurar via Admin
+        if not request.user.is_superuser:
+            messages.error(request, "Ação não permitida. Apenas superusuários podem restaurar backups.")
+            return HttpResponseRedirect(reverse('admin:registro_backuprecord_changelist'))
+
+        # Busca o objeto
+        obj = self.get_object(request, backup_id)
+        if not obj:
+            messages.error(request, "Backup não encontrado.")
+            return HttpResponseRedirect(reverse('admin:registro_backuprecord_changelist'))
+
+        # Se for POST, executa a ação
+        if request.method == 'POST':
+            try:
+                user_info = f"{request.user.username} (Admin) - IP: {request.META.get('REMOTE_ADDR')}"
+                # Chama a função blindada que faz o snapshot de segurança antes
+                run_restore(obj.output_file, user_info=user_info)
+                
+                messages.success(
+                    request, 
+                    f"SUCESSO: Sistema restaurado para a versão de {obj.created_at}. "
+                    "Um backup de segurança dos dados anteriores foi criado automaticamente."
+                )
+            except Exception as e:
+                messages.error(request, f"FALHA CRÍTICA no restore: {str(e)}")
+            
+            return HttpResponseRedirect(reverse('admin:registro_backuprecord_changelist'))
+
+        # Se for GET, exibe página de confirmação (sem precisar de arquivo HTML extra)
+        # Usamos o template base do admin para manter o estilo
+        template = Template("""
+            {% extends "admin/base_site.html" %}
+            {% block content %}
+            <div style="max-width: 800px; margin: 20px auto; padding: 20px; background: #fff; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h1 style="color: #dc2626; border-bottom: 1px solid #eee; padding-bottom: 10px;">⚠️ Confirmar Restauração de Banco de Dados</h1>
+                
+                <p style="font-size: 16px; margin: 20px 0;">
+                    Você está prestes a restaurar o backup de: <strong>{{ obj.created_at|date:"d/m/Y H:i:s" }}</strong>
+                </p>
+
+                <div style="background: #fff5f5; border-left: 4px solid #dc2626; padding: 15px; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0; color: #9b2c2c;">ATENÇÃO - LEIA ANTES DE CONTINUAR:</h3>
+                    <ul style="color: #742a2a;">
+                        <li>Todos os dados atuais serão <strong>SUBSTITUÍDOS</strong> pelos dados deste backup.</li>
+                        <li>Os dados inseridos após {{ obj.created_at|date:"d/m/Y H:i" }} desaparecerão da visualização atual.</li>
+                        <li>O sistema criará automaticamente um <strong>Backup de Segurança</strong> (Snapshot) do estado atual antes de prosseguir.</li>
+                    </ul>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <a href="../" class="button" style="background: #f3f4f6; color: #374151; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Cancelar</a>
+                        <input type="submit" value="Sim, Restaurar Sistema" 
+                               style="background: #dc2626; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    </div>
+                </form>
+            </div>
+            {% endblock %}
+        """)
+        
+        context = Context(self.admin_site.each_context(request))
+        context.update({'obj': obj})
+        
+        return HttpResponse(template.render(context))
+
     # ===== Helpers de exibição =====
     def size_mb(self, obj):
         if not obj.size_bytes:
@@ -371,24 +453,32 @@ class BackupRecordAdmin(admin.ModelAdmin):
     status_badge.short_description = "Status"
 
     def acoes(self, obj):
-        # Link de download para o Admin (sessão Django)
+        # Link de download para o Admin
         try:
-            url = reverse("admin-backup-download", args=[obj.pk])
+            url_dl = reverse("admin-backup-download", args=[obj.pk])
         except Exception:
-            url = f"/api/registro/backups/{obj.pk}/admin-download/"
-        return format_html('<a class="button" href="{}" target="_blank">Baixar</a>', url)
+            # Fallback para rota direta se o nome reverso não existir
+            url_dl = f"/api/registro/backups/{obj.pk}/download/"
+        
+        btn_dl = format_html('<a class="button" href="{}" target="_blank">Baixar</a>', url_dl)
+        
+        # Link de Restore (Botão Vermelho) - Apenas se sucesso e disponível
+        btn_restore = ""
+        if obj.status == "success":
+            url_restore = reverse("admin:registro_backuprecord_restore", args=[obj.pk])
+            btn_restore = format_html(
+                '<a class="button" style="background-color:#dc2626; color:white; margin-left:8px;" href="{}">Restaurar</a>',
+                url_restore
+            )
+        
+        return format_html('{} {}', btn_dl, btn_restore)
     acoes.short_description = "Ações"
 
     # ===== Execução do backup ao clicar em "Adicionar" =====
     def has_add_permission(self, request):
-        # Permite o botão "Adicionar" apenas a staff/admin
         return bool(request.user and request.user.is_staff)
 
     def add_view(self, request, form_url="", extra_context=None):
-        """
-        Em vez de exibir formulário, executa o backup imediatamente
-        e redireciona para a lista com mensagem.
-        """
         user = request.user if request.user.is_authenticated else None
         ip = request.META.get("REMOTE_ADDR")
         ua = request.META.get("HTTP_USER_AGENT", "")
@@ -414,20 +504,10 @@ class BackupRecordAdmin(admin.ModelAdmin):
             # Auditoria
             try:
                 AuditLog.objects.create(
-                    user=user,
-                    ip=ip,
-                    user_agent=ua,
-                    path=request.path,
-                    method="POST",
-                    status_code=200,
-                    action="create",  # ou "backup" se você tiver essa ação
-                    model="BackupRecord",
-                    object_pk=str(rec.pk),
-                    changes={
-                        "output_file": rec.output_file,
-                        "engine": rec.engine,
-                        "size": rec.size_bytes,
-                    },
+                    user=user, ip=ip, user_agent=ua, path=request.path,
+                    method="POST", status_code=200, action="create",
+                    model="BackupRecord", object_pk=str(rec.pk),
+                    changes={"file": rec.output_file, "size": rec.size_bytes},
                 )
             except Exception:
                 pass
@@ -438,40 +518,19 @@ class BackupRecordAdmin(admin.ModelAdmin):
             rec.error_message = str(e)
             rec.save()
 
-            # Envio de e-mail em caso de falha
             notify_backup_failure(
                 error_message=str(e),
                 rec=rec,
-                context={
-                    "source": "admin_manual_backup",
-                    "user": getattr(user, "username", None),
-                },
+                context={"source": "admin_manual_backup", "user": getattr(user, "username", None)},
             )
-
-            try:
-                AuditLog.objects.create(
-                    user=user,
-                    ip=ip,
-                    user_agent=ua,
-                    path=request.path,
-                    method="POST",
-                    status_code=500,
-                    action="error",
-                    model="BackupRecord",
-                    object_pk=str(rec.pk),
-                    extra={"error": str(e)},
-                )
-            except Exception:
-                pass
             messages.error(request, f"Falha ao executar backup: {e}")
 
-        # Redireciona para a lista de backups
         changelist_url = reverse(
             f"admin:{BackupRecord._meta.app_label}_{BackupRecord._meta.model_name}_changelist"
         )
         return HttpResponseRedirect(changelist_url)
 
-    # Sem edição/exclusão manual via Admin (somos estritos aqui)
+    # Sem edição/exclusão manual via Admin
     def has_change_permission(self, request, obj=None):
         return False
 
@@ -503,7 +562,7 @@ class BackupConfigAdmin(admin.ModelAdmin):
         }),
         ("Retenção", {
             "fields": ("retention_days",),
-            "description": "Ainda não usado automaticamente, mas já pode ser definido.",
+            "description": "Dias para manter backups antigos antes de deletar.",
         }),
         ("Metadados", {
             "fields": ("updated_at",),
@@ -511,7 +570,6 @@ class BackupConfigAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
-        # Garante que só exista 1 registro de configuração
         if BackupConfig.objects.exists():
             return False
         return super().has_add_permission(request)
