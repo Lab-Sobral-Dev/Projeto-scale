@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Download, RefreshCcw, HardDrive } from "lucide-react"
-import api from "@/services/api"
+import api from "@/services/api" // <--- Importa a instância configurada do Axios
 
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:8000/api")
@@ -12,7 +12,7 @@ const AUTH_ME_URL = `${API_BASE}/usuarios/auth/me/`
 export default function BackupCard({ isAdmin }) {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState([])
-  const [canExecute, setCanExecute] = useState(!!isAdmin) // fail-safe
+  const [canExecute, setCanExecute] = useState(!!isAdmin)
 
   // Descobre permissão se a prop não foi informada
   useEffect(() => {
@@ -23,14 +23,14 @@ export default function BackupCard({ isAdmin }) {
         return
       }
       try {
-        const { data } = await api.get(AUTH_ME_URL.replace(API_BASE, "")) // mantém base do api service
+        // Usa api.get para aproveitar o interceptor de token se houver
+        const { data } = await api.get("/usuarios/auth/me/")
         const admin =
           data?.is_staff === true ||
           data?.is_superuser === true ||
           String(data?.tipo || "").toLowerCase().includes("admin")
         if (mounted) setCanExecute(admin)
       } catch {
-        // se falhar, assume false
         if (mounted) setCanExecute(false)
       }
     }
@@ -39,8 +39,12 @@ export default function BackupCard({ isAdmin }) {
   }, [isAdmin])
 
   const carregar = async () => {
-    const { data } = await api.get("/registro/backups/")
-    setItems(data)
+    try {
+      const { data } = await api.get("/registro/backups/")
+      setItems(data)
+    } catch (e) {
+      console.error("Erro ao carregar lista de backups:", e)
+    }
   }
 
   const executar = async () => {
@@ -56,44 +60,58 @@ export default function BackupCard({ isAdmin }) {
     }
   }
 
-  // --- DOWNLOAD COM JWT NO HEADER ---
+  // --- DOWNLOAD CORRIGIDO ---
   const baixar = async (id) => {
     try {
-      const base = (import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "")
-      const url = `${base}/registro/backups/${id}/download/`
-
-      // use a mesma chave do restante do app
-      const token = localStorage.getItem("access")
-      if (!token) {
-        alert("Sessão expirada. Faça login novamente.")
-        return
-      }
-
-      const resp = await fetch(url, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
+      // 1. Faz a requisição usando a instância 'api' (já tem BaseURL e Token)
+      // Definimos responseType: 'blob' para receber binário
+      const response = await api.get(`/registro/backups/${id}/download/`, {
+        responseType: 'blob',
       })
 
-      if (!resp.ok) {
-        const msg = await resp.text()
-        throw new Error(msg || `Erro HTTP ${resp.status}`)
+      // 2. Tenta extrair o nome do arquivo do header Content-Disposition
+      // Nota: Axios traz headers em lowercase
+      const cd = response.headers['content-disposition']
+      let filename = `backup-${id}.sql.gz` // Nome padrão caso falhe a extração
+
+      if (cd) {
+        const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
+        if (match) {
+          // Remove aspas extras se houver e decodifica
+          filename = decodeURIComponent(match[1].replace(/^UTF-8''/, "").replace(/['"]/g, ""))
+        }
       }
 
-      const blob = await resp.blob()
-      const cd = resp.headers.get("Content-Disposition") || ""
-      const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd)
-      let filename = match ? decodeURIComponent(match[1].replace(/^UTF-8''/, "")) : `backup-${id}.bin`
-
-      const link = document.createElement("a")
+      // 3. Cria um link temporário para forçar o download no navegador
+      const blob = new Blob([response.data], { type: response.headers['content-type'] })
       const objectUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+
       link.href = objectUrl
       link.download = filename
       document.body.appendChild(link)
       link.click()
+
+      // Limpeza
       link.remove()
       window.URL.revokeObjectURL(objectUrl)
+
     } catch (err) {
-      alert("Erro no download: " + (err?.message || err))
+      console.error(err)
+
+      // Se o backend retornou um JSON de erro (ex: 404), ele virá como Blob.
+      // Precisamos ler o texto do Blob para mostrar a mensagem correta.
+      if (err.response && err.response.data instanceof Blob) {
+        try {
+          const errorText = await err.response.data.text()
+          const errorJson = JSON.parse(errorText)
+          alert("Erro no download: " + (errorJson.detail || "Falha desconhecida"))
+        } catch {
+          alert("Erro no download: Ocorreu um erro na requisição.")
+        }
+      } else {
+        alert("Erro no download: " + (err?.message || "Erro desconhecido"))
+      }
     }
   }
 
@@ -140,8 +158,14 @@ export default function BackupCard({ isAdmin }) {
                   <td className="py-2">{new Date(b.created_at).toLocaleString()}</td>
                   <td className="py-2">{b.executed_by || "—"}</td>
                   <td className="py-2">{b.engine}</td>
-                  <td className="py-2">{(b.size_bytes / 1024 / 1024).toFixed(2)} MB</td>
-                  <td className="py-2">{b.status === "success" ? "OK" : "Erro"}</td>
+                  <td className="py-2">
+                    {b.size_bytes ? (b.size_bytes / 1024 / 1024).toFixed(2) + " MB" : "0 B"}
+                  </td>
+                  <td className="py-2">
+                    <span className={b.status === "success" ? "text-green-600 font-medium" : "text-red-600"}>
+                      {b.status === "success" ? "OK" : "Erro"}
+                    </span>
+                  </td>
                   <td className="py-2">
                     <Button
                       size="sm"
