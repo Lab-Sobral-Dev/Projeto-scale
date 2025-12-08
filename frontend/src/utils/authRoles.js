@@ -38,6 +38,14 @@ export function isSupervisor() {
     return role === 'supervisor'
 }
 
+// --- NOVO: Função específica para CRIAÇÃO de pesagem ---
+// Permite Operador, Supervisor e Admin
+export function canCreatePesagem() {
+    const role = getUserRole()
+    return role === 'admin' || role === 'supervisor' || role === 'operador'
+}
+
+// --- EXISTENTE: Edição continua restrita ---
 // Supervisor OU Admin podem editar pesagem
 export function canEditPesagem() {
     const role = getUserRole()

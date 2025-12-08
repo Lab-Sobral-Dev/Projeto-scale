@@ -1,5 +1,5 @@
+# backend/usuarios/permissions.py
 from rest_framework.permissions import BasePermission, SAFE_METHODS
-
 
 class IsAuthenticatedReadOnly(BasePermission):
     """
@@ -85,4 +85,34 @@ class IsSupervisorOrAdminOrReadOnly(BasePermission):
         perfil = getattr(user, "perfil", None)
         if not (user and user.is_authenticated and perfil):
             return False
+        return perfil.papel in {perfil.PAPEL_SUPERVISOR, perfil.PAPEL_ADMIN}
+
+
+# --- NOVA CLASSE ADICIONADA ---
+class IsOperatorCreateOrSupervisorEdit(BasePermission):
+    """
+    Permissão Híbrida para Pesagens:
+    - LEITURA (GET): Qualquer usuário autenticado.
+    - CRIAÇÃO (POST): Operador, Supervisor ou Admin.
+    - EDIÇÃO (PUT/PATCH): Apenas Supervisor ou Admin.
+    - DELEÇÃO (DELETE): Normalmente tratado via IsAdmin na view, mas aqui restringe a Supervisor/Admin.
+    """
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+
+        # Leitura liberada para todos logados
+        if request.method in SAFE_METHODS:
+            return True
+        
+        perfil = getattr(user, "perfil", None)
+        if not perfil:
+            return False
+
+        # POST (Criar): Liberado para quem tem perfil (inclui Operador)
+        if request.method == 'POST':
+            return True
+
+        # PUT/PATCH/DELETE: Apenas Supervisor ou Admin
         return perfil.papel in {perfil.PAPEL_SUPERVISOR, perfil.PAPEL_ADMIN}

@@ -41,35 +41,15 @@ import Backups from '@/pages/reports/Backups'
 import Restores from '@/pages/reports/Restores'
 
 import BackupConsole from '@/components/BackupConsole'
-
-
 import './App.css'
 
-/* ===== Helpers de papel no frontend ===== */
+// IMPORTADO AGORA DO LOCAL CORRETO
+import { getUserRole, canViewReports } from '@/utils/authRoles'
 
-const getUserRole = () => {
-  try {
-    const raw = localStorage.getItem('user')
-    if (!raw) return null
-    const data = JSON.parse(raw)
-    return (
-      data?.tipo ||          // 'admin' | 'supervisor' | 'operador' vindo do /auth/me
-      data?.perfil?.papel || // fallback antigo
-      data?.papel ||         // outro fallback
-      null
-    )
-  } catch {
-    return null
-  }
-}
-
-const isReportViewer = () => {
-  const papel = getUserRole()
-  return papel === 'admin' || papel === 'supervisor'
-}
-
+// Wrapper simples para relatórios
 function RequireReportViewer({ children }) {
-  return isReportViewer() ? children : <Navigate to="/" replace />
+  // canViewReports já verifica se é admin ou supervisor
+  return canViewReports() ? children : <Navigate to="/" replace />
 }
 
 function App() {

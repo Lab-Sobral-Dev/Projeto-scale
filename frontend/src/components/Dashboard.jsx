@@ -7,6 +7,8 @@ import {
   Calendar, Clock, Weight, RefreshCw, Factory, CalendarFold, CalendarClock, ListChecks
 } from 'lucide-react'
 import api from '@/services/api'
+// IMPORTANTE: Importando helpers de permissão
+import { getUserRole } from '@/utils/authRoles'
 
 /* =========================
     Utils
@@ -14,7 +16,6 @@ import api from '@/services/api'
 const tz = 'America/Fortaleza'
 const nf3 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 
-// NOVO FORMATADOR PARA GRAMAS
 const fmtG = (v) => {
   const n = Math.round(Number(v) || 0)
   return n.toLocaleString('pt-BR') + ' g'
@@ -54,47 +55,60 @@ const Dashboard = () => {
     opsAndamento: 0,
   })
   const [ultimasPesagens, setUltimasPesagens] = useState([])
-  const [pendingOps, setPendingOps] = useState([]) // [{id, numero, lote, produto, status, progresso, necessario, pesado, restante, criada_em}]
+  const [pendingOps, setPendingOps] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
 
-  const quickActions = useMemo(() => ([
-    {
-      title: 'Nova Pesagem',
-      description: 'Registrar uma nova pesagem',
-      icon: Scale,
-      href: '/nova-pesagem',
-      color: 'bg-orange-500 hover:bg-orange-600'
-    },
-    {
-      title: 'Histórico',
-      description: 'Consultar pesagens anteriores',
-      icon: History,
-      href: '/historico',
-      color: 'bg-orange-500/90 hover:bg-orange-600'
-    },
-    {
-      title: 'Ordens de Produção',
-      description: 'Status e itens das OPs',
-      icon: Factory,
-      href: '/ops',
-      color: 'bg-orange-500/95 hover:bg-orange-600'
-    },
-    {
-      title: 'Nova OP',
-      description: 'Criar OP a partir da estrutura',
-      icon: ListChecks,
-      href: '/ops/nova',
-      color: 'bg-orange-500 hover:bg-orange-600'
-    },
-  ]), [])
+  // Obtém papel atual para filtrar botões
+  const role = getUserRole()
+  const isOperador = role === 'operador'
+  const isAdminOrSupervisor = role === 'admin' || role === 'supervisor'
+
+  const quickActions = useMemo(() => {
+    const actions = [
+      {
+        title: 'Nova Pesagem',
+        description: 'Registrar uma nova pesagem',
+        icon: Scale,
+        href: '/nova-pesagem',
+        color: 'bg-orange-500 hover:bg-orange-600',
+        // Todos podem ver (inclusive operador)
+        visible: true
+      },
+      {
+        title: 'Histórico',
+        description: 'Consultar pesagens anteriores',
+        icon: History,
+        href: '/historico',
+        color: 'bg-orange-500/90 hover:bg-orange-600',
+        visible: true
+      },
+      {
+        title: 'Ordens de Produção',
+        description: 'Status e itens das OPs',
+        icon: Factory,
+        href: '/ops',
+        color: 'bg-orange-500/95 hover:bg-orange-600',
+        visible: true
+      },
+      {
+        title: 'Nova OP',
+        description: 'Criar OP a partir da estrutura',
+        icon: ListChecks,
+        href: '/ops/nova',
+        color: 'bg-orange-500 hover:bg-orange-600',
+        // Operador NÃO vê Nova OP
+        visible: isAdminOrSupervisor
+      },
+    ]
+    return actions.filter(a => a.visible)
+  }, [isAdminOrSupervisor])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      // Busca tudo que precisamos
       const [produtos, materias, pesagens, ops] = await Promise.all([
         api.getProdutos(),
         api.getMateriasPrimas(),
@@ -107,15 +121,12 @@ const Dashboard = () => {
       const pesList = normalize(pesagens)
       const opsList = normalize(ops)
 
-      // Mapas id->nome (fallback caso alguns endpoints retornem só IDs)
       const prodById = new Map(produtosList.map(p => [p.id, p.nome]))
       const mpById = new Map(materiasList.map(m => [m.id, m.nome]))
 
-      // KPIs de pesagens
       const hoje = pesList.filter(p => isSameDayFortaleza(p.data_hora))
       const semana = pesList.filter(p => isWithinLastDaysFortaleza(p.data_hora, 7))
 
-      // KPIs de OPs
       const ab = opsList.filter(o => o.status === 'aberta').length
       const em = opsList.filter(o => o.status === 'em_andamento').length
       const pend = ab + em
@@ -157,7 +168,7 @@ const Dashboard = () => {
       })
       setUltimasPesagens(top10)
 
-      // OPs pendentes (top 5) + progresso/saldo
+      // OPs pendentes (top 5)
       const pendentes = opsList
         .filter(o => ['aberta', 'em_andamento'].includes(o.status))
         .slice(0, 5)
@@ -222,7 +233,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho do dashboard */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 border border-orange-100 px-3 py-1 mb-1">
@@ -252,7 +262,7 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* KPIs de pesagens/produtos/MPs */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCardsTop.map((stat, index) => {
           const Icon = stat.icon
@@ -279,7 +289,6 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* KPIs de OPs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {statCardsOP.map((stat, index) => {
           const Icon = stat.icon
@@ -306,7 +315,7 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* Ações rápidas */}
+      {/* Ações Rápidas - Agora filtradas */}
       <div>
         <h2 className="text-xl font-semibold text-slate-900 mb-4">Ações Rápidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -329,7 +338,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* OPs pendentes */}
+      {/* OPs Pendentes */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-slate-900">OPs Pendentes</h2>

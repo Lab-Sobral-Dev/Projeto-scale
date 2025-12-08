@@ -28,7 +28,7 @@ from registro.audit_models import AuditLog
 from registro.audit_filters import AuditLogFilter
 from .serializers import AuditLogSerializer
 
-from usuarios.permissions import IsSupervisorOrAdminOrReadOnly, IsAdmin
+from usuarios.permissions import IsSupervisorOrAdminOrReadOnly, IsAdmin, IsOperatorCreateOrSupervisorEdit
 from registro.permissions import IsAdminOrReadOnly  # mantido para compatibilidade/legado
 
 from .models import (
@@ -334,11 +334,14 @@ class PesagemViewSet(viewsets.ModelViewSet):
     }
 
     def get_permissions(self):
-        # delete de pesagem: apenas admin (papel)
+        # delete de pesagem: apenas admin (papel) mantém rigoroso
         if self.action == "destroy":
             return [IsAdmin()]
-        # leitura/escrita normal: supervisor ou admin, leitura para qualquer autenticado
-        return [IsSupervisorOrAdminOrReadOnly()]
+        
+        # Leitura/Escrita: 
+        # Antes usava IsSupervisorOrAdminOrReadOnly (bloqueava operador no POST)
+        # Agora usa IsOperatorCreateOrSupervisorEdit (libera operador no POST)
+        return [IsOperatorCreateOrSupervisorEdit()]
 
     # -------- helper interno para pegar o nome do pesador --------
     def _get_pesador_nome(self, user, fallback=""):

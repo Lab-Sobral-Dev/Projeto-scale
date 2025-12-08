@@ -3,7 +3,7 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 class IsReportViewer(BasePermission):
     """
-    Permite acesso a usuários com papel 'admin'.
+    Permite acesso a usuários com papel 'admin' OU 'supervisor'.
     Se existir PerfilUsuario, consulta o papel.
     """
     def has_permission(self, request, view):
@@ -13,4 +13,6 @@ class IsReportViewer(BasePermission):
         perfil = getattr(user, 'perfil', None)
         if not perfil:
             return False
-        return perfil.papel in ('admin')
+            
+        # CORRIGIDO: Agora verifica admin OU supervisor corretamente
+        return perfil.papel in {'admin', 'supervisor'}
