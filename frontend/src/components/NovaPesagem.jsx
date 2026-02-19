@@ -381,14 +381,7 @@ const NovaPesagem = () => {
 
     } catch (err) {
       console.error(err)
-      const msg = err?.response?.data?.detail
-        || err?.response?.data?.non_field_errors?.[0]
-        || err?.response?.data?.lote_mp?.[0]
-        || err?.response?.data?.liquido?.[0]
-        || err?.response?.data?.tara?.[0]
-        || (typeof err?.message === 'string' ? err.message : '')
-        || 'Erro ao salvar pesagem.'
-      setError(String(msg))
+      setError(getApiErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -444,6 +437,31 @@ const NovaPesagem = () => {
   }, [formData.op, ops])
 
   const showLoteErro = !loteObrigatorioOK && triedSubmit
+
+  const getApiErrorMessage = (err) => {
+    const data = err?.response?.data
+    if (!data) return (typeof err?.message === 'string' ? err.message : '') || 'Erro ao salvar pesagem.'
+
+    if (typeof data.detail === 'string' && data.detail.trim()) return data.detail
+
+    const priorityFields = ['non_field_errors', 'op_id', 'item_op_id', 'lote_mp', 'liquido', 'tara', 'balanca_id']
+    for (const field of priorityFields) {
+      const value = data?.[field]
+      if (Array.isArray(value) && value[0]) return `${field}: ${String(value[0])}`
+      if (typeof value === 'string' && value.trim()) return `${field}: ${value}`
+    }
+
+    const firstEntry = Object.entries(data).find(([, value]) =>
+      (Array.isArray(value) && value.length > 0) || (typeof value === 'string' && value.trim())
+    )
+
+    if (firstEntry) {
+      const [field, value] = firstEntry
+      return `${field}: ${Array.isArray(value) ? String(value[0]) : String(value)}`
+    }
+
+    return (typeof err?.message === 'string' ? err.message : '') || 'Erro ao salvar pesagem.'
+  }
 
   return (
     <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
