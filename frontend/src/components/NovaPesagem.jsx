@@ -291,8 +291,9 @@ const NovaPesagem = () => {
   }
 
   const getPayload = () => {
+    // ✅ tara é opcional; mensagem alinhada com a regra
     if (!hasCamposBasicos) {
-      setError('Preencha OP, Item da OP, Líquido e Tara.')
+      setError('Preencha OP, Item da OP e Peso Líquido.')
       return null
     }
     if (!loteObrigatorioOK) {
@@ -324,7 +325,7 @@ const NovaPesagem = () => {
       balanca_id: formData.balanca ? Number(formData.balanca) : null,
       codigo_interno: formData.codigoInterno || '',
       lote_mp: loteMP,
-      pesador: formData.pesador || localUser?.displayName || ''
+      pesador: formData.pesador || localUser?.displayName || '',
     }
   }
 
@@ -360,7 +361,6 @@ const NovaPesagem = () => {
     e.preventDefault()
     handleOpenConfirm()
   }
-
 
   const handleConfirmSave = async () => {
     if (!confirmOpen || !pendingPayload) {
@@ -759,41 +759,61 @@ const NovaPesagem = () => {
               </Button>
             </div>
           </form>
-
-          <Dialog open={confirmOpen} onOpenChange={(open) => { setConfirmOpen(open); if (!open) setPendingPayload(null) }}>
-            <DialogContent className="sm:max-w-xl">
-              <DialogHeader>
-                <DialogTitle>Confirmar dados da pesagem</DialogTitle>
-                <DialogDescription>
-                  Revise todos os dados preenchidos antes de salvar a pesagem e gerar a etiqueta.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <p><b>OP:</b> {opNumeroLote || '-'}</p>
-                <p><b>Produto:</b> {produtoNome || '-'}</p>
-                <p><b>Item da OP:</b> {itemSelecionado ? itemLabel(itemSelecionado) : '-'}</p>
-                <p><b>Código interno:</b> {formData.codigoInterno || '-'}</p>
-                <p><b>Lote MP:</b> {formData.loteMP || '-'}</p>
-                <p><b>Balança:</b> {balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-'}</p>
-                <p><b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg</p>
-                <p><b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg</p>
-                <p><b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg</p>
-                <p><b>Operador:</b> {formData.pesador || '-'}</p>
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => { setConfirmOpen(false); setPendingPayload(null) }}>
-                  Corrigir
-                </Button>
-                <Button type="button" onClick={handleConfirmSave} disabled={loading} className="bg-orange-500 hover:bg-orange-600">
-                  {loading ? 'Salvando...' : 'Salvar'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </CardContent>
       </Card>
+
+      {/* ✅ Dialog fora do Card para evitar stacking context/overflow/transform */}
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open)
+          if (!open) setPendingPayload(null)
+        }}
+      >
+        {/* ✅ z-index alto para não “sumir atrás” */}
+        <DialogContent className="sm:max-w-xl z-[9999]">
+          <DialogHeader>
+            <DialogTitle>Confirmar dados da pesagem</DialogTitle>
+            <DialogDescription>
+              Revise todos os dados preenchidos antes de salvar a pesagem e gerar a etiqueta.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <p><b>OP:</b> {opNumeroLote || '-'}</p>
+            <p><b>Produto:</b> {produtoNome || '-'}</p>
+            <p><b>Item da OP:</b> {itemSelecionado ? itemLabel(itemSelecionado) : '-'}</p>
+            <p><b>Código interno:</b> {formData.codigoInterno || '-'}</p>
+            <p><b>Lote MP:</b> {formData.loteMP || '-'}</p>
+            <p><b>Balança:</b> {balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-'}</p>
+            <p><b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg</p>
+            <p><b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg</p>
+            <p><b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg</p>
+            <p><b>Operador:</b> {formData.pesador || '-'}</p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setConfirmOpen(false)
+                setPendingPayload(null)
+              }}
+            >
+              Corrigir
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmSave}
+              disabled={loading}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {loading ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
