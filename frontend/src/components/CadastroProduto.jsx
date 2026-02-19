@@ -144,8 +144,16 @@ const CadastroProduto = () => {
       }
 
       // Duplicidades locais
+      const nomeExiste = produtos.some(p =>
+        (p.nome || '').trim().toLowerCase() === formData.nome.trim().toLowerCase() && p.id !== editingId
+      )
+      if (nomeExiste) {
+        setError('Nome do produto já existe.')
+        return
+      }
+
       const codigoExiste = produtos.some(p =>
-        (p.codigoInterno || '').toLowerCase() === formData.codigoInterno.toLowerCase() && p.id !== editingId
+        (p.codigoInterno || '').trim().toLowerCase() === formData.codigoInterno.trim().toLowerCase() && p.id !== editingId
       )
       if (codigoExiste) {
         setError('Código interno já existe.')

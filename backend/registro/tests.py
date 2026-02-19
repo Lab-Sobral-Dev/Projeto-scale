@@ -4,6 +4,8 @@ from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from registro.serializers import ProdutoSerializer
+
 from registro.models import (
     Produto, MateriaPrima, UnidadeMedida,
     EstruturaProduto, ItemEstrutura,
@@ -224,3 +226,40 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
             tara=D("0.000"), liquido=D("0.100"), lote_mp="  24B0001  "
         )
         self.assertEqual(p2.lote_mp, "24B0001")
+
+class ProdutoSerializerTests(TestCase):
+    def test_bloqueia_produto_duplicado_por_nome_case_insensitive(self):
+        Produto.objects.create(nome="Xarope A", codigo_interno="PROD-001")
+
+        serializer = ProdutoSerializer(data={
+            "nome": "  xarope a  ",
+            "codigo_interno": "PROD-002",
+            "ativo": True,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("nome", serializer.errors)
+
+    def test_bloqueia_produto_duplicado_por_codigo_case_insensitive(self):
+        Produto.objects.create(nome="Xarope A", codigo_interno="PROD-001")
+
+        serializer = ProdutoSerializer(data={
+            "nome": "Xarope B",
+            "codigo_interno": " prod-001 ",
+            "ativo": True,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("codigo_interno", serializer.errors)
+
+    def test_normaliza_nome_e_codigo_ao_criar(self):
+        serializer = ProdutoSerializer(data={
+            "nome": "  Xarope C  ",
+            "codigo_interno": "  PROD-003  ",
+            "ativo": True,
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        produto = serializer.save()
+        self.assertEqual(produto.nome, "Xarope C")
+        self.assertEqual(produto.codigo_interno, "PROD-003")

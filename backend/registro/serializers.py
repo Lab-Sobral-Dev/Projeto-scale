@@ -13,6 +13,34 @@ from registro.audit_models import AuditLog
 # ============== Básicos ==============
 
 class ProdutoSerializer(serializers.ModelSerializer):
+    def validate_nome(self, value):
+        nome = (value or "").strip()
+        if not nome:
+            raise serializers.ValidationError("Informe o nome do produto.")
+
+        queryset = Produto.objects.filter(nome__iexact=nome)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError("Já existe um produto cadastrado com este nome.")
+
+        return nome
+
+    def validate_codigo_interno(self, value):
+        codigo = (value or "").strip()
+        if not codigo:
+            raise serializers.ValidationError("Informe o código interno do produto.")
+
+        queryset = Produto.objects.filter(codigo_interno__iexact=codigo)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError("Já existe um produto cadastrado com este código interno.")
+
+        return codigo
+
     class Meta:
         model = Produto
         fields = "__all__"
