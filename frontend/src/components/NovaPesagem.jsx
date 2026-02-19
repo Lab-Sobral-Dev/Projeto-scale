@@ -487,6 +487,7 @@ const NovaPesagem = () => {
                   required
                 >
                   <SelectTrigger
+                    id="op"
                     className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis"
                     title={opSelecionadaTitle}
                   >
@@ -636,7 +637,7 @@ const NovaPesagem = () => {
                   onValueChange={(value) => handleChange('balanca', value)}
                   disabled={loading}
                 >
-                  <SelectTrigger className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
+                  <SelectTrigger id="balanca" className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a balança'} />
                   </SelectTrigger>
                   <SelectContent>
