@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils'
 const KG_IN_G = 1000
 const TOLERANCIA_PERCENTUAL = 0.05 // 5%
 
-const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G) // => g (inteiro)
+const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)    // => g (inteiro)
 
 // formatadores
 const fmtG = (v) => {
@@ -44,15 +44,15 @@ const toNumber = (v) => {
   return Number(s.replace(/\./g, '').replace(',', '.')) || 0
 }
 
-const isNonEmpty = (s) => (typeof s === 'string' ? s.trim().length > 0 : !!s)
+const isNonEmpty = (s) => typeof s === 'string' ? s.trim().length > 0 : !!s
 
-// === HELPERS PARA TRABALHAR COM VÍRGULA ===
+// === NOVOS HELPERS PARA TRABALHAR COM VÍRGULA ===
 
 // Normaliza o que o usuário digita: troca ponto por vírgula, remove caracteres inválidos
 const normalizeDecimalInput = (value) => {
   if (!value) return ''
-  let v = value.replace(/\./g, ',') // força vírgula
-  v = v.replace(/[^0-9,]/g, '') // só dígitos e vírgula
+  let v = value.replace(/\./g, ',')          // força vírgula
+  v = v.replace(/[^0-9,]/g, '')              // só dígitos e vírgula
   const parts = v.split(',')
   if (parts.length > 2) {
     // se tiver mais de uma vírgula, junta tudo após a primeira
@@ -84,35 +84,35 @@ const NovaPesagem = () => {
   const [triedSubmit, setTriedSubmit] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
+  const [confirmReady, setConfirmReady] = useState(false)
 
-  // ref para focar de volta no campo de líquido após limpar
+  // refs opcionais para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
+  const confirmReadyTimerRef = useRef(null)
 
   const getInitialFormData = (user = null) => ({
-    op: '', // sempre string p/ Select controlado
-    itemOp: '', // sempre string p/ Select/Popover controlado
+    op: '',          // sempre string p/ Select controlado
+    itemOp: '',      // sempre string p/ Select/Popover controlado
     pesador: user?.nome || '',
     // Entradas SEMPRE em kg na UI (como string com vírgula)
-    liquido: '', // input do usuário (kg)
-    tara: '', // input do usuário (kg)  (pode ser vazio => 0)
-    balanca: '', // sempre string p/ Select controlado
+    liquido: '',     // input do usuário (kg)
+    tara: '',        // input do usuário (kg)
+    balanca: '',     // sempre string p/ Select controlado
     codigoInterno: '',
-    loteMP: '', // mapeia para lote_mp (obrigatório)
+    loteMP: ''       // mapeia para lote_mp
   })
 
   const [formData, setFormData] = useState(getInitialFormData())
 
   const getDisplayName = (user) => {
     if (!user) return ''
-    return (
-      user.nome?.trim()
+    return user.nome?.trim()
       || `${(user.first_name || '').trim()} ${(user.last_name || '').trim()}`.trim()
       || user.username
       || ''
-    )
   }
 
-  const normalizeList = (data) => (Array.isArray(data) ? data : (data?.results ?? []))
+  const normalizeList = (data) => Array.isArray(data) ? data : (data?.results ?? [])
 
   useEffect(() => {
     let abort = false
@@ -122,13 +122,13 @@ const NovaPesagem = () => {
         const [opsRes, balRes, userRes] = await Promise.all([
           api.getOPs({ ordering: '-criada_em' }),
           api.getBalancas(),
-          api.me().catch(() => null),
+          api.me().catch(() => null)
         ])
         if (abort) return
 
         const opsNorm = normalizeList(opsRes)
-          .filter((o) => ['aberta', 'em_andamento'].includes(o.status))
-          .map((o) => ({
+          .filter(o => ['aberta', 'em_andamento'].includes(o.status))
+          .map(o => ({
             id: o.id,
             numero: o.numero,
             lote: o.lote,
@@ -136,7 +136,7 @@ const NovaPesagem = () => {
             produtoNome: o.produto?.nome ?? '',
           }))
 
-        const balsNorm = normalizeList(balRes).map((b) => ({ id: b.id, nome: b.nome }))
+        const balsNorm = normalizeList(balRes).map(b => ({ id: b.id, nome: b.nome }))
 
         setOps(opsNorm)
         setBalancas(balsNorm)
@@ -144,7 +144,7 @@ const NovaPesagem = () => {
         const display = getDisplayName(userRes)
         const safeUser = userRes ? userRes : {}
         setLocalUser({ ...safeUser, displayName: display })
-        setFormData((prev) => ({ ...prev, pesador: display }))
+        setFormData(prev => ({ ...prev, pesador: display }))
       } catch (e) {
         console.error(e)
         setError('Não foi possível carregar os dados iniciais.')
@@ -153,15 +153,18 @@ const NovaPesagem = () => {
       }
     }
     loadInitialData()
+    return () => { abort = true }
+  }, [])
+
+  useEffect(() => {
     return () => {
-      abort = true
+      if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
     }
   }, [])
 
   // ---- Unidades: UI em kg (string com vírgula); comparação/saldo em g ----
-  // tara pode ficar vazia => tratar como 0
   const liquidoKg = useMemo(() => toNumber(formData.liquido), [formData.liquido])
-  const taraKg = useMemo(() => toNumber(formData.tara || '0'), [formData.tara])
+  const taraKg = useMemo(() => toNumber(formData.tara), [formData.tara])
 
   // Cálculo automático do bruto (kg)
   const brutoCalculadoKg = useMemo(() => {
@@ -175,7 +178,7 @@ const NovaPesagem = () => {
   // Item selecionado
   const itemSelecionado = useMemo(() => {
     if (!formData.itemOp) return null
-    return itensOP.find((i) => i.id.toString() === formData.itemOp.toString()) || null
+    return itensOP.find(i => i.id.toString() === formData.itemOp.toString()) || null
   }, [formData.itemOp, itensOP])
 
   // Quantidades do item (em g)
@@ -189,56 +192,46 @@ const NovaPesagem = () => {
 
   // Totais projetados e indicadores
   const novoTotalG = pesadoG + pesoLiquidoG
-  const excedeMaximo = necessarioG > 0 ? (novoTotalG > limiteMaxG) : false
-  const abaixoDoMinimo = necessarioG > 0 ? (novoTotalG < limiteMinG) : false // permitido em parciais
+  const excedeMaximo = novoTotalG > limiteMaxG
+  const abaixoDoMinimo = novoTotalG < limiteMinG // permitido em parciais
 
   // Indicadores de UX
   const faltaParaMinG = Math.max(limiteMinG - novoTotalG, 0)
   const margemAteMaxG = Math.max(limiteMaxG - novoTotalG, 0)
 
   const produtoNome = useMemo(() => {
-    const sel = ops.find((o) => o.id.toString() === formData.op.toString())
+    const sel = ops.find(o => o.id.toString() === formData.op.toString())
     return sel?.produtoNome || ''
   }, [ops, formData.op])
 
   const opNumeroLote = useMemo(() => {
-    const sel = ops.find((o) => o.id.toString() === formData.op.toString())
+    const sel = ops.find(o => o.id.toString() === formData.op.toString())
     if (!sel) return ''
     return `OP ${sel.numero} • Lote ${sel.lote}`
   }, [ops, formData.op])
 
   const handleChange = (name, value) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData(prev => ({ ...prev, [name]: value }))
     setError('')
     setSuccess('')
     setCreatedId(null)
   }
 
   const handleOPChange = async (opId) => {
-    // consolida num único update (menos renders e menos chance de inconsistência)
-    setFormData((prev) => ({
-      ...prev,
-      op: opId,
-      itemOp: '',
-      codigoInterno: '',
-      loteMP: '',
-    }))
-    setError('')
-    setSuccess('')
-    setCreatedId(null)
+    handleChange('op', opId)
+    handleChange('itemOp', '')
+    handleChange('codigoInterno', '')
+    handleChange('loteMP', '')
     setItensOP([])
-    setOpenItem(false)
-    setSearchItem('')
-
     try {
       const resp = await api.getOPItems(opId)
-      const itens = normalizeList(resp).map((it) => ({
+      const itens = normalizeList(resp).map(it => ({
         id: it.id,
         mpNome: it.materia_prima?.nome ?? '',
         mpCodigo: it.materia_prima?.codigo_interno ?? '',
         quantidade_necessaria: it.quantidade_necessaria, // g
-        quantidade_pesada: it.quantidade_pesada, // g
-        quantidade_restante: it.quantidade_restante, // g
+        quantidade_pesada: it.quantidade_pesada,         // g
+        quantidade_restante: it.quantidade_restante,     // g
         unidade: it.unidade,
       }))
       setItensOP(itens)
@@ -251,31 +244,22 @@ const NovaPesagem = () => {
   // Preencher automaticamente o código interno da MP quando o item é selecionado
   useEffect(() => {
     if (itemSelecionado) {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
-        codigoInterno: itemSelecionado.mpCodigo || '',
+        codigoInterno: itemSelecionado.mpCodigo || ''
       }))
     }
   }, [itemSelecionado])
 
-  // ---- REQUERIDOS (inclui Lote MP) ----
-  // tara pode ser vazia, então não entra na regra de "básicos"
-  const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido !== ''
+  // ---- REQUERIDOS (agora inclui Lote MP) ----
+  const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido && formData.tara
   const loteObrigatorioOK = isNonEmpty(formData.loteMP)
 
-  // Pode salvar quando não excede o máximo (parciais abaixo do mínimo são ok) e LOTE OK
-  const canSave =
-    !loading
-    && hasCamposBasicos
-    && loteObrigatorioOK
-    && !excedeMaximo
-    && liquidoKg > 0
-    && taraKg >= 0
 
   const refreshItensOP = async (opId) => {
     try {
       const resp = await api.getOPItems(opId)
-      const itens = normalizeList(resp).map((it) => ({
+      const itens = normalizeList(resp).map(it => ({
         id: it.id,
         mpNome: it.materia_prima?.nome ?? '',
         mpCodigo: it.materia_prima?.codigo_interno ?? '',
@@ -291,9 +275,8 @@ const NovaPesagem = () => {
   }
 
   const getPayload = () => {
-    // ✅ tara é opcional; mensagem alinhada com a regra
     if (!hasCamposBasicos) {
-      setError('Preencha OP, Item da OP e Peso Líquido.')
+      setError('Preencha OP, Item da OP, Líquido e Tara.')
       return null
     }
     if (!loteObrigatorioOK) {
@@ -325,18 +308,18 @@ const NovaPesagem = () => {
       balanca_id: formData.balanca ? Number(formData.balanca) : null,
       codigo_interno: formData.codigoInterno || '',
       lote_mp: loteMP,
-      pesador: formData.pesador || localUser?.displayName || '',
+      pesador: formData.pesador || localUser?.displayName || ''
     }
   }
 
   const limparLiquidoETara = () => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       liquido: '',
-      tara: '',
+      tara: ''
     }))
     setTimeout(() => {
-      liquidoRef.current?.focus()
+      if (liquidoRef.current) liquidoRef.current.focus()
     }, 0)
   }
 
@@ -350,11 +333,17 @@ const NovaPesagem = () => {
     if (!payload) {
       setConfirmOpen(false)
       setPendingPayload(null)
+      setConfirmReady(false)
       return
     }
 
     setPendingPayload(payload)
+    setConfirmReady(false)
     setConfirmOpen(true)
+    if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
+    confirmReadyTimerRef.current = setTimeout(() => {
+      setConfirmReady(true)
+    }, 150)
   }
 
   const handleSubmit = (e) => {
@@ -363,8 +352,8 @@ const NovaPesagem = () => {
   }
 
   const handleConfirmSave = async () => {
-    if (!confirmOpen || !pendingPayload) {
-      setError('Revise os dados e abra o modal antes de salvar.')
+    if (!confirmOpen || !pendingPayload || !confirmReady) {
+      setError('Revise os dados e confirme no modal antes de salvar.')
       return
     }
 
@@ -379,16 +368,18 @@ const NovaPesagem = () => {
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
       setConfirmOpen(false)
       setPendingPayload(null)
+      setConfirmReady(false)
+      if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
 
       if (formData.op) {
         await refreshItensOP(formData.op)
       }
 
       limparLiquidoETara()
+
     } catch (err) {
       console.error(err)
-      const msg =
-        err?.response?.data?.detail
+      const msg = err?.response?.data?.detail
         || err?.response?.data?.non_field_errors?.[0]
         || err?.response?.data?.lote_mp?.[0]
         || err?.response?.data?.liquido?.[0]
@@ -412,6 +403,8 @@ const NovaPesagem = () => {
     setTriedSubmit(false)
     setConfirmOpen(false)
     setPendingPayload(null)
+    setConfirmReady(false)
+    if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
     setTimeout(() => liquidoRef.current?.focus(), 0)
   }
 
@@ -433,21 +426,18 @@ const NovaPesagem = () => {
 
   const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
 
-  // Label do item — EXIBE em gramas (robusto)
+  // Label do item — EXIBE em gramas
   const itemLabel = (it) => {
-    const code = it?.mpCodigo ? `${it.mpCodigo} — ` : ''
-    const necG = Number(it?.quantidade_necessaria || 0)
-    const pesG = Number(it?.quantidade_pesada || 0)
+    const code = it.mpCodigo ? `${it.mpCodigo} — ` : ''
+    const necG = Number(it.quantidade_necessaria || 0)
+    const pesG = Number(it.quantidade_pesada || 0)
     const saldoG = Math.max(necG - pesG, 0)
-    const nome = it?.mpNome || '—'
-    return `${code}${nome} · nec ${fmtG(necG)} · pes ${fmtG(pesG)} · rest ${fmtG(saldoG)}`
+    return `${code}${it.mpNome} · nec ${fmtG(necG)} · pes ${fmtG(pesG)} · rest ${fmtG(saldoG)}`
   }
-
-  const safeItemLabel = (it) => (it ? itemLabel(it) : 'Item selecionado (não encontrado na lista)')
 
   const opSelecionadaTitle = useMemo(() => {
     if (!formData.op) return undefined
-    const o = ops.find((x) => x.id.toString() === String(formData.op))
+    const o = ops.find(x => x.id.toString() === String(formData.op))
     return o ? `OP ${o.numero} • ${o.produtoNome} • Lote ${o.lote} (${o.status})` : undefined
   }, [formData.op, ops])
 
@@ -461,8 +451,12 @@ const NovaPesagem = () => {
           <Scale className="h-6 w-6 text-orange-600" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Nova Pesagem</h1>
-          <p className="text-gray-600 text-sm">Registrar pesagem vinculada a uma OP e a um item da OP.</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            Nova Pesagem
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Registrar pesagem vinculada a uma OP e a um item da OP.
+          </p>
         </div>
       </div>
 
@@ -471,7 +465,9 @@ const NovaPesagem = () => {
           <CardTitle>Dados da Pesagem</CardTitle>
           <CardDescription>
             Data/Hora: {currentDateTime}
-            {localUser?.displayName ? <span className="block">Operador: {localUser.displayName}</span> : null}
+            {localUser?.displayName ? (
+              <span className="block">Operador: {localUser.displayName}</span>
+            ) : null}
           </CardDescription>
         </CardHeader>
 
@@ -480,18 +476,27 @@ const NovaPesagem = () => {
             {/* Ordem dos inputs:
                 OP, Produto, OP/Lote, Item da OP, Código Interno, Lote MP, Balança, Tara, Peso Líquido */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
               {/* OP — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
                 <Label htmlFor="op">Ordem de Produção</Label>
-                <Select value={String(formData.op || '')} onValueChange={handleOPChange} disabled={loading} required>
+                <Select
+                  value={String(formData.op || '')}
+                  onValueChange={handleOPChange}
+                  disabled={loading}
+                  required
+                >
                   <SelectTrigger
                     className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis"
                     title={opSelecionadaTitle}
                   >
-                    <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a OP'} className="truncate" />
+                    <SelectValue
+                      placeholder={loading ? 'Carregando...' : 'Selecione a OP'}
+                      className="truncate"
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {ops.map((o) => (
+                    {ops.map(o => (
                       <SelectItem
                         key={o.id}
                         value={String(o.id)}
@@ -526,10 +531,7 @@ const NovaPesagem = () => {
                 <Label>Item da OP (Matéria-prima)</Label>
                 <Popover
                   open={openItem}
-                  onOpenChange={(v) => {
-                    setOpenItem(v)
-                    if (!v) setSearchItem('')
-                  }}
+                  onOpenChange={(v) => { setOpenItem(v); if (!v) setSearchItem('') }}
                 >
                   <PopoverTrigger asChild>
                     <Button
@@ -539,11 +541,11 @@ const NovaPesagem = () => {
                       aria-expanded={openItem}
                       className="w-full justify-between"
                       disabled={loading || !formData.op}
-                      title={formData.itemOp ? safeItemLabel(itemSelecionado) : undefined}
+                      title={formData.itemOp ? itemLabel(itemSelecionado) : undefined}
                     >
                       <span className="w-full truncate text-left">
                         {formData.itemOp
-                          ? safeItemLabel(itemSelecionado)
+                          ? itemLabel(itemSelecionado)
                           : (!formData.op ? 'Selecione uma OP primeiro' : 'Pesquisar item da OP...')}
                       </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -551,12 +553,15 @@ const NovaPesagem = () => {
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" sideOffset={5}>
                     <Command>
-                      <CommandInput placeholder="Pesquisar nome/código da MP..." onValueChange={setSearchItem} />
+                      <CommandInput
+                        placeholder="Pesquisar nome/código da MP..."
+                        onValueChange={setSearchItem}
+                      />
                       <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
                       <CommandList className="max-h-[300px] overflow-y-auto" aria-live="polite">
                         <CommandGroup>
                           {itensOP
-                            .filter((it) => {
+                            .filter(it => {
                               if (!searchItem) return true
                               const needle = searchItem.toLowerCase()
                               return (it.mpNome?.toLowerCase() || '').includes(needle)
@@ -590,14 +595,17 @@ const NovaPesagem = () => {
               {/* Código Interno (auto a partir do item) */}
               <div className="space-y-2">
                 <Label htmlFor="codigoInterno">Código Interno (MP)</Label>
-                <Input id="codigoInterno" value={formData.codigoInterno} readOnly title="Preenchido automaticamente a partir do item da OP" />
+                <Input
+                  id="codigoInterno"
+                  value={formData.codigoInterno}
+                  readOnly
+                  title="Preenchido automaticamente a partir do item da OP"
+                />
               </div>
 
               {/* Lote MP — OBRIGATÓRIO */}
               <div className="space-y-2">
-                <Label htmlFor="loteMP">
-                  Lote MP <span className="text-red-600">*</span>
-                </Label>
+                <Label htmlFor="loteMP">Lote MP <span className="text-red-600"></span></Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="loteMP"
@@ -605,25 +613,34 @@ const NovaPesagem = () => {
                     value={formData.loteMP}
                     onChange={(e) => handleChange('loteMP', e.target.value)}
                     onBlur={(e) => handleChange('loteMP', e.target.value.trim())}
-                    className={cn('flex-1', showLoteErro && 'border-red-500 focus-visible:ring-red-500')}
+                    className={cn(
+                      'flex-1',
+                      showLoteErro && 'border-red-500 focus-visible:ring-red-500'
+                    )}
                     required
                     aria-required="true"
                     maxLength={60} // casa com models.CharField(max_length=60)
                     title="Informe o lote da matéria-prima (obrigatório)."
                   />
                 </div>
-                {showLoteErro && <p className="text-sm text-red-600">Informe o Lote da Matéria-Prima.</p>}
+                {showLoteErro && (
+                  <p className="text-sm text-red-600">Informe o Lote da Matéria-Prima.</p>
+                )}
               </div>
 
               {/* Balança — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
                 <Label htmlFor="balanca">Balança</Label>
-                <Select value={String(formData.balanca || '')} onValueChange={(value) => handleChange('balanca', value)} disabled={loading}>
+                <Select
+                  value={String(formData.balanca || '')}
+                  onValueChange={(value) => handleChange('balanca', value)}
+                  disabled={loading}
+                >
                   <SelectTrigger className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a balança'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {balancas.map((b) => (
+                    {balancas.map(b => (
                       <SelectItem key={b.id} value={String(b.id)}>
                         {b.nome}
                       </SelectItem>
@@ -642,14 +659,11 @@ const NovaPesagem = () => {
                   value={formData.tara}
                   onChange={(e) => handleChange('tara', normalizeDecimalInput(e.target.value))}
                   placeholder="0,000 kg"
-                  title="Opcional. Se vazio, será considerado 0."
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="liquido">
-                  Peso Líquido (kg) <span className="text-red-600">*</span>
-                </Label>
+                <Label htmlFor="liquido">Peso Líquido (kg) <span className="text-red-600"></span></Label>
                 <Input
                   id="liquido"
                   ref={liquidoRef}
@@ -682,22 +696,19 @@ const NovaPesagem = () => {
               <div className="bg-amber-50 p-4 rounded-lg">
                 <Label className="font-semibold text-amber-900">Saldo do Item</Label>
                 <div className="mt-2 text-amber-900">
-                  Necessário: <b>{fmtG(necessarioG)}</b>
-                  <br />
-                  Pesado: <b>{fmtG(pesadoG)}</b>
-                  <br />
-                  Restante: <b>{fmtG(restanteG)}</b>
-                  <br />
+                  Necessário: <b>{fmtG(necessarioG)}</b><br />
+                  Pesado: <b>{fmtG(pesadoG)}</b><br />
+                  Restante: <b>{fmtG(restanteG)}</b><br />
                   Limites (±5%): <b>{fmtG(limiteMinG)}</b> a <b>{fmtG(limiteMaxG)}</b>
                 </div>
 
-                {necessarioG > 0 && excedeMaximo && (
+                {excedeMaximo && (
                   <p className="mt-2 text-red-700 text-sm">
                     Ultrapassa o limite superior (+5%). Ajuste o peso para no máximo {fmtG(limiteMaxG)}.
                   </p>
                 )}
 
-                {necessarioG > 0 && !excedeMaximo && (
+                {!excedeMaximo && (
                   <div className="mt-3 space-y-1 text-sm">
                     {abaixoDoMinimo ? (
                       <p className="text-amber-700">
@@ -709,12 +720,6 @@ const NovaPesagem = () => {
                       </p>
                     )}
                   </div>
-                )}
-
-                {necessarioG <= 0 && formData.itemOp && (
-                  <p className="mt-2 text-red-700 text-sm">
-                    Este item está sem “quantidade necessária” configurada (0 g). Verifique a OP/ficha do item.
-                  </p>
                 )}
               </div>
             </div>
@@ -753,67 +758,52 @@ const NovaPesagem = () => {
                 Gerar Etiqueta
               </Button>
 
-              <Button type="button" variant="outline" onClick={handleLimparCampos} className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleLimparCampos}
+                className="flex items-center gap-2"
+              >
                 <RotateCcw className="h-4 w-4" />
                 Limpar
               </Button>
             </div>
           </form>
+
+          <Dialog open={confirmOpen} onOpenChange={(open) => { setConfirmOpen(open); if (!open) { setPendingPayload(null); setConfirmReady(false); if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current) } }}>
+            <DialogContent className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Confirmar dados da pesagem</DialogTitle>
+                <DialogDescription>
+                  Revise todos os dados preenchidos antes de salvar a pesagem e gerar a etiqueta.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <p><b>OP:</b> {opNumeroLote || '-'}</p>
+                <p><b>Produto:</b> {produtoNome || '-'}</p>
+                <p><b>Item da OP:</b> {itemSelecionado ? itemLabel(itemSelecionado) : '-'}</p>
+                <p><b>Código interno:</b> {formData.codigoInterno || '-'}</p>
+                <p><b>Lote MP:</b> {formData.loteMP || '-'}</p>
+                <p><b>Balança:</b> {balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-'}</p>
+                <p><b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg</p>
+                <p><b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg</p>
+                <p><b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg</p>
+                <p><b>Operador:</b> {formData.pesador || '-'}</p>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => { setConfirmOpen(false); setPendingPayload(null); setConfirmReady(false); if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current) }}>
+                  Corrigir
+                </Button>
+                <Button type="button" onClick={handleConfirmSave} disabled={loading || !confirmReady} className="bg-orange-500 hover:bg-orange-600">
+                  {loading ? 'Salvando...' : (confirmReady ? 'Salvar' : 'Aguarde...')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
-
-      {/* ✅ Dialog fora do Card para evitar stacking context/overflow/transform */}
-      <Dialog
-        open={confirmOpen}
-        onOpenChange={(open) => {
-          setConfirmOpen(open)
-          if (!open) setPendingPayload(null)
-        }}
-      >
-        {/* ✅ z-index alto para não “sumir atrás” */}
-        <DialogContent className="sm:max-w-xl z-[9999]">
-          <DialogHeader>
-            <DialogTitle>Confirmar dados da pesagem</DialogTitle>
-            <DialogDescription>
-              Revise todos os dados preenchidos antes de salvar a pesagem e gerar a etiqueta.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <p><b>OP:</b> {opNumeroLote || '-'}</p>
-            <p><b>Produto:</b> {produtoNome || '-'}</p>
-            <p><b>Item da OP:</b> {itemSelecionado ? itemLabel(itemSelecionado) : '-'}</p>
-            <p><b>Código interno:</b> {formData.codigoInterno || '-'}</p>
-            <p><b>Lote MP:</b> {formData.loteMP || '-'}</p>
-            <p><b>Balança:</b> {balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-'}</p>
-            <p><b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg</p>
-            <p><b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg</p>
-            <p><b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg</p>
-            <p><b>Operador:</b> {formData.pesador || '-'}</p>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setConfirmOpen(false)
-                setPendingPayload(null)
-              }}
-            >
-              Corrigir
-            </Button>
-            <Button
-              type="button"
-              onClick={handleConfirmSave}
-              disabled={loading}
-              className="bg-orange-500 hover:bg-orange-600"
-            >
-              {loading ? 'Salvando...' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
