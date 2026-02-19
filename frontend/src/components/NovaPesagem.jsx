@@ -23,21 +23,16 @@ import { Scale, Save, Printer, RotateCcw, Calculator, ChevronsUpDown, Check } fr
 import api from '@/services/api'
 import { cn } from '@/lib/utils'
 
-/**
- * UI: entradas em kg (3 casas), regra interna: gramas (g)
- */
 const KG_IN_G = 1000
 const TOLERANCIA_PERCENTUAL = 0.05 // 5%
 
-const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)    // => g (inteiro)
+const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)
 
-// formatadores
 const fmtG = (v) => {
   const n = Math.round(Number(v) || 0)
   return n.toLocaleString('pt-BR') + ' g'
 }
 
-// conversor robusto pt-BR para número
 const toNumber = (v) => {
   if (typeof v !== 'string') return Number(v) || 0
   const s = v.replace(/\s/g, '')
@@ -46,20 +41,15 @@ const toNumber = (v) => {
 
 const isNonEmpty = (s) => typeof s === 'string' ? s.trim().length > 0 : !!s
 
-// Normaliza o que o usuário digita: troca ponto por vírgula, remove caracteres inválidos
 const normalizeDecimalInput = (value) => {
   if (!value) return ''
-  let v = value.replace(/\./g, ',')          // força vírgula
-  v = v.replace(/[^0-9,]/g, '')              // só dígitos e vírgula
+  let v = value.replace(/\./g, ',')
+  v = v.replace(/[^0-9,]/g, '')
   const parts = v.split(',')
-  if (parts.length > 2) {
-    // se tiver mais de uma vírgula, junta tudo após a primeira
-    v = parts[0] + ',' + parts.slice(1).join('')
-  }
+  if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('')
   return v
 }
 
-// Formata número JS para string com vírgula (ex: 1.5 -> "1,500")
 const formatNumberWithComma = (num, decimals = 3) => {
   if (num === null || num === undefined || isNaN(num)) return '0,000'
   return num.toFixed(decimals).replace('.', ',')
@@ -83,23 +73,21 @@ const NovaPesagem = () => {
   const [searchItem, setSearchItem] = useState('')
   const [triedSubmit, setTriedSubmit] = useState(false)
 
-  // Modal de confirmação
+  // Modal
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
 
-  // refs opcionais para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
 
   const getInitialFormData = (user = null) => ({
-    op: '',          // sempre string p/ Select controlado
-    itemOp: '',      // sempre string p/ Select/Popover controlado
+    op: '',
+    itemOp: '',
     pesador: user?.nome || '',
-    // Entradas SEMPRE em kg na UI (como string com vírgula)
-    liquido: '',     // input do usuário (kg)
-    tara: '',        // input do usuário (kg)
-    balanca: '',     // sempre string p/ Select controlado
+    liquido: '',
+    tara: '',
+    balanca: '',
     codigoInterno: '',
-    loteMP: ''       // mapeia para lote_mp
+    loteMP: ''
   })
 
   const [formData, setFormData] = useState(getInitialFormData())
@@ -156,40 +144,32 @@ const NovaPesagem = () => {
     return () => { abort = true }
   }, [])
 
-  // ---- Unidades: UI em kg (string com vírgula); comparação/saldo em g ----
   const liquidoKg = useMemo(() => toNumber(formData.liquido), [formData.liquido])
   const taraKg = useMemo(() => toNumber(formData.tara), [formData.tara])
 
-  // Cálculo automático do bruto (kg)
   const brutoCalculadoKg = useMemo(() => {
     const val = liquidoKg + taraKg
     return val > 0 ? val : 0
   }, [liquidoKg, taraKg])
 
-  // Líquido em g (para validação)
   const pesoLiquidoG = useMemo(() => kgToG(liquidoKg), [liquidoKg])
 
-  // Item selecionado
   const itemSelecionado = useMemo(() => {
     if (!formData.itemOp) return null
     return itensOP.find(i => i.id.toString() === formData.itemOp.toString()) || null
   }, [formData.itemOp, itensOP])
 
-  // Quantidades do item (em g)
   const necessarioG = itemSelecionado ? Number(itemSelecionado.quantidade_necessaria || 0) : 0
   const pesadoG = itemSelecionado ? Number(itemSelecionado.quantidade_pesada || 0) : 0
   const restanteG = Math.max(necessarioG - pesadoG, 0)
 
-  // Limites com +/- 5%
   const limiteMinG = necessarioG * (1 - TOLERANCIA_PERCENTUAL)
   const limiteMaxG = necessarioG * (1 + TOLERANCIA_PERCENTUAL)
 
-  // Totais projetados e indicadores
   const novoTotalG = pesadoG + pesoLiquidoG
   const excedeMaximo = novoTotalG > limiteMaxG
-  const abaixoDoMinimo = novoTotalG < limiteMinG // permitido em parciais
+  const abaixoDoMinimo = novoTotalG < limiteMinG
 
-  // Indicadores de UX
   const faltaParaMinG = Math.max(limiteMinG - novoTotalG, 0)
   const margemAteMaxG = Math.max(limiteMaxG - novoTotalG, 0)
 
@@ -223,9 +203,9 @@ const NovaPesagem = () => {
         id: it.id,
         mpNome: it.materia_prima?.nome ?? '',
         mpCodigo: it.materia_prima?.codigo_interno ?? '',
-        quantidade_necessaria: it.quantidade_necessaria, // g
-        quantidade_pesada: it.quantidade_pesada,         // g
-        quantidade_restante: it.quantidade_restante,     // g
+        quantidade_necessaria: it.quantidade_necessaria,
+        quantidade_pesada: it.quantidade_pesada,
+        quantidade_restante: it.quantidade_restante,
         unidade: it.unidade,
       }))
       setItensOP(itens)
@@ -235,7 +215,6 @@ const NovaPesagem = () => {
     }
   }
 
-  // Preencher automaticamente o código interno da MP quando o item é selecionado
   useEffect(() => {
     if (itemSelecionado) {
       setFormData(prev => ({
@@ -245,7 +224,6 @@ const NovaPesagem = () => {
     }
   }, [itemSelecionado])
 
-  // ---- REQUERIDOS (agora inclui Lote MP) ----
   const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido && formData.tara
   const loteObrigatorioOK = isNonEmpty(formData.loteMP)
 
@@ -306,17 +284,11 @@ const NovaPesagem = () => {
   }
 
   const limparLiquidoETara = () => {
-    setFormData(prev => ({
-      ...prev,
-      liquido: '',
-      tara: ''
-    }))
-    setTimeout(() => {
-      if (liquidoRef.current) liquidoRef.current.focus()
-    }, 0)
+    setFormData(prev => ({ ...prev, liquido: '', tara: '' }))
+    setTimeout(() => liquidoRef.current?.focus(), 0)
   }
 
-  // ABRE modal e guarda payload (NÃO salva aqui)
+  // ABRIR MODAL (NUNCA SALVA AQUI)
   const handleOpenConfirm = () => {
     setTriedSubmit(true)
     setError('')
@@ -334,14 +306,9 @@ const NovaPesagem = () => {
     setConfirmOpen(true)
   }
 
-  // Evita submit do form disparar salvamento direto
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    handleOpenConfirm()
-  }
-
-  // SALVA somente se modal estiver aberto + payload existir
+  // ÚNICO PONTO QUE SALVA
   const handleConfirmSave = async () => {
+    console.trace('[TRACE] handleConfirmSave acionado') // <- se salvar "sozinho", você vai ver de onde veio
     if (!confirmOpen || !pendingPayload) {
       setError('Revise os dados e confirme no modal antes de salvar.')
       return
@@ -357,14 +324,10 @@ const NovaPesagem = () => {
       setCreatedId(created?.id)
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
 
-      // Fecha modal e limpa payload
       setConfirmOpen(false)
       setPendingPayload(null)
 
-      if (formData.op) {
-        await refreshItensOP(formData.op)
-      }
-
+      if (formData.op) await refreshItensOP(formData.op)
       limparLiquidoETara()
     } catch (err) {
       console.error(err)
@@ -390,11 +353,8 @@ const NovaPesagem = () => {
     setOpenItem(false)
     setSearchItem('')
     setTriedSubmit(false)
-
-    // Fecha modal e zera payload
     setConfirmOpen(false)
     setPendingPayload(null)
-
     setTimeout(() => liquidoRef.current?.focus(), 0)
   }
 
@@ -416,7 +376,6 @@ const NovaPesagem = () => {
 
   const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
 
-  // Label do item — EXIBE em gramas
   const itemLabel = (it) => {
     if (!it) return ''
     const code = it.mpCodigo ? `${it.mpCodigo} — ` : ''
@@ -436,18 +395,13 @@ const NovaPesagem = () => {
 
   return (
     <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
-      {/* Header */}
       <div className="flex items-center gap-3 border-b pb-4">
         <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
           <Scale className="h-6 w-6 text-orange-600" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-            Nova Pesagem
-          </h1>
-          <p className="text-gray-600 text-sm">
-            Registrar pesagem vinculada a uma OP e a um item da OP.
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Nova Pesagem</h1>
+          <p className="text-gray-600 text-sm">Registrar pesagem vinculada a uma OP e a um item da OP.</p>
         </div>
       </div>
 
@@ -456,35 +410,25 @@ const NovaPesagem = () => {
           <CardTitle>Dados da Pesagem</CardTitle>
           <CardDescription>
             Data/Hora: {currentDateTime}
-            {localUser?.displayName ? (
-              <span className="block">Operador: {localUser.displayName}</span>
-            ) : null}
+            {localUser?.displayName ? (<span className="block">Operador: {localUser.displayName}</span>) : null}
           </CardDescription>
           <p className="text-xs text-muted-foreground">Campos marcados com * são obrigatórios.</p>
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* REMOVIDO: <form> (pra eliminar submit automático/Enter) */}
+          <div className="space-y-6">
 
-              {/* OP — Select controlado (sempre string) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2 min-w-0">
                 <Label htmlFor="op">Ordem de Produção<RequiredAsterisk /></Label>
-                <Select
-                  value={String(formData.op || '')}
-                  onValueChange={handleOPChange}
-                  disabled={loading}
-                  required
-                >
+                <Select value={String(formData.op || '')} onValueChange={handleOPChange} disabled={loading} required>
                   <SelectTrigger
                     id="op"
                     className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis"
                     title={opSelecionadaTitle}
                   >
-                    <SelectValue
-                      placeholder={loading ? 'Carregando...' : 'Selecione a OP'}
-                      className="truncate"
-                    />
+                    <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a OP'} className="truncate" />
                   </SelectTrigger>
                   <SelectContent>
                     {ops.map(o => (
@@ -501,7 +445,6 @@ const NovaPesagem = () => {
                 </Select>
               </div>
 
-              {/* Produto (somente leitura) */}
               <div className="space-y-2">
                 <Label>Produto</Label>
                 <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
@@ -509,7 +452,6 @@ const NovaPesagem = () => {
                 </div>
               </div>
 
-              {/* OP / Lote (somente leitura) */}
               <div className="space-y-2">
                 <Label>OP / Lote</Label>
                 <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
@@ -517,13 +459,9 @@ const NovaPesagem = () => {
                 </div>
               </div>
 
-              {/* Item da OP */}
               <div className="space-y-2">
                 <Label>Item da OP (Matéria-prima)<RequiredAsterisk /></Label>
-                <Popover
-                  open={openItem}
-                  onOpenChange={(v) => { setOpenItem(v); if (!v) setSearchItem('') }}
-                >
+                <Popover open={openItem} onOpenChange={(v) => { setOpenItem(v); if (!v) setSearchItem('') }}>
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -544,10 +482,7 @@ const NovaPesagem = () => {
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" sideOffset={5}>
                     <Command>
-                      <CommandInput
-                        placeholder="Pesquisar nome/código da MP..."
-                        onValueChange={setSearchItem}
-                      />
+                      <CommandInput placeholder="Pesquisar nome/código da MP..." onValueChange={setSearchItem} />
                       <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
                       <CommandList className="max-h-[300px] overflow-y-auto" aria-live="polite">
                         <CommandGroup>
@@ -583,64 +518,41 @@ const NovaPesagem = () => {
                 </Popover>
               </div>
 
-              {/* Código Interno (auto a partir do item) */}
               <div className="space-y-2">
                 <Label htmlFor="codigoInterno">Código Interno (MP)</Label>
-                <Input
-                  id="codigoInterno"
-                  value={formData.codigoInterno}
-                  readOnly
-                  title="Preenchido automaticamente a partir do item da OP"
-                />
+                <Input id="codigoInterno" value={formData.codigoInterno} readOnly />
               </div>
 
-              {/* Lote MP — OBRIGATÓRIO */}
               <div className="space-y-2">
                 <Label htmlFor="loteMP">Lote MP<RequiredAsterisk /></Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="loteMP"
-                    type="text"
-                    value={formData.loteMP}
-                    onChange={(e) => handleChange('loteMP', e.target.value)}
-                    onBlur={(e) => handleChange('loteMP', e.target.value.trim())}
-                    className={cn(
-                      'flex-1',
-                      showLoteErro && 'border-red-500 focus-visible:ring-red-500'
-                    )}
-                    required
-                    aria-required="true"
-                    maxLength={60}
-                    title="Informe o lote da matéria-prima (obrigatório)."
-                  />
-                </div>
-                {showLoteErro && (
-                  <p className="text-sm text-red-600">Informe o Lote da Matéria-Prima.</p>
-                )}
+                <Input
+                  id="loteMP"
+                  type="text"
+                  value={formData.loteMP}
+                  onChange={(e) => handleChange('loteMP', e.target.value)}
+                  onBlur={(e) => handleChange('loteMP', e.target.value.trim())}
+                  className={cn('flex-1', showLoteErro && 'border-red-500 focus-visible:ring-red-500')}
+                  required
+                  aria-required="true"
+                  maxLength={60}
+                />
+                {showLoteErro && <p className="text-sm text-red-600">Informe o Lote da Matéria-Prima.</p>}
               </div>
 
-              {/* Balança — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
                 <Label htmlFor="balanca">Balança</Label>
-                <Select
-                  value={String(formData.balanca || '')}
-                  onValueChange={(value) => handleChange('balanca', value)}
-                  disabled={loading}
-                >
+                <Select value={String(formData.balanca || '')} onValueChange={(value) => handleChange('balanca', value)} disabled={loading}>
                   <SelectTrigger id="balanca" className="w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
                     <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione a balança'} />
                   </SelectTrigger>
                   <SelectContent>
                     {balancas.map(b => (
-                      <SelectItem key={b.id} value={String(b.id)}>
-                        {b.nome}
-                      </SelectItem>
+                      <SelectItem key={b.id} value={String(b.id)}>{b.nome}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Entradas (sempre em kg): TARA e LÍQUIDO */}
               <div className="space-y-2">
                 <Label htmlFor="tara">Tara (kg)<RequiredAsterisk /></Label>
                 <Input
@@ -669,7 +581,6 @@ const NovaPesagem = () => {
               </div>
             </div>
 
-            {/* Bloco de cálculo e saldo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
@@ -727,15 +638,19 @@ const NovaPesagem = () => {
             )}
 
             <div className="flex flex-wrap gap-3">
-              <Button
+              {/* BOTÃO NATIVO (pra não depender do Button wrapper) */}
+              <button
                 type="button"
                 onClick={handleOpenConfirm}
                 disabled={loading}
-                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600"
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-md px-4 py-2 text-white bg-orange-500 hover:bg-orange-600",
+                  loading && "opacity-60 cursor-not-allowed"
+                )}
               >
                 <Save className="h-4 w-4" />
                 {loading ? 'Salvando...' : 'Salvar'}
-              </Button>
+              </button>
 
               <Button
                 type="button"
@@ -759,19 +674,17 @@ const NovaPesagem = () => {
                 Limpar
               </Button>
             </div>
-          </form>
+          </div>
 
-          {/* MODAL */}
           <Dialog
             open={confirmOpen}
             onOpenChange={(open) => {
               setConfirmOpen(open)
-              if (!open) {
-                setPendingPayload(null)
-              }
+              if (!open) setPendingPayload(null)
             }}
           >
-            <DialogContent className="sm:max-w-xl">
+            {/* z-index alto pra eliminar modal invisível */}
+            <DialogContent className="sm:max-w-xl z-[9999]">
               <DialogHeader>
                 <DialogTitle>Confirmar dados da pesagem</DialogTitle>
                 <DialogDescription>
@@ -793,25 +706,25 @@ const NovaPesagem = () => {
               </div>
 
               <DialogFooter>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setConfirmOpen(false)
-                    setPendingPayload(null)
-                  }}
+                  onClick={() => { setConfirmOpen(false); setPendingPayload(null) }}
+                  className="inline-flex items-center rounded-md px-4 py-2 border bg-white hover:bg-gray-50"
                 >
                   Corrigir
-                </Button>
+                </button>
 
-                <Button
+                <button
                   type="button"
                   onClick={handleConfirmSave}
                   disabled={loading || !pendingPayload}
-                  className="bg-orange-500 hover:bg-orange-600"
+                  className={cn(
+                    "inline-flex items-center rounded-md px-4 py-2 text-white bg-orange-500 hover:bg-orange-600",
+                    (loading || !pendingPayload) && "opacity-60 cursor-not-allowed"
+                  )}
                 >
                   {loading ? 'Salvando...' : 'Salvar pesagem'}
-                </Button>
+                </button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
