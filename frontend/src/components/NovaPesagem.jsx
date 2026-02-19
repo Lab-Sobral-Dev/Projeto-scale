@@ -46,8 +46,6 @@ const toNumber = (v) => {
 
 const isNonEmpty = (s) => typeof s === 'string' ? s.trim().length > 0 : !!s
 
-// === NOVOS HELPERS PARA TRABALHAR COM VÍRGULA ===
-
 // Normaliza o que o usuário digita: troca ponto por vírgula, remove caracteres inválidos
 const normalizeDecimalInput = (value) => {
   if (!value) return ''
@@ -84,13 +82,13 @@ const NovaPesagem = () => {
   const [openItem, setOpenItem] = useState(false)
   const [searchItem, setSearchItem] = useState('')
   const [triedSubmit, setTriedSubmit] = useState(false)
+
+  // Modal de confirmação
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
-  const [confirmReady, setConfirmReady] = useState(false)
 
   // refs opcionais para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
-  const confirmReadyTimerRef = useRef(null)
 
   const getInitialFormData = (user = null) => ({
     op: '',          // sempre string p/ Select controlado
@@ -156,12 +154,6 @@ const NovaPesagem = () => {
     }
     loadInitialData()
     return () => { abort = true }
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
-    }
   }, [])
 
   // ---- Unidades: UI em kg (string com vírgula); comparação/saldo em g ----
@@ -257,7 +249,6 @@ const NovaPesagem = () => {
   const hasCamposBasicos = formData.op && formData.itemOp && formData.liquido && formData.tara
   const loteObrigatorioOK = isNonEmpty(formData.loteMP)
 
-
   const refreshItensOP = async (opId) => {
     try {
       const resp = await api.getOPItems(opId)
@@ -325,6 +316,7 @@ const NovaPesagem = () => {
     }, 0)
   }
 
+  // ABRE modal e guarda payload (NÃO salva aqui)
   const handleOpenConfirm = () => {
     setTriedSubmit(true)
     setError('')
@@ -335,26 +327,22 @@ const NovaPesagem = () => {
     if (!payload) {
       setConfirmOpen(false)
       setPendingPayload(null)
-      setConfirmReady(false)
       return
     }
 
     setPendingPayload(payload)
-    setConfirmReady(false)
     setConfirmOpen(true)
-    if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
-    confirmReadyTimerRef.current = setTimeout(() => {
-      setConfirmReady(true)
-    }, 150)
   }
 
+  // Evita submit do form disparar salvamento direto
   const handleSubmit = (e) => {
     e.preventDefault()
     handleOpenConfirm()
   }
 
+  // SALVA somente se modal estiver aberto + payload existir
   const handleConfirmSave = async () => {
-    if (!confirmOpen || !pendingPayload || !confirmReady) {
+    if (!confirmOpen || !pendingPayload) {
       setError('Revise os dados e confirme no modal antes de salvar.')
       return
     }
@@ -368,20 +356,26 @@ const NovaPesagem = () => {
       const created = await api.createPesagemOP(pendingPayload)
       setCreatedId(created?.id)
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
+
+      // Fecha modal e limpa payload
       setConfirmOpen(false)
       setPendingPayload(null)
-      setConfirmReady(false)
-      if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
 
       if (formData.op) {
         await refreshItensOP(formData.op)
       }
 
       limparLiquidoETara()
-
     } catch (err) {
       console.error(err)
-      setError(getApiErrorMessage(err))
+      const msg = err?.response?.data?.detail
+        || err?.response?.data?.non_field_errors?.[0]
+        || err?.response?.data?.lote_mp?.[0]
+        || err?.response?.data?.liquido?.[0]
+        || err?.response?.data?.tara?.[0]
+        || (typeof err?.message === 'string' ? err.message : '')
+        || 'Erro ao salvar pesagem.'
+      setError(String(msg))
     } finally {
       setLoading(false)
     }
@@ -396,10 +390,11 @@ const NovaPesagem = () => {
     setOpenItem(false)
     setSearchItem('')
     setTriedSubmit(false)
+
+    // Fecha modal e zera payload
     setConfirmOpen(false)
     setPendingPayload(null)
-    setConfirmReady(false)
-    if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current)
+
     setTimeout(() => liquidoRef.current?.focus(), 0)
   }
 
@@ -423,6 +418,7 @@ const NovaPesagem = () => {
 
   // Label do item — EXIBE em gramas
   const itemLabel = (it) => {
+    if (!it) return ''
     const code = it.mpCodigo ? `${it.mpCodigo} — ` : ''
     const necG = Number(it.quantidade_necessaria || 0)
     const pesG = Number(it.quantidade_pesada || 0)
@@ -437,31 +433,6 @@ const NovaPesagem = () => {
   }, [formData.op, ops])
 
   const showLoteErro = !loteObrigatorioOK && triedSubmit
-
-  const getApiErrorMessage = (err) => {
-    const data = err?.response?.data
-    if (!data) return (typeof err?.message === 'string' ? err.message : '') || 'Erro ao salvar pesagem.'
-
-    if (typeof data.detail === 'string' && data.detail.trim()) return data.detail
-
-    const priorityFields = ['non_field_errors', 'op_id', 'item_op_id', 'lote_mp', 'liquido', 'tara', 'balanca_id']
-    for (const field of priorityFields) {
-      const value = data?.[field]
-      if (Array.isArray(value) && value[0]) return `${field}: ${String(value[0])}`
-      if (typeof value === 'string' && value.trim()) return `${field}: ${value}`
-    }
-
-    const firstEntry = Object.entries(data).find(([, value]) =>
-      (Array.isArray(value) && value.length > 0) || (typeof value === 'string' && value.trim())
-    )
-
-    if (firstEntry) {
-      const [field, value] = firstEntry
-      return `${field}: ${Array.isArray(value) ? String(value[0]) : String(value)}`
-    }
-
-    return (typeof err?.message === 'string' ? err.message : '') || 'Erro ao salvar pesagem.'
-  }
 
   return (
     <div className="min-h-[100dvh] w-full px-4 py-6 md:px-6 md:py-8 lg:px-8 space-y-6 bg-gray-50/50">
@@ -494,8 +465,6 @@ const NovaPesagem = () => {
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-            {/* Ordem dos inputs:
-                OP, Produto, OP/Lote, Item da OP, Código Interno, Lote MP, Balança, Tara, Peso Líquido */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
               {/* OP — Select controlado (sempre string) */}
@@ -641,7 +610,7 @@ const NovaPesagem = () => {
                     )}
                     required
                     aria-required="true"
-                    maxLength={60} // casa com models.CharField(max_length=60)
+                    maxLength={60}
                     title="Informe o lote da matéria-prima (obrigatório)."
                   />
                 </div>
@@ -792,7 +761,16 @@ const NovaPesagem = () => {
             </div>
           </form>
 
-          <Dialog open={confirmOpen} onOpenChange={(open) => { setConfirmOpen(open); if (!open) { setPendingPayload(null); setConfirmReady(false); if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current) } }}>
+          {/* MODAL */}
+          <Dialog
+            open={confirmOpen}
+            onOpenChange={(open) => {
+              setConfirmOpen(open)
+              if (!open) {
+                setPendingPayload(null)
+              }
+            }}
+          >
             <DialogContent className="sm:max-w-xl">
               <DialogHeader>
                 <DialogTitle>Confirmar dados da pesagem</DialogTitle>
@@ -815,11 +793,24 @@ const NovaPesagem = () => {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => { setConfirmOpen(false); setPendingPayload(null); setConfirmReady(false); if (confirmReadyTimerRef.current) clearTimeout(confirmReadyTimerRef.current) }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setConfirmOpen(false)
+                    setPendingPayload(null)
+                  }}
+                >
                   Corrigir
                 </Button>
-                <Button type="button" onClick={handleConfirmSave} disabled={loading || !confirmReady} className="bg-orange-500 hover:bg-orange-600">
-                  {loading ? 'Salvando...' : (confirmReady ? 'Salvar pesagem' : 'Aguarde...')}
+
+                <Button
+                  type="button"
+                  onClick={handleConfirmSave}
+                  disabled={loading || !pendingPayload}
+                  className="bg-orange-500 hover:bg-orange-600"
+                >
+                  {loading ? 'Salvando...' : 'Salvar pesagem'}
                 </Button>
               </DialogFooter>
             </DialogContent>
