@@ -66,6 +66,12 @@ const formatNumberWithComma = (num, decimals = 3) => {
 }
 
 const RequiredAsterisk = () => <span className="text-red-600"> *</span>
+const RequiredLabel = ({ htmlFor, children }) => (
+  <Label htmlFor={htmlFor}>
+    {children}
+    <RequiredAsterisk />
+  </Label>
+)
 
 const NovaPesagem = () => {
   const [localUser, setLocalUser] = useState(null)
@@ -86,6 +92,7 @@ const NovaPesagem = () => {
   // Modal de confirmação
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
+  const [previewData, setPreviewData] = useState(null)
 
   // refs opcionais para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
@@ -331,6 +338,18 @@ const NovaPesagem = () => {
     }
 
     setPendingPayload(payload)
+    setPreviewData({
+      opNumeroLote,
+      produtoNome,
+      itemLabel: itemSelecionado ? itemLabel(itemSelecionado) : '-',
+      codigoInterno: formData.codigoInterno || '-',
+      loteMP: formData.loteMP || '-',
+      balancaNome: balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-',
+      taraKg: formatNumberWithComma(taraKg, 3),
+      liquidoKg: formatNumberWithComma(liquidoKg, 3),
+      brutoKg: formatNumberWithComma(brutoCalculadoKg, 3),
+      operador: formData.pesador || '-',
+    })
     setConfirmOpen(true)
   }
 
@@ -360,6 +379,7 @@ const NovaPesagem = () => {
       // Fecha modal e limpa payload
       setConfirmOpen(false)
       setPendingPayload(null)
+      setPreviewData(null)
 
       if (formData.op) {
         await refreshItensOP(formData.op)
@@ -394,6 +414,7 @@ const NovaPesagem = () => {
     // Fecha modal e zera payload
     setConfirmOpen(false)
     setPendingPayload(null)
+    setPreviewData(null)
 
     setTimeout(() => liquidoRef.current?.focus(), 0)
   }
@@ -469,7 +490,7 @@ const NovaPesagem = () => {
 
               {/* OP — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
-                <Label htmlFor="op">Ordem de Produção<RequiredAsterisk /></Label>
+                <RequiredLabel htmlFor="op">Ordem de Produção</RequiredLabel>
                 <Select
                   value={String(formData.op || '')}
                   onValueChange={handleOPChange}
@@ -596,7 +617,7 @@ const NovaPesagem = () => {
 
               {/* Lote MP — OBRIGATÓRIO */}
               <div className="space-y-2">
-                <Label htmlFor="loteMP">Lote MP<RequiredAsterisk /></Label>
+                <RequiredLabel htmlFor="loteMP">Lote MP</RequiredLabel>
                 <div className="flex items-center gap-2">
                   <Input
                     id="loteMP"
@@ -642,7 +663,7 @@ const NovaPesagem = () => {
 
               {/* Entradas (sempre em kg): TARA e LÍQUIDO */}
               <div className="space-y-2">
-                <Label htmlFor="tara">Tara (kg)<RequiredAsterisk /></Label>
+                <RequiredLabel htmlFor="tara">Tara (kg)</RequiredLabel>
                 <Input
                   id="tara"
                   type="text"
@@ -654,7 +675,7 @@ const NovaPesagem = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="liquido">Peso Líquido (kg)<RequiredAsterisk /></Label>
+                <RequiredLabel htmlFor="liquido">Peso Líquido (kg)</RequiredLabel>
                 <Input
                   id="liquido"
                   ref={liquidoRef}
@@ -728,13 +749,12 @@ const NovaPesagem = () => {
 
             <div className="flex flex-wrap gap-3">
               <Button
-                type="button"
-                onClick={handleOpenConfirm}
+                type="submit"
                 disabled={loading}
                 className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600"
               >
                 <Save className="h-4 w-4" />
-                {loading ? 'Salvando...' : 'Salvar'}
+                {loading ? 'Salvando...' : 'Revisar e salvar'}
               </Button>
 
               <Button
@@ -768,6 +788,7 @@ const NovaPesagem = () => {
               setConfirmOpen(open)
               if (!open) {
                 setPendingPayload(null)
+                setPreviewData(null)
               }
             }}
           >
@@ -780,16 +801,16 @@ const NovaPesagem = () => {
               </DialogHeader>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <p><b>OP:</b> {opNumeroLote || '-'}</p>
-                <p><b>Produto:</b> {produtoNome || '-'}</p>
-                <p><b>Item da OP:</b> {itemSelecionado ? itemLabel(itemSelecionado) : '-'}</p>
-                <p><b>Código interno:</b> {formData.codigoInterno || '-'}</p>
-                <p><b>Lote MP:</b> {formData.loteMP || '-'}</p>
-                <p><b>Balança:</b> {balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-'}</p>
-                <p><b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg</p>
-                <p><b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg</p>
-                <p><b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg</p>
-                <p><b>Operador:</b> {formData.pesador || '-'}</p>
+                <p><b>OP:</b> {previewData?.opNumeroLote || '-'}</p>
+                <p><b>Produto:</b> {previewData?.produtoNome || '-'}</p>
+                <p><b>Item da OP:</b> {previewData?.itemLabel || '-'}</p>
+                <p><b>Código interno:</b> {previewData?.codigoInterno || '-'}</p>
+                <p><b>Lote MP:</b> {previewData?.loteMP || '-'}</p>
+                <p><b>Balança:</b> {previewData?.balancaNome || '-'}</p>
+                <p><b>Tara:</b> {previewData?.taraKg || '-'} kg</p>
+                <p><b>Peso líquido:</b> {previewData?.liquidoKg || '-'} kg</p>
+                <p><b>Peso bruto (auto):</b> {previewData?.brutoKg || '-'} kg</p>
+                <p><b>Operador:</b> {previewData?.operador || '-'}</p>
               </div>
 
               <DialogFooter>
@@ -799,6 +820,7 @@ const NovaPesagem = () => {
                   onClick={() => {
                     setConfirmOpen(false)
                     setPendingPayload(null)
+                    setPreviewData(null)
                   }}
                 >
                   Corrigir
