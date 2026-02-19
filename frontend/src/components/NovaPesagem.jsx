@@ -376,9 +376,7 @@ const NovaPesagem = () => {
     try {
       const created = await api.createPesagemOP(payload)
       setCreatedId(created?.id)
-      setSuccess(
-        'Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.'
-      )
+      setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
       setConfirmOpen(false)
 
       if (formData.op) {
@@ -732,7 +730,7 @@ const NovaPesagem = () => {
             <div className="flex flex-wrap gap-3">
               <Button
                 type="submit"
-                disabled={!canSave}
+                disabled={!loading}
                 className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600"
               >
                 <Save className="h-4 w-4" />
