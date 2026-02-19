@@ -67,6 +67,8 @@ const formatNumberWithComma = (num, decimals = 3) => {
   return num.toFixed(decimals).replace('.', ',')
 }
 
+const RequiredAsterisk = () => <span className="text-red-600"> *</span>
+
 const NovaPesagem = () => {
   const [localUser, setLocalUser] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -469,6 +471,7 @@ const NovaPesagem = () => {
               <span className="block">Operador: {localUser.displayName}</span>
             ) : null}
           </CardDescription>
+          <p className="text-xs text-muted-foreground">Campos marcados com * são obrigatórios.</p>
         </CardHeader>
 
         <CardContent>
@@ -479,7 +482,7 @@ const NovaPesagem = () => {
 
               {/* OP — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
-                <Label htmlFor="op">Ordem de Produção</Label>
+                <Label htmlFor="op">Ordem de Produção<RequiredAsterisk /></Label>
                 <Select
                   value={String(formData.op || '')}
                   onValueChange={handleOPChange}
@@ -529,7 +532,7 @@ const NovaPesagem = () => {
 
               {/* Item da OP */}
               <div className="space-y-2">
-                <Label>Item da OP (Matéria-prima)</Label>
+                <Label>Item da OP (Matéria-prima)<RequiredAsterisk /></Label>
                 <Popover
                   open={openItem}
                   onOpenChange={(v) => { setOpenItem(v); if (!v) setSearchItem('') }}
@@ -606,7 +609,7 @@ const NovaPesagem = () => {
 
               {/* Lote MP — OBRIGATÓRIO */}
               <div className="space-y-2">
-                <Label htmlFor="loteMP">Lote MP <span className="text-red-600"></span></Label>
+                <Label htmlFor="loteMP">Lote MP<RequiredAsterisk /></Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="loteMP"
@@ -652,7 +655,7 @@ const NovaPesagem = () => {
 
               {/* Entradas (sempre em kg): TARA e LÍQUIDO */}
               <div className="space-y-2">
-                <Label htmlFor="tara">Tara (kg)</Label>
+                <Label htmlFor="tara">Tara (kg)<RequiredAsterisk /></Label>
                 <Input
                   id="tara"
                   type="text"
@@ -664,7 +667,7 @@ const NovaPesagem = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="liquido">Peso Líquido (kg) <span className="text-red-600"></span></Label>
+                <Label htmlFor="liquido">Peso Líquido (kg)<RequiredAsterisk /></Label>
                 <Input
                   id="liquido"
                   ref={liquidoRef}
@@ -798,7 +801,7 @@ const NovaPesagem = () => {
                   Corrigir
                 </Button>
                 <Button type="button" onClick={handleConfirmSave} disabled={loading || !confirmReady} className="bg-orange-500 hover:bg-orange-600">
-                  {loading ? 'Salvando...' : (confirmReady ? 'Salvar' : 'Aguarde...')}
+                  {loading ? 'Salvando...' : (confirmReady ? 'Salvar pesagem' : 'Aguarde...')}
                 </Button>
               </DialogFooter>
             </DialogContent>
