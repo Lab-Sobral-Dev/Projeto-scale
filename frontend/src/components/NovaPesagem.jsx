@@ -9,6 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList
 } from '@/components/ui/command'
 import { Scale, Save, Printer, RotateCcw, Calculator, ChevronsUpDown, Check } from 'lucide-react'
@@ -22,7 +30,6 @@ const KG_IN_G = 1000
 const TOLERANCIA_PERCENTUAL = 0.05 // 5%
 
 const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)    // => g (inteiro)
-const gToKg = (g) => (Number(g) || 0) / KG_IN_G                  // => kg (decimal)
 
 // formatadores
 const fmtG = (v) => {
@@ -75,6 +82,7 @@ const NovaPesagem = () => {
   const [openItem, setOpenItem] = useState(false)
   const [searchItem, setSearchItem] = useState('')
   const [triedSubmit, setTriedSubmit] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   // refs opcionais para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
@@ -259,6 +267,44 @@ const NovaPesagem = () => {
     }
   }
 
+  const getPayload = () => {
+    if (!hasCamposBasicos) {
+      setError('Preencha OP, Item da OP, Líquido e Tara.')
+      return null
+    }
+    if (!loteObrigatorioOK) {
+      setError('Informe o Lote da Matéria-Prima (campo obrigatório).')
+      return null
+    }
+    if (liquidoKg <= 0) {
+      setError('O peso líquido deve ser maior que zero.')
+      return null
+    }
+    if (taraKg < 0) {
+      setError('A tara não pode ser negativa.')
+      return null
+    }
+    if (excedeMaximo) {
+      setError(
+        `Ultrapassa o limite superior (+5%). Máximo permitido: ${fmtG(limiteMaxG)}. ` +
+        `Total projetado: ${fmtG(novoTotalG)}. Ajuste o peso.`
+      )
+      return null
+    }
+
+    const loteMP = (formData.loteMP || '').trim()
+    return {
+      op_id: Number(formData.op),
+      item_op_id: Number(formData.itemOp),
+      tara: Number(taraKg.toFixed(3)),
+      liquido: Number(liquidoKg.toFixed(3)),
+      balanca_id: formData.balanca ? Number(formData.balanca) : null,
+      codigo_interno: formData.codigoInterno || '',
+      lote_mp: loteMP,
+      pesador: formData.pesador || localUser?.displayName || ''
+    }
+  }
+
   const limparLiquidoETara = () => {
     setFormData(prev => ({
       ...prev,
@@ -273,59 +319,30 @@ const NovaPesagem = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setTriedSubmit(true)
+    setError('')
+    setSuccess('')
+    setCreatedId(null)
+
+    const payload = getPayload()
+    if (!payload) return
+    setConfirmOpen(true)
+  }
+
+  const handleConfirmSave = async () => {
+    const payload = getPayload()
+    if (!payload) return
+
     setLoading(true)
     setError('')
     setSuccess('')
     setCreatedId(null)
 
     try {
-      if (!hasCamposBasicos) {
-        setError('Preencha OP, Item da OP, Líquido e Tara.')
-        setLoading(false)
-        return
-      }
-      if (!loteObrigatorioOK) {
-        setError('Informe o Lote da Matéria-Prima (campo obrigatório).')
-        setLoading(false)
-        return
-      }
-      if (liquidoKg <= 0) {
-        setError('O peso líquido deve ser maior que zero.')
-        setLoading(false)
-        return
-      }
-      if (taraKg < 0) {
-        setError('A tara não pode ser negativa.')
-        setLoading(false)
-        return
-      }
-      if (excedeMaximo) {
-        setError(
-          `Ultrapassa o limite superior (+5%). Máximo permitido: ${fmtG(limiteMaxG)}. ` +
-          `Total projetado: ${fmtG(novoTotalG)}. Ajuste o peso.`
-        )
-        setLoading(false)
-        return
-      }
-
-      const loteMP = (formData.loteMP || '').trim()
-
-      // Payload: ENVIAR EM KG (backend converte/valida/calcula bruto)
-      // Aqui adicionamos o pesador para aparecer na etiqueta
-      const payload = {
-        op_id: Number(formData.op),
-        item_op_id: Number(formData.itemOp),
-        tara: Number(taraKg.toFixed(3)),        // kg
-        liquido: Number(liquidoKg.toFixed(3)),  // kg
-        balanca_id: formData.balanca ? Number(formData.balanca) : null,
-        codigo_interno: formData.codigoInterno || '',
-        lote_mp: loteMP,
-        pesador: formData.pesador || localUser?.displayName || ''
-      }
 
       const created = await api.createPesagemOP(payload)
       setCreatedId(created?.id)
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
+      setConfirmOpen(false)
 
       if (formData.op) {
         await refreshItensOP(formData.op)
@@ -720,6 +737,40 @@ const NovaPesagem = () => {
               </Button>
             </div>
           </form>
+
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Confirmar pesagem e geração de etiqueta</DialogTitle>
+                <DialogDescription>
+                  Revise os dados abaixo antes de confirmar o salvamento da pesagem.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <p><b>OP:</b> {opNumeroLote || '-'}</p>
+                <p><b>Produto:</b> {produtoNome || '-'}</p>
+                <p><b>Item da OP:</b> {itemSelecionado ? itemLabel(itemSelecionado) : '-'}</p>
+                <p><b>Código interno:</b> {formData.codigoInterno || '-'}</p>
+                <p><b>Lote MP:</b> {formData.loteMP || '-'}</p>
+                <p><b>Balança:</b> {balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-'}</p>
+                <p><b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg</p>
+                <p><b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg</p>
+                <p><b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg</p>
+                <p><b>Operador:</b> {formData.pesador || '-'}</p>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
+                  Revisar
+                </Button>
+                <Button type="button" onClick={handleConfirmSave} disabled={loading} className="bg-orange-500 hover:bg-orange-600">
+                  {loading ? 'Salvando...' : 'Confirmar e Salvar'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
         </CardContent>
       </Card>
     </div>
