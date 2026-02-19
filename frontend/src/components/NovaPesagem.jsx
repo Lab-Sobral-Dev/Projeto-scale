@@ -83,6 +83,7 @@ const NovaPesagem = () => {
   const [searchItem, setSearchItem] = useState('')
   const [triedSubmit, setTriedSubmit] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingPayload, setPendingPayload] = useState(null)
 
   // ref para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
@@ -291,39 +292,25 @@ const NovaPesagem = () => {
 
   const getPayload = () => {
     if (!hasCamposBasicos) {
-      setError('Preencha OP, Item da OP e Peso Líquido. (Tara é opcional e assume 0 se vazia.)')
+      setError('Preencha OP, Item da OP, Líquido e Tara.')
       return null
     }
-
-    if (!itemSelecionado) {
-      setError('O item selecionado não foi encontrado na lista. Reabra a seleção e escolha novamente.')
-      return null
-    }
-
-    if (necessarioG <= 0) {
-      setError('Item da OP sem quantidade necessária configurada. Verifique a OP/ficha do item.')
-      return null
-    }
-
     if (!loteObrigatorioOK) {
       setError('Informe o Lote da Matéria-Prima (campo obrigatório).')
       return null
     }
-
     if (liquidoKg <= 0) {
       setError('O peso líquido deve ser maior que zero.')
       return null
     }
-
     if (taraKg < 0) {
       setError('A tara não pode ser negativa.')
       return null
     }
-
     if (excedeMaximo) {
       setError(
-        `Ultrapassa o limite superior (+5%). Máximo permitido: ${fmtG(limiteMaxG)}. `
-        + `Total projetado: ${fmtG(novoTotalG)}. Ajuste o peso.`
+        `Ultrapassa o limite superior (+5%). Máximo permitido: ${fmtG(limiteMaxG)}. ` +
+        `Total projetado: ${fmtG(novoTotalG)}. Ajuste o peso.`
       )
       return null
     }
@@ -337,7 +324,7 @@ const NovaPesagem = () => {
       balanca_id: formData.balanca ? Number(formData.balanca) : null,
       codigo_interno: formData.codigoInterno || '',
       lote_mp: loteMP,
-      pesador: formData.pesador || localUser?.displayName || '',
+      pesador: formData.pesador || localUser?.displayName || ''
     }
   }
 
@@ -352,21 +339,34 @@ const NovaPesagem = () => {
     }, 0)
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleOpenConfirm = () => {
     setTriedSubmit(true)
     setError('')
     setSuccess('')
     setCreatedId(null)
 
     const payload = getPayload()
-    if (!payload) return
+    if (!payload) {
+      setConfirmOpen(false)
+      setPendingPayload(null)
+      return
+    }
+
+    setPendingPayload(payload)
     setConfirmOpen(true)
   }
 
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    handleOpenConfirm()
+  }
+
+
   const handleConfirmSave = async () => {
-    const payload = getPayload()
-    if (!payload) return
+    if (!confirmOpen || !pendingPayload) {
+      setError('Revise os dados e abra o modal antes de salvar.')
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -374,10 +374,11 @@ const NovaPesagem = () => {
     setCreatedId(null)
 
     try {
-      const created = await api.createPesagemOP(payload)
+      const created = await api.createPesagemOP(pendingPayload)
       setCreatedId(created?.id)
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
       setConfirmOpen(false)
+      setPendingPayload(null)
 
       if (formData.op) {
         await refreshItensOP(formData.op)
@@ -409,6 +410,8 @@ const NovaPesagem = () => {
     setOpenItem(false)
     setSearchItem('')
     setTriedSubmit(false)
+    setConfirmOpen(false)
+    setPendingPayload(null)
     setTimeout(() => liquidoRef.current?.focus(), 0)
   }
 
@@ -729,8 +732,9 @@ const NovaPesagem = () => {
 
             <div className="flex flex-wrap gap-3">
               <Button
-                type="submit"
-                disabled={!loading}
+                type="button"
+                onClick={handleOpenConfirm}
+                disabled={loading}
                 className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600"
               >
                 <Save className="h-4 w-4" />
@@ -756,57 +760,34 @@ const NovaPesagem = () => {
             </div>
           </form>
 
-          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <Dialog open={confirmOpen} onOpenChange={(open) => { setConfirmOpen(open); if (!open) setPendingPayload(null) }}>
             <DialogContent className="sm:max-w-xl">
               <DialogHeader>
-                <DialogTitle>Confirmar pesagem e geração de etiqueta</DialogTitle>
-                <DialogDescription>Revise os dados abaixo antes de confirmar o salvamento da pesagem.</DialogDescription>
+                <DialogTitle>Confirmar dados da pesagem</DialogTitle>
+                <DialogDescription>
+                  Revise todos os dados preenchidos antes de salvar a pesagem e gerar a etiqueta.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <p>
-                  <b>OP:</b> {opNumeroLote || '-'}
-                </p>
-                <p>
-                  <b>Produto:</b> {produtoNome || '-'}
-                </p>
-                <p>
-                  <b>Item da OP:</b> {formData.itemOp ? safeItemLabel(itemSelecionado) : '-'}
-                </p>
-                <p>
-                  <b>Código interno:</b> {formData.codigoInterno || '-'}
-                </p>
-                <p>
-                  <b>Lote MP:</b> {formData.loteMP || '-'}
-                </p>
-                <p>
-                  <b>Balança:</b> {balancas.find((b) => String(b.id) === String(formData.balanca))?.nome || '-'}
-                </p>
-                <p>
-                  <b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg
-                </p>
-                <p>
-                  <b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg
-                </p>
-                <p>
-                  <b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg
-                </p>
-                <p>
-                  <b>Operador:</b> {formData.pesador || '-'}
-                </p>
+                <p><b>OP:</b> {opNumeroLote || '-'}</p>
+                <p><b>Produto:</b> {produtoNome || '-'}</p>
+                <p><b>Item da OP:</b> {itemSelecionado ? itemLabel(itemSelecionado) : '-'}</p>
+                <p><b>Código interno:</b> {formData.codigoInterno || '-'}</p>
+                <p><b>Lote MP:</b> {formData.loteMP || '-'}</p>
+                <p><b>Balança:</b> {balancas.find(b => String(b.id) === String(formData.balanca))?.nome || '-'}</p>
+                <p><b>Tara:</b> {formatNumberWithComma(taraKg, 3)} kg</p>
+                <p><b>Peso líquido:</b> {formatNumberWithComma(liquidoKg, 3)} kg</p>
+                <p><b>Peso bruto (auto):</b> {formatNumberWithComma(brutoCalculadoKg, 3)} kg</p>
+                <p><b>Operador:</b> {formData.pesador || '-'}</p>
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
-                  Revisar
+                <Button type="button" variant="outline" onClick={() => { setConfirmOpen(false); setPendingPayload(null) }}>
+                  Corrigir
                 </Button>
-                <Button
-                  type="button"
-                  onClick={handleConfirmSave}
-                  disabled={loading}
-                  className="bg-orange-500 hover:bg-orange-600"
-                >
-                  {loading ? 'Salvando...' : 'Confirmar e Salvar'}
+                <Button type="button" onClick={handleConfirmSave} disabled={loading} className="bg-orange-500 hover:bg-orange-600">
+                  {loading ? 'Salvando...' : 'Salvar'}
                 </Button>
               </DialogFooter>
             </DialogContent>
