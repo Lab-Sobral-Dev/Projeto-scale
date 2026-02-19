@@ -441,11 +441,42 @@ class ApiService {
     });
   }
   async createPesagemOP(payload) {
-    // { op_id, item_op_id, bruto, tara, volume?, balanca_id?, codigo_interno? }
-    return this.request(`${this.baseRegistro}/pesagens/`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    // payload atual: { op_id, item_op_id, tara, liquido, balanca_id?, codigo_interno?, lote_mp? }
+    const endpoint = `${this.baseRegistro}/pesagens/`;
+
+    try {
+      return await this.request(endpoint, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      const data = err?.response?.data || {};
+      const unknownFieldMsg = JSON.stringify(data).toLowerCase();
+      const usesLegacyFields =
+        unknownFieldMsg.includes("op_id") ||
+        unknownFieldMsg.includes("item_op_id") ||
+        unknownFieldMsg.includes("balanca_id");
+
+      // Compatibilidade com APIs antigas que recebiam nomes sem sufixo _id.
+      if (err?.status === 400 && usesLegacyFields) {
+        const fallbackPayload = {
+          ...payload,
+          op: payload?.op_id,
+          item_op: payload?.item_op_id,
+          balanca: payload?.balanca_id,
+        };
+        delete fallbackPayload.op_id;
+        delete fallbackPayload.item_op_id;
+        delete fallbackPayload.balanca_id;
+
+        return this.request(endpoint, {
+          method: "POST",
+          body: JSON.stringify(fallbackPayload),
+        });
+      }
+
+      throw err;
+    }
   }
   async updatePesagem(id, pesagem) {
     return this.request(`${this.baseRegistro}/pesagens/${id}/`, {
