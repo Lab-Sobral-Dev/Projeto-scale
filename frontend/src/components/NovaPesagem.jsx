@@ -524,7 +524,7 @@ const NovaPesagem = () => {
 
               {/* Produto (somente leitura) */}
               <div className="space-y-2">
-                <Label>Produto</Label>
+                <Label>Produto<RequiredAsterisk /></Label>
                 <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
                   <span className="truncate">{produtoNome || '—'}</span>
                 </div>
@@ -532,7 +532,7 @@ const NovaPesagem = () => {
 
               {/* OP / Lote (somente leitura) */}
               <div className="space-y-2">
-                <Label>OP / Lote</Label>
+                <Label>OP / Lote<RequiredAsterisk /></Label>
                 <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
                   <span className="truncate">{opNumeroLote || '—'}</span>
                 </div>
@@ -606,7 +606,7 @@ const NovaPesagem = () => {
 
               {/* Código Interno (auto a partir do item) */}
               <div className="space-y-2">
-                <Label htmlFor="codigoInterno">Código Interno (MP)</Label>
+                <Label htmlFor="codigoInterno">Código Interno (MP)<RequiredAsterisk /></Label>
                 <Input
                   id="codigoInterno"
                   value={formData.codigoInterno}
@@ -642,7 +642,7 @@ const NovaPesagem = () => {
 
               {/* Balança — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
-                <Label htmlFor="balanca">Balança</Label>
+                <Label htmlFor="balanca">Balança<RequiredAsterisk /></Label>
                 <Select
                   value={String(formData.balanca || '')}
                   onValueChange={(value) => handleChange('balanca', value)}
