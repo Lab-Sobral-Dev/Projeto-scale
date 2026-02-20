@@ -614,7 +614,7 @@ const NovaPesagem = () => {
 
               {/* Lote MP — OBRIGATÓRIO */}
               <div className="space-y-2">
-                <RequiredLabel htmlFor="loteMP">Lote MP<RequiredAsterisk /></RequiredLabel>
+                <RequiredLabel htmlFor="loteMP">Lote MP</RequiredLabel>
                 <div className="flex items-center gap-2">
                   <Input
                     id="loteMP"
