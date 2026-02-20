@@ -102,8 +102,11 @@ const Login = ({ onLogin }) => {
       }
     } catch (err) {
       const status = err?.status || err?.response?.status
+      const detail = err?.payload?.detail || err?.response?.data?.detail
       if (status === 423) {
         setError('Usuário bloqueado. Contate o administrador.')
+      } else if (status === 403) {
+        setError(detail || 'Usuário desativado. Contate o administrador.')
       } else if (status === 401) {
         setError('Usuário ou senha inválidos.')
       } else {

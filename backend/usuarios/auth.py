@@ -47,6 +47,9 @@ class TokenWithFlagsView(TokenObtainPairView):
 
         sec = _sec(user)
 
+        if not user.is_active:
+            return Response({"detail": "Usuário desativado. Contate o administrador."}, status=status.HTTP_403_FORBIDDEN)
+
         if sec.is_locked:
             return Response({"detail": "Usuário bloqueado. Contate o administrador."}, status=status.HTTP_423_LOCKED)
 
