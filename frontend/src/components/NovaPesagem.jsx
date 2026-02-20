@@ -437,14 +437,11 @@ const NovaPesagem = () => {
 
   const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
 
-  // Label do item — EXIBE em gramas
+  // Label simplificada do item da OP (somente código interno + matéria-prima)
   const itemLabel = (it) => {
     if (!it) return ''
     const code = it.mpCodigo ? `${it.mpCodigo} — ` : ''
-    const necG = Number(it.quantidade_necessaria || 0)
-    const pesG = Number(it.quantidade_pesada || 0)
-    const saldoG = Math.max(necG - pesG, 0)
-    return `${code}${it.mpNome} · nec ${fmtG(necG)} · pes ${fmtG(pesG)} · rest ${fmtG(saldoG)}`
+    return `${code}${it.mpNome}`
   }
 
   const opSelecionadaTitle = useMemo(() => {
@@ -524,7 +521,7 @@ const NovaPesagem = () => {
 
               {/* Produto (somente leitura) */}
               <div className="space-y-2">
-                <Label>Produto<RequiredAsterisk /></Label>
+                <Label>Produto</Label>
                 <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
                   <span className="truncate">{produtoNome || '—'}</span>
                 </div>
@@ -532,7 +529,7 @@ const NovaPesagem = () => {
 
               {/* OP / Lote (somente leitura) */}
               <div className="space-y-2">
-                <Label>OP / Lote<RequiredAsterisk /></Label>
+                <Label>OP / Lote</Label>
                 <div className="flex items-center gap-2 rounded border px-3 py-2 bg-muted/30">
                   <span className="truncate">{opNumeroLote || '—'}</span>
                 </div>
@@ -606,7 +603,7 @@ const NovaPesagem = () => {
 
               {/* Código Interno (auto a partir do item) */}
               <div className="space-y-2">
-                <Label htmlFor="codigoInterno">Código Interno (MP)<RequiredAsterisk /></Label>
+                <Label htmlFor="codigoInterno">Código Interno (MP)</Label>
                 <Input
                   id="codigoInterno"
                   value={formData.codigoInterno}
@@ -642,7 +639,7 @@ const NovaPesagem = () => {
 
               {/* Balança — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
-                <Label htmlFor="balanca">Balança<RequiredAsterisk /></Label>
+                <Label htmlFor="balanca">Balança</Label>
                 <Select
                   value={String(formData.balanca || '')}
                   onValueChange={(value) => handleChange('balanca', value)}
