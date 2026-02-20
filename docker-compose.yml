@@ -81,7 +81,6 @@ services:
       - "127.0.0.1:8091:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./frontend/dist:/usr/share/nginx/html:ro
       - static_volume:/app/static:ro
       - media_volume:/app/media:ro
       - backups_volume:/var/backups/scale:ro
