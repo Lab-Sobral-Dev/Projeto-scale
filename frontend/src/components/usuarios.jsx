@@ -764,35 +764,47 @@ export default function UsuariosAdmin() {
                 return (
                   <div
                     key={u.id}
-                    className="p-4 hover:bg-gray-50 cursor-pointer"
+                    className="p-4 sm:p-5 hover:bg-gray-50 cursor-pointer"
                     onClick={() => openSecurity(u)}
                     title="Clique para abrir detalhes e ações"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{fullName}</span>
-                          <Badge variant={papel === 'admin' ? 'default' : papel === 'supervisor' ? 'secondary' : 'outline'}>
+                    {/* ✅ Layout ajustado: sem sobreposição, com wrap e responsivo */}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      {/* ESQUERDA */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          <span className="font-medium text-gray-900 truncate max-w-full">
+                            {fullName}
+                          </span>
+
+                          <Badge
+                            variant={papel === 'admin' ? 'default' : papel === 'supervisor' ? 'secondary' : 'outline'}
+                            className="shrink-0"
+                          >
                             {papel === 'admin' ? 'Administrador' : papel === 'supervisor' ? 'Supervisor' : 'Operador'}
                           </Badge>
-                          {isMe && <Badge variant="outline">você</Badge>}
-                          <Badge variant={isActive ? 'outline' : 'destructive'}>
+
+                          {isMe && <Badge variant="outline" className="shrink-0">você</Badge>}
+
+                          <Badge variant={isActive ? 'outline' : 'destructive'} className="shrink-0">
                             {isActive ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </div>
+
                         <div className="text-sm text-gray-600 truncate">
                           @{u.username} {u.email ? `• ${u.email}` : ''}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      {/* DIREITA */}
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 sm:justify-end shrink-0">
                         <Select
                           value={papel}
                           onValueChange={(v) => atualizarPapel(u.username, v)}
                           disabled={isRowBusy}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <SelectTrigger className="w-44">
+                          <SelectTrigger className="w-full sm:w-44">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -804,6 +816,7 @@ export default function UsuariosAdmin() {
 
                         <Button
                           variant="outline"
+                          size="sm"
                           className={isActive ? 'text-amber-700' : 'text-green-700'}
                           onClick={(e) => { e.stopPropagation(); alternarStatusUsuario(u) }}
                           disabled={isRowBusy || (isMe && isActive)}
@@ -814,6 +827,7 @@ export default function UsuariosAdmin() {
 
                         <Button
                           variant="ghost"
+                          size="icon"
                           className={`text-red-600 hover:text-red-800 ${isMe ? 'opacity-40 cursor-not-allowed' : ''}`}
                           onClick={(e) => { e.stopPropagation(); removerUsuario(u.id, u.username) }}
                           disabled={isRowBusy || isMe}
