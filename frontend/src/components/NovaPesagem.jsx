@@ -437,14 +437,11 @@ const NovaPesagem = () => {
 
   const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
 
-  // Label do item — EXIBE em gramas
+  // Label simplificada do item da OP (somente código interno + matéria-prima)
   const itemLabel = (it) => {
     if (!it) return ''
     const code = it.mpCodigo ? `${it.mpCodigo} — ` : ''
-    const necG = Number(it.quantidade_necessaria || 0)
-    const pesG = Number(it.quantidade_pesada || 0)
-    const saldoG = Math.max(necG - pesG, 0)
-    return `${code}${it.mpNome} · nec ${fmtG(necG)} · pes ${fmtG(pesG)} · rest ${fmtG(saldoG)}`
+    return `${code}${it.mpNome}`
   }
 
   const opSelecionadaTitle = useMemo(() => {
