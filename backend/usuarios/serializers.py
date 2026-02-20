@@ -25,7 +25,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'papel', 'allowed_screens']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'is_active', 'papel', 'allowed_screens']
 
     def get_allowed_screens(self, obj):
         perfil = getattr(obj, 'perfil', None)
