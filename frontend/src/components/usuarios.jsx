@@ -336,7 +336,7 @@ export default function UsuariosAdmin() {
       if (!res.ok) {
         const raw = await res.text()
         let detail = raw
-        try { detail = JSON.stringify(JSON.parse(raw)) } catch { }
+        try { detail = JSON.stringify(JSON.parse(raw)) } catch { detail = raw }
         throw new Error(`Erro ao atualizar papel (${res.status}) ${detail}`)
       }
       setSuccess('Papel atualizado!')
@@ -344,6 +344,44 @@ export default function UsuariosAdmin() {
     } catch (e) {
       console.error(e)
       setError('Não foi possível atualizar o papel.')
+    } finally {
+      setRowLoading(null)
+    }
+  }
+
+  async function alternarStatusUsuario(u) {
+    if (me?.username && u.username === me.username && u.is_active) {
+      setError('Você não pode desativar sua própria conta.')
+      return
+    }
+
+    const novoStatus = !u.is_active
+    const acao = novoStatus ? 'ativar' : 'desativar'
+
+    if (!window.confirm(`Deseja ${acao} este usuário?`)) return
+
+    setRowLoading(u.username)
+    setError('')
+
+    try {
+      const res = await fetch(`${USERS_URL}${u.id}/`, {
+        method: 'PATCH',
+        headers: jsonHeaders,
+        body: JSON.stringify({ is_active: novoStatus }),
+      })
+
+      if (!res.ok) {
+        const raw = await res.text()
+        let detail = raw
+        try { detail = JSON.stringify(JSON.parse(raw)) } catch { detail = raw }
+        throw new Error(`Erro ao ${acao} usuário (${res.status}) ${detail}`)
+      }
+
+      setSuccess(`Usuário ${novoStatus ? 'ativado' : 'desativado'}!`)
+      await carregar()
+    } catch (e) {
+      console.error(e)
+      setError(`Não foi possível ${acao} o usuário.`)
     } finally {
       setRowLoading(null)
     }
@@ -367,7 +405,7 @@ export default function UsuariosAdmin() {
       if (res.status !== 204 && res.status !== 200) {
         const raw = await res.text()
         let detail = raw
-        try { detail = JSON.stringify(JSON.parse(raw)) } catch { }
+        try { detail = JSON.stringify(JSON.parse(raw)) } catch { detail = raw }
         throw new Error(`Erro ao excluir (${res.status}) ${detail}`)
       }
       setSuccess('Usuário excluído!')
@@ -720,6 +758,7 @@ export default function UsuariosAdmin() {
                 const papel = perfil?.papel || u.papel || 'operador'
                 const isRowBusy = rowLoading === u.username
                 const isMe = me?.username === u.username
+                const isActive = u.is_active !== false
                 const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username
 
                 return (
@@ -737,6 +776,9 @@ export default function UsuariosAdmin() {
                             {papel === 'admin' ? 'Administrador' : papel === 'supervisor' ? 'Supervisor' : 'Operador'}
                           </Badge>
                           {isMe && <Badge variant="outline">você</Badge>}
+                          <Badge variant={isActive ? 'outline' : 'destructive'}>
+                            {isActive ? 'Ativo' : 'Inativo'}
+                          </Badge>
                         </div>
                         <div className="text-sm text-gray-600 truncate">
                           @{u.username} {u.email ? `• ${u.email}` : ''}
@@ -759,6 +801,16 @@ export default function UsuariosAdmin() {
                             ))}
                           </SelectContent>
                         </Select>
+
+                        <Button
+                          variant="outline"
+                          className={isActive ? 'text-amber-700' : 'text-green-700'}
+                          onClick={(e) => { e.stopPropagation(); alternarStatusUsuario(u) }}
+                          disabled={isRowBusy || (isMe && isActive)}
+                          title={isMe && isActive ? 'Você não pode desativar sua própria conta' : (isActive ? 'Desativar usuário' : 'Ativar usuário')}
+                        >
+                          {isActive ? 'Desativar' : 'Ativar'}
+                        </Button>
 
                         <Button
                           variant="ghost"
