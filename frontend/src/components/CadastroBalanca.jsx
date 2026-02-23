@@ -3,11 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Weight, Save, X, Plus, Edit, Trash2, Search, Network, Usb, Cable } from 'lucide-react'
+import { Weight, Save, X, Plus, Edit, Trash2, Search, SlidersHorizontal } from 'lucide-react'
 
 /** Base SEMPRE em https */
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.laboratoriosobral.com.br/api') + '/registro'
@@ -48,6 +47,13 @@ const CadastroBalanca = () => {
   const [deleteTargetId, setDeleteTargetId] = useState(null)
   const [deleteReason, setDeleteReason] = useState('')
   const [deleteNote, setDeleteNote] = useState('')
+
+  const [calibrationTargetId, setCalibrationTargetId] = useState(null)
+  const [calibrationData, setCalibrationData] = useState({
+    frequenciaCalibracaoDias: '365',
+    ultimaCalibracao: '',
+    calibracaoRealizada: false,
+  })
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -145,12 +151,6 @@ const CadastroBalanca = () => {
 
   const validar = () => {
     if (!formData.nome.trim() || !formData.identificador.trim()) return 'Preencha Nome e Identificador.'
-    if (formData.tipoConexao === 'ethernet') {
-      if (!formData.enderecoIp.trim()) return 'Para Ethernet, informe o Endereço IP.'
-      if (formData.porta === '' || isNaN(Number(formData.porta))) return 'Para Ethernet, informe a Porta numérica.'
-    } else {
-      if (!formData.portaSerial.trim()) return 'Para Serial/USB, informe a Porta Serial (ex.: COM3).'
-    }
     if (formData.frequenciaCalibracaoDias === '' || Number(formData.frequenciaCalibracaoDias) <= 0) {
       return 'Informe a frequência de calibração em dias (valor maior que zero).'
     }
@@ -228,6 +228,68 @@ const CadastroBalanca = () => {
     if (clearAlerts) { setError(''); setSuccess('') }
   }
 
+  const openCalibrationPanel = (balanca) => {
+    const isSameBalanca = calibrationTargetId === balanca.id
+    if (isSameBalanca) {
+      setCalibrationTargetId(null)
+      return
+    }
+
+    setDeleteTargetId(null)
+    setCalibrationTargetId(balanca.id)
+    setCalibrationData({
+      frequenciaCalibracaoDias: balanca.frequenciaCalibracaoDias || '365',
+      ultimaCalibracao: balanca.ultimaCalibracao || '',
+      calibracaoRealizada: !!balanca.calibracaoRealizada,
+    })
+    setError('')
+    setSuccess('')
+  }
+
+  const closeCalibrationPanel = () => {
+    setCalibrationTargetId(null)
+  }
+
+  const saveCalibration = async (balanca) => {
+    if (!calibrationData.frequenciaCalibracaoDias || Number(calibrationData.frequenciaCalibracaoDias) <= 0) {
+      setError('Informe a frequência de calibração em dias (valor maior que zero).')
+      return
+    }
+
+    if (calibrationData.calibracaoRealizada && !calibrationData.ultimaCalibracao) {
+      setError('Informe a data da última calibração quando a calibração foi realizada.')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const payload = uiToApi({
+        ...balanca,
+        frequenciaCalibracaoDias: calibrationData.frequenciaCalibracaoDias,
+        ultimaCalibracao: calibrationData.calibracaoRealizada ? calibrationData.ultimaCalibracao : '',
+        calibracaoRealizada: calibrationData.calibracaoRealizada,
+      })
+
+      const res = await fetchHttps(`${ENDPOINT}${balanca.id}/`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) throw new Error(`PUT calibração balança: ${res.status}`)
+
+      const atualizado = apiToUi(await res.json())
+      setBalancas(prev => prev.map(b => (b.id === balanca.id ? atualizado : b)))
+      setSuccess('Configurações de calibração atualizadas com sucesso!')
+      setCalibrationTargetId(null)
+    } catch (err) {
+      console.error(err)
+      setError('Erro ao atualizar configurações de calibração. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleEditar = (balanca) => {
     setFormData({
       nome: balanca.nome,
@@ -245,6 +307,7 @@ const CadastroBalanca = () => {
       calibracaoRealizada: !!balanca.calibracaoRealizada,
       ativo: balanca.ativo
     })
+    setCalibrationTargetId(null)
     setEditingId(balanca.id)
     setError('')
     setSuccess('')
@@ -252,6 +315,7 @@ const CadastroBalanca = () => {
 
   // ===== Exclusão com motivo (duas etapas) =====
   const openDeleteWithReason = (id) => {
+    setCalibrationTargetId(null)
     setDeleteTargetId(id)
     setDeleteReason('')
     setDeleteNote('')
@@ -299,9 +363,6 @@ const CadastroBalanca = () => {
       setLoading(false)
     }
   }
-
-  const isEthernet = formData.tipoConexao === 'ethernet'
-  const isSerialLike = formData.tipoConexao === 'serial' || formData.tipoConexao === 'usb'
 
   const balancasFiltradas = balancas.filter(b =>
     b.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -368,72 +429,6 @@ const CadastroBalanca = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Tipo de Conexão *</Label>
-                <Select
-                  value={formData.tipoConexao}
-                  onValueChange={(v) => handleChange('tipoConexao', v)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ethernet">
-                      <span className="inline-flex items-center gap-2">
-                        <Network className="h-4 w-4" /> Ethernet
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="serial">
-                      <span className="inline-flex items-center gap-2">
-                        <Cable className="h-4 w-4" /> Serial
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="usb">
-                      <span className="inline-flex items-center gap-2">
-                        <Usb className="h-4 w-4" /> USB
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {isEthernet && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="enderecoIp">Endereço IP *</Label>
-                    <Input
-                      id="enderecoIp"
-                      value={formData.enderecoIp}
-                      onChange={(e) => handleChange('enderecoIp', e.target.value)}
-                      placeholder="Ex.: 192.168.0.10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="porta">Porta *</Label>
-                    <Input
-                      id="porta"
-                      type="number"
-                      inputMode="numeric"
-                      value={formData.porta}
-                      onChange={(e) => handleChange('porta', e.target.value)}
-                      placeholder="Ex.: 502"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {isSerialLike && (
-                <div className="space-y-2">
-                  <Label htmlFor="portaSerial">Porta Serial *</Label>
-                  <Input
-                    id="portaSerial"
-                    value={formData.portaSerial}
-                    onChange={(e) => handleChange('portaSerial', e.target.value)}
-                    placeholder="Ex.: COM3 ou /dev/ttyUSB0"
-                  />
-                </div>
-              )}
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="localizacao">Localização</Label>
@@ -444,18 +439,9 @@ const CadastroBalanca = () => {
                     placeholder="Ex.: Sala 02"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="protocolo">Protocolo</Label>
-                  <Input
-                    id="protocolo"
-                    value={formData.protocolo}
-                    onChange={(e) => handleChange('protocolo', e.target.value)}
-                    placeholder="Ex.: Toledo"
-                  />
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="capacidadeMaxima">Capacidade Máx. (kg)</Label>
                   <Input
@@ -465,17 +451,6 @@ const CadastroBalanca = () => {
                     inputMode="decimal"
                     value={formData.capacidadeMaxima}
                     onChange={(e) => handleChange('capacidadeMaxima', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="divisao">Divisão/Resolução (kg)</Label>
-                  <Input
-                    id="divisao"
-                    type="number"
-                    step="0.001"
-                    inputMode="decimal"
-                    value={formData.divisao}
-                    onChange={(e) => handleChange('divisao', e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -489,29 +464,34 @@ const CadastroBalanca = () => {
                     onChange={(e) => handleChange('frequenciaCalibracaoDias', e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ultimaCalibracao">Última Calibração</Label>
-                  <Input
-                    id="ultimaCalibracao"
-                    type="date"
-                    value={formData.ultimaCalibracao}
-                    onChange={(e) => handleChange('ultimaCalibracao', e.target.value)}
-                    disabled={!formData.calibracaoRealizada}
-                  />
-                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="calibracaoRealizada"
-                  checked={!!formData.calibracaoRealizada}
-                  onCheckedChange={(checked) => {
-                    handleChange('calibracaoRealizada', checked)
-                    if (!checked) handleChange('ultimaCalibracao', '')
-                  }}
-                />
-                <Label htmlFor="calibracaoRealizada" className="cursor-pointer">Calibração realizada</Label>
-              </div>
+              {!editingId && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="ultimaCalibracao">Última Calibração</Label>
+                    <Input
+                      id="ultimaCalibracao"
+                      type="date"
+                      value={formData.ultimaCalibracao}
+                      onChange={(e) => handleChange('ultimaCalibracao', e.target.value)}
+                      disabled={!formData.calibracaoRealizada}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="calibracaoRealizada"
+                      checked={!!formData.calibracaoRealizada}
+                      onCheckedChange={(checked) => {
+                        handleChange('calibracaoRealizada', checked)
+                        if (!checked) handleChange('ultimaCalibracao', '')
+                      }}
+                    />
+                    <Label htmlFor="calibracaoRealizada" className="cursor-pointer">Calibração realizada</Label>
+                  </div>
+                </>
+              )}
 
               <div className="flex items-center gap-2">
                 <Switch
@@ -667,6 +647,17 @@ const CadastroBalanca = () => {
                               <Edit className="h-4 w-4" />
                             </Button>
 
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openCalibrationPanel(b)}
+                              className="text-amber-600 hover:text-amber-800"
+                              aria-label={`Calibração da ${b.nome}`}
+                              title="Configurações de calibração"
+                            >
+                              <SlidersHorizontal className="h-4 w-4" />
+                            </Button>
+
                             {!isDeleting ? (
                               <Button
                                 variant="ghost"
@@ -692,6 +683,73 @@ const CadastroBalanca = () => {
                             )}
                           </div>
                         </div>
+
+                        {calibrationTargetId === b.id && (
+                          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                            <p className="text-sm font-medium text-amber-900 mb-3">
+                              Configurações de calibração
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label htmlFor={`freq-cal-${b.id}`}>Frequência de calibração (dias) *</Label>
+                                <Input
+                                  id={`freq-cal-${b.id}`}
+                                  type="number"
+                                  min="1"
+                                  inputMode="numeric"
+                                  value={calibrationData.frequenciaCalibracaoDias}
+                                  onChange={(ev) => setCalibrationData(prev => ({ ...prev, frequenciaCalibracaoDias: ev.target.value }))}
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <Label htmlFor={`ult-cal-${b.id}`}>Última calibração</Label>
+                                <Input
+                                  id={`ult-cal-${b.id}`}
+                                  type="date"
+                                  value={calibrationData.ultimaCalibracao}
+                                  onChange={(ev) => setCalibrationData(prev => ({ ...prev, ultimaCalibracao: ev.target.value }))}
+                                  disabled={!calibrationData.calibracaoRealizada}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex items-center gap-2">
+                              <Switch
+                                id={`realizada-${b.id}`}
+                                checked={!!calibrationData.calibracaoRealizada}
+                                onCheckedChange={(checked) => {
+                                  setCalibrationData(prev => ({
+                                    ...prev,
+                                    calibracaoRealizada: checked,
+                                    ultimaCalibracao: checked ? prev.ultimaCalibracao : '',
+                                  }))
+                                }}
+                              />
+                              <Label htmlFor={`realizada-${b.id}`}>Calibração realizada</Label>
+                            </div>
+
+                            <div className="mt-4 flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={loading}
+                                className="bg-amber-600 hover:bg-amber-700"
+                                onClick={() => saveCalibration(b)}
+                              >
+                                {loading ? 'Salvando...' : 'Salvar calibração'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={closeCalibrationPanel}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Painel inline para exclusão com motivo */}
                         {isDeleting && (
