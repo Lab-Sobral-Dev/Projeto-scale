@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import timedelta
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.db.models import F, Sum
@@ -108,6 +109,8 @@ class Balanca(models.Model):
     divisao = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     protocolo = models.CharField(max_length=50, blank=True, default='')
     ultima_calibracao = models.DateField(null=True, blank=True)
+    frequencia_calibracao_dias = models.PositiveIntegerField(default=365)
+    calibracao_realizada = models.BooleanField(default=False)
 
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -119,6 +122,17 @@ class Balanca(models.Model):
 
     def __str__(self):
         return f'{self.nome} ({self.identificador})'
+
+    def esta_em_calibracao(self, data_referencia=None):
+        if not self.ultima_calibracao:
+            return False
+
+        referencia = data_referencia or timezone.localdate()
+        if not self.calibracao_realizada:
+            return False
+
+        validade_ate = self.ultima_calibracao + timedelta(days=self.frequencia_calibracao_dias)
+        return referencia <= validade_ate
 
 
 # =========================
@@ -347,6 +361,13 @@ class Pesagem(models.Model):
             raise ValidationError("item_op não pertence à OP informada.")
         if not self.item_op_id:
             raise ValidationError("Selecione um item da OP para vincular a pesagem.")
+
+        if self.balanca_id:
+            balanca = self.balanca or Balanca.objects.get(pk=self.balanca_id)
+            if not balanca.esta_em_calibracao():
+                raise ValidationError(
+                    f"A balança '{balanca.nome}' está fora da calibração e não pode ser usada para pesagem."
+                )
 
         # Estado anterior (para edições)
         antigo_liquido_g = Decimal('0')

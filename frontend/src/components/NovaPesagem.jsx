@@ -46,6 +46,18 @@ const toNumber = (v) => {
 
 const isNonEmpty = (s) => typeof s === 'string' ? s.trim().length > 0 : !!s
 
+const isBalancaCalibrada = (balanca) => {
+  if (!balanca?.calibracao_realizada || !balanca?.ultima_calibracao) return false
+  const dt = new Date(`${balanca.ultima_calibracao}T00:00:00`)
+  if (Number.isNaN(dt.getTime())) return false
+  const limite = new Date(dt)
+  const freqDias = Number(balanca?.frequencia_calibracao_dias || 365)
+  limite.setDate(limite.getDate() + freqDias)
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  return hoje <= limite
+}
+
 // Normaliza o que o usuário digita: troca ponto por vírgula, remove caracteres inválidos
 const normalizeDecimalInput = (value) => {
   if (!value) return ''
@@ -143,7 +155,12 @@ const NovaPesagem = () => {
             produtoNome: o.produto?.nome ?? '',
           }))
 
-        const balsNorm = normalizeList(balRes).map(b => ({ id: b.id, nome: b.nome }))
+        const balsNorm = normalizeList(balRes).map(b => ({
+            id: b.id,
+            nome: b.nome,
+            ultimaCalibracao: b.ultima_calibracao ?? null,
+            emCalibracao: isBalancaCalibrada(b),
+          }))
 
         setOps(opsNorm)
         setBalancas(balsNorm)
@@ -181,6 +198,11 @@ const NovaPesagem = () => {
     if (!formData.itemOp) return null
     return itensOP.find(i => i.id.toString() === formData.itemOp.toString()) || null
   }, [formData.itemOp, itensOP])
+
+  const balancaSelecionada = useMemo(() => {
+    if (!formData.balanca) return null
+    return balancas.find(b => String(b.id) === String(formData.balanca)) || null
+  }, [balancas, formData.balanca])
 
   // Quantidades do item (em g)
   const necessarioG = itemSelecionado ? Number(itemSelecionado.quantidade_necessaria || 0) : 0
@@ -289,6 +311,14 @@ const NovaPesagem = () => {
     }
     if (taraKg < 0) {
       setError('A tara não pode ser negativa.')
+      return null
+    }
+    if (!formData.balanca) {
+      setError('Selecione uma balança.')
+      return null
+    }
+    if (!balancaSelecionada?.emCalibracao) {
+      setError('A balança selecionada está fora da calibração. Selecione uma balança calibrada.')
       return null
     }
     if (excedeMaximo) {
@@ -650,12 +680,15 @@ const NovaPesagem = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {balancas.map(b => (
-                      <SelectItem key={b.id} value={String(b.id)}>
-                        {b.nome}
+                      <SelectItem key={b.id} value={String(b.id)} disabled={!b.emCalibracao}>
+                        {b.nome}{b.emCalibracao ? '' : ' (fora da calibração)'}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {formData.balanca && !balancaSelecionada?.emCalibracao && (
+                  <p className="text-sm text-red-600">Esta balança está fora da calibração e não pode ser usada.</p>
+                )}
               </div>
 
               {/* Entradas (sempre em kg): TARA e LÍQUIDO */}

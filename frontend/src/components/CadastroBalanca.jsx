@@ -61,6 +61,8 @@ const CadastroBalanca = () => {
     divisao: '',
     protocolo: '',
     ultimaCalibracao: '',
+    frequenciaCalibracaoDias: '365',
+    calibracaoRealizada: false,
     ativo: true,
   })
 
@@ -83,6 +85,8 @@ const CadastroBalanca = () => {
     divisao: b.divisao != null ? String(b.divisao) : '',
     protocolo: b.protocolo ?? '',
     ultimaCalibracao: b.ultima_calibracao ?? '',
+    frequenciaCalibracaoDias: b.frequencia_calibracao_dias != null ? String(b.frequencia_calibracao_dias) : '365',
+    calibracaoRealizada: !!b.calibracao_realizada,
     ativo: !!b.ativo,
   })
 
@@ -97,7 +101,9 @@ const CadastroBalanca = () => {
     capacidade_maxima: b.capacidadeMaxima !== '' ? b.capacidadeMaxima : null,
     divisao: b.divisao !== '' ? b.divisao : null,
     protocolo: b.protocolo || '',
-    ultima_calibracao: b.ultimaCalibracao || null,
+    ultima_calibracao: b.calibracaoRealizada ? (b.ultimaCalibracao || null) : null,
+    frequencia_calibracao_dias: b.frequenciaCalibracaoDias !== '' ? Number(b.frequenciaCalibracaoDias) : 365,
+    calibracao_realizada: !!b.calibracaoRealizada,
     ativo: b.ativo,
   })
 
@@ -144,6 +150,12 @@ const CadastroBalanca = () => {
       if (formData.porta === '' || isNaN(Number(formData.porta))) return 'Para Ethernet, informe a Porta numérica.'
     } else {
       if (!formData.portaSerial.trim()) return 'Para Serial/USB, informe a Porta Serial (ex.: COM3).'
+    }
+    if (formData.frequenciaCalibracaoDias === '' || Number(formData.frequenciaCalibracaoDias) <= 0) {
+      return 'Informe a frequência de calibração em dias (valor maior que zero).'
+    }
+    if (formData.calibracaoRealizada && !formData.ultimaCalibracao) {
+      return 'Informe a data da última calibração quando a calibração foi realizada.'
     }
     return ''
   }
@@ -208,6 +220,8 @@ const CadastroBalanca = () => {
       divisao: '',
       protocolo: '',
       ultimaCalibracao: '',
+      frequenciaCalibracaoDias: '365',
+      calibracaoRealizada: false,
       ativo: true
     })
     setEditingId(null)
@@ -227,6 +241,8 @@ const CadastroBalanca = () => {
       divisao: balanca.divisao,
       protocolo: balanca.protocolo,
       ultimaCalibracao: balanca.ultimaCalibracao || '',
+      frequenciaCalibracaoDias: balanca.frequenciaCalibracaoDias || '365',
+      calibracaoRealizada: !!balanca.calibracaoRealizada,
       ativo: balanca.ativo
     })
     setEditingId(balanca.id)
@@ -463,14 +479,38 @@ const CadastroBalanca = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="frequenciaCalibracaoDias">Frequência de calibração (dias)</Label>
+                  <Input
+                    id="frequenciaCalibracaoDias"
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={formData.frequenciaCalibracaoDias}
+                    onChange={(e) => handleChange('frequenciaCalibracaoDias', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="ultimaCalibracao">Última Calibração</Label>
                   <Input
                     id="ultimaCalibracao"
                     type="date"
                     value={formData.ultimaCalibracao}
                     onChange={(e) => handleChange('ultimaCalibracao', e.target.value)}
+                    disabled={!formData.calibracaoRealizada}
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="calibracaoRealizada"
+                  checked={!!formData.calibracaoRealizada}
+                  onCheckedChange={(checked) => {
+                    handleChange('calibracaoRealizada', checked)
+                    if (!checked) handleChange('ultimaCalibracao', '')
+                  }}
+                />
+                <Label htmlFor="calibracaoRealizada" className="cursor-pointer">Calibração realizada</Label>
               </div>
 
               <div className="flex items-center gap-2">
@@ -607,6 +647,12 @@ const CadastroBalanca = () => {
                                 <span className="font-medium">Protocolo:</span> {b.protocolo}
                               </p>
                             )}
+                            <p className="text-sm text-gray-500 break-words">
+                              <span className="font-medium">Frequência calibração:</span> {b.frequenciaCalibracaoDias || 365} dias
+                            </p>
+                            <p className="text-sm text-gray-500 break-words">
+                              <span className="font-medium">Calibração realizada:</span> {b.calibracaoRealizada ? 'Sim' : 'Não'}
+                            </p>
                           </div>
 
                           {/* Ações */}
