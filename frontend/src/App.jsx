@@ -27,7 +27,6 @@ import LogsAuditoria from './components/LogsAuditoria'
 // Relatórios
 import ReportsHome from '@/pages/reports/Index'
 import Pesagens from '@/pages/reports/Pesagens'
-import Lotes from '@/pages/reports/Lotes'
 import Balancas from '@/pages/reports/Balancas'
 import Produtos from '@/pages/reports/Produtos'
 import MPs from '@/pages/reports/MPs'
@@ -172,16 +171,7 @@ function App() {
                 <Pesagens />
               </RequireReportViewer>
             }
-          />
-          <Route
-            path="/relatorios/lotes"
-            element={
-              <RequireReportViewer>
-                <Lotes />
-              </RequireReportViewer>
-            }
-          />
-          <Route
+          />          <Route
             path="/relatorios/balancas"
             element={
               <RequireReportViewer>
