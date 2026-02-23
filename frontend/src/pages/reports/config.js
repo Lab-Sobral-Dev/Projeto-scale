@@ -38,7 +38,7 @@ export const REPORTS = {
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
       { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
-      { name: 'produto', label: 'Produto', type: 'text', icon: Package },
+      { name: 'produto', label: 'Produto', type: 'select', icon: Package, options: [{ value: '__all__', label: 'Todos' }] },
       { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
       { name: 'op', label: 'OP', type: 'text', icon: ClipboardList },
       { name: 'lote', label: 'Lote', type: 'text', icon: ClipboardList },
@@ -61,28 +61,6 @@ export const REPORTS = {
     exportParams: DEFAULT_EXPORT_PARAMS
   },
 
-  lotes: {
-    title: 'Relatório de Lotes Produzidos',
-    path: '/lotes/',
-    columns: [
-      { key: 'criada_em', header: 'Criada em' },
-      { key: 'op', header: 'OP' },
-      { key: 'produto', header: 'Produto' },
-      { key: 'lote', header: 'Lote' },
-      { key: 'status', header: 'Status' },
-      { key: 'total_pesado_g', header: 'Total Pesado (g)' },
-      { key: 'itens', header: 'Itens' },
-    ],
-    filters: [
-      { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
-      { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
-      { name: 'produto', label: 'Produto', type: 'text', icon: Package },
-      { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
-      { name: 'op', label: 'OP', type: 'text', icon: ClipboardList },
-    ],
-    primaryIcon: ClipboardList,
-    exportParams: DEFAULT_EXPORT_PARAMS
-  },
 
   balancas: {
     title: 'Utilização de Balanças',
@@ -92,13 +70,16 @@ export const REPORTS = {
       { key: 'count', header: 'Qtd. Pesagens' },
       { key: 'min', header: 'Primeira Utilização' },
       { key: 'max', header: 'Última Utilização' },
+      { key: 'ultima_calibracao', header: 'Última Calibração' },
+      { key: 'frequencia_calibracao_dias', header: 'Frequência (dias)' },
+      { key: 'calibracao_realizada', header: 'Calibração Realizada?' },
+      { key: 'em_calibracao', header: 'Em Calibração?' },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
       { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
       { name: 'balanca', label: 'Balança', type: 'text', icon: Network },
-      { name: 'operador', label: 'Operador', type: 'text', icon: User },
-      { name: 'produto', label: 'Produto', type: 'text', icon: Package },
+      { name: 'produto', label: 'Produto', type: 'select', icon: Package, options: [{ value: '__all__', label: 'Todos' }] },
       { name: 'materia_prima', label: 'Matéria-Prima', type: 'text', icon: Layers },
     ],
     primaryIcon: Network,
@@ -126,7 +107,6 @@ export const REPORTS = {
         ]
       },
       { name: 'codigo_interno', label: 'Cód. Interno', type: 'text', icon: MonitorCog },
-      { name: 'descricao', label: 'Descrição/Nome', type: 'text', icon: Package },
     ],
     primaryIcon: Package,
     exportParams: DEFAULT_EXPORT_PARAMS
@@ -152,8 +132,8 @@ export const REPORTS = {
           { value: 'false', label: 'Não' },
         ]
       },
-      { name: 'codigo_interno', label: 'Cód. Interno', type: 'text', icon: MonitorCog },
-      { name: 'nome', label: 'Nome', type: 'text', icon: Layers },
+      { name: 'codigo_interno', label: 'Cód. Interno', type: 'select', icon: MonitorCog, options: [{ value: '__all__', label: 'Todos' }] },
+      { name: 'nome', label: 'Nome', type: 'select', icon: Layers, options: [{ value: '__all__', label: 'Todos' }] },
     ],
     primaryIcon: Layers,
     exportParams: DEFAULT_EXPORT_PARAMS
@@ -170,7 +150,7 @@ export const REPORTS = {
       { key: 'mp_ativa', header: 'MP Ativa?' },
     ],
     filters: [
-      { name: 'produto', label: 'Produto', type: 'text', icon: Package },
+      { name: 'produto', label: 'Produto', type: 'select', icon: Package, options: [{ value: '__all__', label: 'Todos' }] },
       {
         name: 'status_mp',
         label: 'MP Ativa?',
@@ -235,6 +215,7 @@ export const REPORTS = {
       { key: 'usuario', header: 'Usuário' },
       { key: 'perfil', header: 'Perfil' },
       { key: 'telas', header: 'Telas permitidas' },
+      { key: 'concedido_por', header: 'Permissão concedida por' },
     ],
     filters: [
       {

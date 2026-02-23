@@ -19,11 +19,17 @@ class PesagensReportView(APIView, PageNumberPagination):
 
         produto = text(request, 'produto')
         if produto:
-            qs = qs.filter(op__produto__nome__icontains=produto)
+            if produto.isdigit():
+                qs = qs.filter(op__produto_id=int(produto))
+            else:
+                qs = qs.filter(op__produto__nome__icontains=produto)
 
         mp = text(request, 'materia_prima')
         if mp:
-            qs = qs.filter(item_op__materia_prima__nome__icontains=mp)
+            if mp.isdigit():
+                qs = qs.filter(item_op__materia_prima_id=int(mp))
+            else:
+                qs = qs.filter(item_op__materia_prima__nome__icontains=mp)
 
         op_num = text(request, 'op')
         if op_num:
@@ -43,7 +49,10 @@ class PesagensReportView(APIView, PageNumberPagination):
 
         balanca = text(request, 'balanca')
         if balanca:
-            qs = qs.filter(balanca__nome__icontains=balanca)
+            if balanca.isdigit():
+                qs = qs.filter(balanca_id=int(balanca))
+            else:
+                qs = qs.filter(balanca__nome__icontains=balanca)
 
         return qs.order_by('-data_hora')
 
