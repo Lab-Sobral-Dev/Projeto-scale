@@ -1,5 +1,6 @@
 # registro/tests.py
 from decimal import Decimal as D
+from datetime import timedelta
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -91,7 +92,10 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.item2 = ItemOP.objects.get(op=self.op, materia_prima=self.mp2)
         self.bal = Balanca.objects.create(
             nome="Balança Sala 01", identificador="BAL-01", tipo_conexao=Balanca.TIPO_ETHERNET,
-            endereco_ip="192.168.0.10", porta=1234
+            endereco_ip="192.168.0.10", porta=1234,
+            calibracao_realizada=True,
+            ultima_calibracao=timezone.localdate(),
+            frequencia_calibracao_dias=365,
         )
 
     def test_clean_rejeita_liquido_kg_nao_positivo_ou_tara_negativa(self):
@@ -212,20 +216,39 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         self.assertEqual(linha2["pesada"], D("50.000"))
         self.assertEqual(linha2["restante"], D("450.000"))
 
-    def test_lote_mp_opcional_mas_quando_enviado_e_normalizado(self):
-        # Sem lote
-        p = Pesagem.objects.create(
-            op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=D("0.100"), lote_mp=""
-        )
-        self.assertEqual(p.lote_mp, "")
+    def test_lote_mp_obrigatorio_e_normalizado(self):
+        with self.assertRaises(ValidationError):
+            Pesagem.objects.create(
+                op=self.op, item_op=self.item1, pesador="Ana",
+                tara=D("0.000"), liquido=D("0.100"), lote_mp=""
+            )
 
-        # Com espaços
         p2 = Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.000"), liquido=D("0.100"), lote_mp="  24B0001  "
         )
         self.assertEqual(p2.lote_mp, "24B0001")
+
+    def test_bloqueia_balanca_fora_da_calibracao(self):
+        self.bal.ultima_calibracao = timezone.localdate() - timedelta(days=366)
+        self.bal.save(update_fields=["ultima_calibracao"])
+
+        with self.assertRaises(ValidationError) as ctx:
+            Pesagem.objects.create(
+                op=self.op, item_op=self.item1, pesador="Ana",
+                tara=D("0.000"), liquido=D("0.100"), balanca=self.bal, lote_mp="24B0002"
+            )
+        self.assertIn("fora da calibração", str(ctx.exception))
+
+    def test_permite_balanca_dentro_da_calibracao(self):
+        self.bal.ultima_calibracao = timezone.localdate()
+        self.bal.save(update_fields=["ultima_calibracao"])
+
+        p = Pesagem.objects.create(
+            op=self.op, item_op=self.item1, pesador="Ana",
+            tara=D("0.000"), liquido=D("0.100"), balanca=self.bal, lote_mp="24B0003"
+        )
+        self.assertIsNotNone(p.pk)
 
 class ProdutoSerializerTests(TestCase):
     def test_bloqueia_produto_duplicado_por_nome_case_insensitive(self):

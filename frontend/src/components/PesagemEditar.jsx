@@ -65,6 +65,18 @@ const formatNumberWithComma = (num, decimals = 3) => {
   return num.toFixed(decimals).replace('.', ',')
 }
 
+const isBalancaCalibrada = (balanca) => {
+  if (!balanca?.calibracao_realizada || !balanca?.ultima_calibracao) return false
+  const dt = new Date(`${balanca.ultima_calibracao}T00:00:00`)
+  if (Number.isNaN(dt.getTime())) return false
+  const limite = new Date(dt)
+  const freqDias = Number(balanca?.frequencia_calibracao_dias || 365)
+  limite.setDate(limite.getDate() + freqDias)
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  return hoje <= limite
+}
+
 // API base (motivos)
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api')
 const MOTIVOS_URL = `${API_BASE}/registro/pesagens/motivos/`
@@ -143,7 +155,12 @@ export default function PesagemEditar() {
           }))
           setOps(opsNorm)
 
-          const balsNorm = normalizeList(balsRes).map(b => ({ id: b.id, nome: b.nome }))
+          const balsNorm = normalizeList(balsRes).map(b => ({
+            id: b.id,
+            nome: b.nome,
+            ultimaCalibracao: b.ultima_calibracao ?? null,
+            emCalibracao: isBalancaCalibrada(b),
+          }))
           setBalancas(balsNorm)
 
           const opId = p?.op?.id ?? ''
@@ -284,6 +301,11 @@ export default function PesagemEditar() {
     return ops.find(o => o.id.toString() === String(form.op)) || null
   }, [form.op, ops])
 
+  const balancaSelecionada = useMemo(() => {
+    if (!form.balanca || form.balanca === '__none__') return null
+    return balancas.find(b => String(b.id) === String(form.balanca)) || null
+  }, [balancas, form.balanca])
+
   const opNumeroLote = useMemo(() => {
     if (!opSelecionada) return '—'
     return `OP ${opSelecionada.numero} • Lote ${opSelecionada.lote}`
@@ -304,6 +326,9 @@ export default function PesagemEditar() {
     if (taraKg < 0) return setError('Tara (kg) deve ser ≥ 0.')
     if (!motivo) return setError('Selecione o motivo da edição.')
     if (motivo === 'outro' && !motivoObs.trim()) return setError('Descreva o motivo no campo de observação.')
+    if (form.balanca && form.balanca !== '__none__' && !balancaSelecionada?.emCalibracao) {
+      return setError('A balança selecionada está fora da calibração. Escolha uma balança calibrada ou selecione "Sem balança".')
+    }
     if (excedeMaximo) return setError(`Ultrapassa o limite superior (+5%). Máximo: ${fmtG(limiteMaxG)}. Total projetado: ${fmtG(novoTotalG)}.`)
 
     try {
@@ -532,10 +557,15 @@ export default function PesagemEditar() {
               <SelectContent>
                 <SelectItem value="__none__">Sem balança</SelectItem>
                 {balancas.map(b => (
-                  <SelectItem key={b.id} value={String(b.id)}>{b.nome}</SelectItem>
+                  <SelectItem key={b.id} value={String(b.id)} disabled={!b.emCalibracao}>
+                    {b.nome}{b.emCalibracao ? '' : ' (fora da calibração)'}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {form.balanca && form.balanca !== '__none__' && !balancaSelecionada?.emCalibracao && (
+              <p className="text-sm text-red-600">Esta balança está fora da calibração e não pode ser usada.</p>
+            )}
           </div>
 
           {/* Entradas (kg) */}
