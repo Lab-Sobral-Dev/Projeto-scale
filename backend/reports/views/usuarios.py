@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from usuarios.models import PerfilUsuario, Role, Screen
+from registro.audit_models import AuditLog
 from ..serializers import UsuarioListSerializer
 from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
@@ -52,12 +53,24 @@ class PermissoesTelasReportView(APIView):
             qs = qs.filter(username__icontains=usuario)
 
         export = request.GET.get('export')
-        header = ["Usuário","Perfil","Telas permitidas (codes)"]
+        header = ["Usuário","Perfil","Telas permitidas (codes)","Permissão concedida por"]
         rows, data = [], []
         for u in qs:
             telas = getattr(u.perfil, 'get_allowed_screens', lambda: [])()
-            rows.append([u.username, getattr(u.perfil, 'papel','—'), ", ".join(telas)])
-            data.append({"usuario":u.username, "perfil":getattr(u.perfil,'papel','—'), "telas":telas})
+            concedido_por = '—'
+            perfil_obj = getattr(u, 'perfil', None)
+            if perfil_obj:
+                auditoria = AuditLog.objects.filter(
+                    action='request',
+                    method__in=['PUT', 'PATCH', 'POST'],
+                    path__icontains=f'/usuarios/perfis/{perfil_obj.id}/',
+                    status_code__lt=400,
+                    user__isnull=False,
+                ).select_related('user').order_by('-timestamp').first()
+                if auditoria and auditoria.user:
+                    concedido_por = auditoria.user.get_full_name() or auditoria.user.username
+            rows.append([u.username, getattr(u.perfil, 'papel','—'), ", ".join(telas), concedido_por])
+            data.append({"usuario":u.username, "perfil":getattr(u.perfil,'papel','—'), "telas":telas, "concedido_por": concedido_por})
 
         if export == 'csv':
             return export_csv("permissoes_telas", header, rows)

@@ -1,7 +1,6 @@
 # apps/reports/urls.py
 from django.urls import path
 from .views.pesagens import PesagensReportView
-from .views.lotes import LotesReportView
 from .views.balancas import BalancasUsoReportView
 from .views.cadastros import ProdutosReportView, MateriasPrimasReportView
 from .views.estrutura import EstruturaProdutoReportView
@@ -13,7 +12,6 @@ from .views.backups import BackupsReportView, RestoresReportView
 
 urlpatterns = [
     path('pesagens/', PesagensReportView.as_view()),
-    path('lotes/', LotesReportView.as_view()),
     path('balancas/', BalancasUsoReportView.as_view()),
     path('produtos/', ProdutosReportView.as_view()),
     path('materias-primas/', MateriasPrimasReportView.as_view()),

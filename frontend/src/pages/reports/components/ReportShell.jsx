@@ -9,6 +9,15 @@ import { fetchReport, openExport } from '@/services/reports'
 import { Download, RefreshCcw, Search } from 'lucide-react'
 
 // --- helpers ---
+function sanitizeParams(raw = {}) {
+    const out = {}
+    Object.entries(raw).forEach(([k, v]) => {
+        if (v === '__all__' || v === '' || v === null || v === undefined) return
+        out[k] = v
+    })
+    return out
+}
+
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}/
 function formatMaybeDate(val) {
     if (typeof val === 'string' && ISO_DATETIME_RE.test(val)) {
@@ -39,7 +48,7 @@ export default function ReportShell({ report }) {
     async function load(p = 1) {
         setLoading(true)
         try {
-            const res = await fetchReport(report.path, { ...params, page: p })
+            const res = await fetchReport(report.path, { ...sanitizeParams(params), page: p })
             setData(res)
             setPage(p)
         } catch (e) {
@@ -57,7 +66,7 @@ export default function ReportShell({ report }) {
 
     function onExport(type) {
         const extra = type === 'pdf' ? (report.exportParams?.pdf || {}) : (report.exportParams?.csv || {})
-        openExport(report.path, { ...params, ...extra }, type)
+        openExport(report.path, { ...sanitizeParams(params), ...extra }, type)
     }
 
     const Icon = report.primaryIcon
@@ -166,6 +175,7 @@ export default function ReportShell({ report }) {
 
                                             // Booleanos e nulos
                                             if (typeof val === 'boolean') val = val ? 'Sim' : 'Não'
+                                            if (Array.isArray(val)) val = val.join(', ')
                                             if (val === null || val === undefined) val = ''
 
                                             return (

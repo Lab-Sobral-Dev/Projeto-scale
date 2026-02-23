@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
-  Scale, History, Boxes, Network, Layers, Package, FlaskConical,
+  Scale, Boxes, Network, Layers, Package, FlaskConical,
   Users, ShieldCheck, ShieldAlert, FileWarning, Bug, DatabaseBackup,
   RotateCcw, ListChecks
 } from 'lucide-react'
@@ -16,7 +16,6 @@ const CATEGORIES = [
     descr: 'Relatórios operacionais do chão de fábrica.',
     items: [
       { label: 'Pesagens', href: '/relatorios/pesagens', icon: Scale, hint: 'Filtrar por OP, produto, período' },
-      { label: 'Lotes', href: '/relatorios/lotes', icon: History, hint: 'Rastrear lotes e vínculos' },
       { label: 'Balanças', href: '/relatorios/balancas', icon: Network, hint: 'Conexões, status e leituras' },
       { label: 'Estrutura', href: '/relatorios/estrutura', icon: Layers, hint: 'BOM, itens e versões' },
     ],
