@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,15 @@ const Login = ({ onLogin }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [logoError, setLogoError] = useState(false) // fallback da logo
+
+
+  useEffect(() => {
+    const expired = sessionStorage.getItem('session_expired')
+    if (expired === '1') {
+      setError('Seção expirada. Faça login novamente.')
+      sessionStorage.removeItem('session_expired')
+    }
+  }, [])
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))

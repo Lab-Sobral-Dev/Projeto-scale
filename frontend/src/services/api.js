@@ -9,6 +9,7 @@ const API_BASE_URL =
 
 const REGISTRO_BASE = `${API_BASE_URL}/registro`;
 const USUARIOS_BASE = `${API_BASE_URL}/usuarios`;
+const SESSION_EXPIRED_FLAG = "session_expired";
 
 class ApiService {
   constructor() {
@@ -32,6 +33,14 @@ class ApiService {
     localStorage.removeItem("refresh");
     localStorage.removeItem("allowed_screens");
     localStorage.removeItem("pwd_flags");
+  }
+
+  _flagSessionExpired() {
+    try {
+      sessionStorage.setItem(SESSION_EXPIRED_FLAG, "1");
+    } catch {
+      // sem acesso ao sessionStorage
+    }
   }
 
   // ===== Navegação segura para login =====
@@ -132,6 +141,7 @@ class ApiService {
         if (!res2.ok) {
           // se ainda assim voltou 401/403, limpar e ir para login
           if (res2.status === 401 || res2.status === 403) {
+            if (res2.status === 401) this._flagSessionExpired();
             this.clearTokens();
             this._redirectToLogin();
           }
@@ -143,6 +153,7 @@ class ApiService {
 
     // 401/403 sem refresh válido -> logout + login
     if ((res.status === 401 || res.status === 403) && retry) {
+      if (res.status === 401) this._flagSessionExpired();
       this.clearTokens();
       this._redirectToLogin();
     }
