@@ -8,210 +8,207 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { fetchReport, openExport } from '@/services/reports'
 import { Download, RefreshCcw, Search } from 'lucide-react'
 
-// --- helpers ---
 function sanitizeParams(raw = {}) {
-    const out = {}
-    Object.entries(raw).forEach(([k, v]) => {
-        if (v === '__all__' || v === '' || v === null || v === undefined) return
-        out[k] = v
-    })
-    return out
+  const out = {}
+  Object.entries(raw).forEach(([k, v]) => {
+    if (v === '__all__' || v === '' || v === null || v === undefined) return
+    out[k] = v
+  })
+  return out
 }
 
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}/
 function formatMaybeDate(val) {
-    if (typeof val === 'string' && ISO_DATETIME_RE.test(val)) {
-        try {
-            const d = new Date(val)
-            // Ex.: 15/09/2025 17:24:25
-            return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).replace(',', '')
-        } catch {
-            return val
-        }
+  if (typeof val === 'string' && ISO_DATETIME_RE.test(val)) {
+    try {
+      const d = new Date(val)
+      return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).replace(',', '')
+    } catch {
+      return val
     }
-    return val
+  }
+  return val
 }
 
 export default function ReportShell({ report }) {
-    const [params, setParams] = useState({})
-    const [loading, setLoading] = useState(false)
-    const [data, setData] = useState({ results: [], count: 0, next: null, previous: null })
-    const [page, setPage] = useState(1)
+  const [params, setParams] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState({ results: [], count: 0, next: null, previous: null })
+  const [page, setPage] = useState(1)
+  const [dynamicOptions, setDynamicOptions] = useState({})
 
-    const isPaginated = useMemo(() => typeof data?.results !== 'undefined', [data])
-    const rows = isPaginated ? (data.results || []) : (Array.isArray(data) ? data : [])
+  const isPaginated = useMemo(() => typeof data?.results !== 'undefined', [data])
+  const rows = isPaginated ? (data.results || []) : (Array.isArray(data) ? data : [])
 
-    function setParam(name, value) {
-        setParams(prev => ({ ...prev, [name]: value }))
+  function setParam(name, value) {
+    setParams(prev => ({ ...prev, [name]: value }))
+  }
+
+  async function load(p = 1) {
+    setLoading(true)
+    try {
+      const res = await fetchReport(report.path, { ...sanitizeParams(params), page: p })
+      setData(res)
+      setPage(p)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    async function load(p = 1) {
-        setLoading(true)
-        try {
-            const res = await fetchReport(report.path, { ...sanitizeParams(params), page: p })
-            setData(res)
-            setPage(p)
-        } catch (e) {
-            console.error(e)
-        } finally {
-            setLoading(false)
-        }
+  async function loadFilterOptions() {
+    if (!report.dynamicFilters) return
+    try {
+      const opts = await fetchReport(report.path, { meta: 'filters' })
+      setDynamicOptions(opts || {})
+    } catch (e) {
+      console.error(e)
     }
+  }
 
-    useEffect(() => { load(1) }, []) // carrega inicial
+  useEffect(() => {
+    load(1)
+    loadFilterOptions()
+  }, [])
 
-    function clearFilters() {
-        setParams({})
-    }
+  function clearFilters() {
+    setParams({})
+  }
 
-    function onExport(type) {
-        const extra = type === 'pdf' ? (report.exportParams?.pdf || {}) : (report.exportParams?.csv || {})
-        openExport(report.path, { ...sanitizeParams(params), ...extra }, type)
-    }
+  function onExport(type) {
+    const extra = type === 'pdf' ? (report.exportParams?.pdf || {}) : (report.exportParams?.csv || {})
+    openExport(report.path, { ...sanitizeParams(params), ...extra }, type)
+  }
 
-    const Icon = report.primaryIcon
+  const Icon = report.primaryIcon
 
-    return (
-        <div className="space-y-4">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {Icon ? <Icon className="w-5 h-5" /> : null}
-                        <CardTitle>{report.title}</CardTitle>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => onExport('csv')}>
-                            <Download className="w-4 h-4 mr-2" /> CSV
-                        </Button>
-                        <Button variant="outline" onClick={() => onExport('pdf')}>
-                            <Download className="w-4 h-4 mr-2" /> PDF
-                        </Button>
-                        <Button onClick={() => load(1)}>
-                            <RefreshCcw className="w-4 h-4 mr-2" /> Recarregar
-                        </Button>
-                    </div>
-                </CardHeader>
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            {Icon ? <Icon className="w-5 h-5" /> : null}
+            <CardTitle>{report.title}</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onExport('csv')}>
+              <Download className="w-4 h-4 mr-2" /> CSV
+            </Button>
+            <Button variant="outline" onClick={() => onExport('pdf')}>
+              <Download className="w-4 h-4 mr-2" /> PDF
+            </Button>
+            <Button onClick={() => load(1)}>
+              <RefreshCcw className="w-4 h-4 mr-2" /> Recarregar
+            </Button>
+          </div>
+        </CardHeader>
 
-                <CardContent>
-                    {/* Filtros */}
-                    <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                        {report.filters?.map((f) => {
-                            const isSelect = f.type === 'select'
-                            const rawVal = params[f.name]
-                            // valor seguro para o Select (não pode ser string vazia)
-                            const safeVal = isSelect
-                                ? (rawVal === undefined || rawVal === null || rawVal === '' ? (f.options?.[0]?.value ?? '__all__') : rawVal)
-                                : (rawVal ?? '')
+        <CardContent>
+          <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            {report.filters?.map((f) => {
+              const isSelect = f.type === 'select'
+              const rawVal = params[f.name]
+              const mergedOptions = [
+                ...(f.options || []),
+                ...((dynamicOptions?.[f.name] || []).filter(opt => !(f.options || []).some(base => base.value === opt.value))),
+              ]
+              const safeVal = isSelect
+                ? (rawVal === undefined || rawVal === null || rawVal === '' ? (mergedOptions?.[0]?.value ?? '__all__') : rawVal)
+                : (rawVal ?? '')
 
-                            return (
-                                <div key={f.name} className="space-y-1 w-full">
-                                    <Label htmlFor={f.name}>{f.label}</Label>
+              return (
+                <div key={f.name} className="space-y-1 w-full">
+                  <Label htmlFor={f.name}>{f.label}</Label>
 
-                                    {isSelect ? (
-                                        <Select
-                                            value={safeVal}
-                                            onValueChange={v => setParam(f.name, v)}
-                                        >
-                                            <SelectTrigger id={f.name} className="w-full">
-                                                <SelectValue placeholder="Selecione" />
-                                            </SelectTrigger>
-                                            <SelectContent className="w-[--radix-select-trigger-width] max-h-72">
-                                                {(f.options || []).map(opt => (
-                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <Input
-                                            id={f.name}
-                                            type={f.type}
-                                            value={safeVal}
-                                            onChange={e => setParam(f.name, e.target.value)}
-                                            placeholder={f.placeholder || ''}
-                                            className="w-full"
-                                        />
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </form>
+                  {isSelect ? (
+                    <Select value={safeVal} onValueChange={v => setParam(f.name, v)}>
+                      <SelectTrigger id={f.name} className="w-full">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent className="w-[--radix-select-trigger-width] max-h-72">
+                        {mergedOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id={f.name}
+                      type={f.type}
+                      value={safeVal}
+                      onChange={e => setParam(f.name, e.target.value)}
+                      placeholder={f.placeholder || ''}
+                      className="w-full"
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </form>
 
-                    <div className="flex justify-between mb-3">
-                        <div className="text-sm text-muted-foreground">
-                            {loading ? 'Carregando…' : isPaginated ? `Total: ${data.count || rows.length}` : `Registros: ${rows.length}`}
-                        </div>
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={clearFilters}>Limpar</Button>
-                            <Button onClick={() => load(1)}>
-                                <Search className="w-4 h-4 mr-2" /> Aplicar
-                            </Button>
-                        </div>
-                    </div>
+          <div className="flex justify-between mb-3">
+            <div className="text-sm text-muted-foreground">
+              {loading ? 'Carregando…' : isPaginated ? `Total: ${data.count || rows.length}` : `Registros: ${rows.length}`}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={clearFilters}>Limpar</Button>
+              <Button onClick={() => load(1)}>
+                <Search className="w-4 h-4 mr-2" /> Aplicar
+              </Button>
+            </div>
+          </div>
 
-                    {/* Tabela */}
-                    <div className="overflow-auto rounded border">
-                        <table className="min-w-full text-sm">
-                            <thead>
-                                <tr className="bg-muted">
-                                    {report.columns.map(col => (
-                                        <th key={col.key} className="text-left px-3 py-2 font-medium">{col.header}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.length === 0 && !loading ? (
-                                    <tr>
-                                        <td className="px-3 py-3 text-muted-foreground" colSpan={report.columns.length}>
-                                            Nenhum registro.
-                                        </td>
-                                    </tr>
-                                ) : rows.map((row, idx) => (
-                                    <tr key={idx} className="border-t">
-                                        {report.columns.map(col => {
-                                            let val = row[col.key]
+          <div className="overflow-auto rounded border">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-muted">
+                  {report.columns.map(col => (
+                    <th key={col.key} className="text-left px-3 py-2 font-medium">{col.header}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && !loading ? (
+                  <tr>
+                    <td className="px-3 py-3 text-muted-foreground" colSpan={report.columns.length}>
+                      Nenhum registro.
+                    </td>
+                  </tr>
+                ) : rows.map((row, idx) => (
+                  <tr key={idx} className="border-t align-top">
+                    {report.columns.map(col => {
+                      let val = row[col.key]
+                      val = formatMaybeDate(val)
+                      if (typeof val === 'boolean') val = val ? 'Sim' : 'Não'
+                      if (Array.isArray(val)) val = val.join(', ')
+                      if (val === null || val === undefined) val = ''
 
-                                            // Formatação amigável para datas/horas
-                                            val = formatMaybeDate(val)
+                      return (
+                        <td key={col.key} className={`px-3 py-2 ${col.wrap ? 'whitespace-normal' : 'whitespace-nowrap'}`}>
+                          {String(val)}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-                                            // Booleanos e nulos
-                                            if (typeof val === 'boolean') val = val ? 'Sim' : 'Não'
-                                            if (Array.isArray(val)) val = val.join(', ')
-                                            if (val === null || val === undefined) val = ''
-
-                                            return (
-                                                <td key={col.key} className="px-3 py-2 whitespace-nowrap">
-                                                    {String(val)}
-                                                </td>
-                                            )
-                                        })}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Paginação simples (quando houver results/count) */}
-                    {isPaginated && (
-                        <div className="flex items-center justify-end gap-2 mt-3">
-                            <Button
-                                variant="outline"
-                                disabled={!data.previous || loading}
-                                onClick={() => load(Math.max(1, page - 1))}
-                            >
-                                Anterior
-                            </Button>
-                            <span className="text-sm">Página {page}</span>
-                            <Button
-                                variant="outline"
-                                disabled={!data.next || loading}
-                                onClick={() => load(page + 1)}
-                            >
-                                Próxima
-                            </Button>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
-    )
+          {isPaginated && (
+            <div className="flex items-center justify-end gap-2 mt-3">
+              <Button variant="outline" disabled={!data.previous || loading} onClick={() => load(Math.max(1, page - 1))}>
+                Anterior
+              </Button>
+              <span className="text-sm">Página {page}</span>
+              <Button variant="outline" disabled={!data.next || loading} onClick={() => load(page + 1)}>
+                Próxima
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
