@@ -7,6 +7,7 @@ from registro.models import OrdemProducao, Pesagem
 from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import apply_date_filter, text
+from ..datetime_utils import fmt_gmt3_with_zone
 
 class LotesReportView(APIView, PageNumberPagination):
     permission_classes = [IsReportViewer]
@@ -40,7 +41,7 @@ class LotesReportView(APIView, PageNumberPagination):
             total = Pesagem.objects.filter(op=op).aggregate(s=Sum('liquido'))['s'] or 0
             itens = op.itemop_set.count()
             rows.append([
-                op.criada_em.strftime("%Y-%m-%d %H:%M"),
+                fmt_gmt3_with_zone(op.criada_em),
                 op.numero, op.produto.nome, op.lote, op.status,
                 f"{total:.3f}", itens
             ])
@@ -53,7 +54,7 @@ class LotesReportView(APIView, PageNumberPagination):
 
         # JSON simples (sem paginação aqui; se quiser paginação, use self.paginate_queryset)
         data = [{
-            "criada_em": op.criada_em,
+            "criada_em": fmt_gmt3_with_zone(op.criada_em),
             "op": op.numero,
             "produto": op.produto.nome,
             "lote": op.lote,

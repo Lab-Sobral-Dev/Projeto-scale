@@ -8,6 +8,7 @@ from ..serializers import UsuarioListSerializer
 from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import text
+from ..datetime_utils import fmt_gmt3_with_zone
 
 User = get_user_model()
 
@@ -31,7 +32,7 @@ class UsuariosReportView(APIView):
 
         export = request.GET.get('export')
         header = ["ID","Usuário","Nome","Sobrenome","Email","Último login","Ativo","Perfil"]
-        rows = [[u.id, u.username, u.first_name, u.last_name, u.email, (u.last_login.strftime("%Y-%m-%d %H:%M") if u.last_login else "—"), "Sim" if u.is_active else "Não", getattr(u.perfil, 'papel', '—')] for u in qs]
+        rows = [[u.id, u.username, u.first_name, u.last_name, u.email, (fmt_gmt3_with_zone(u.last_login) if u.last_login else "—"), "Sim" if u.is_active else "Não", getattr(u.perfil, 'papel', '—')] for u in qs]
 
         if export == 'csv':
             return export_csv("usuarios", header, rows)

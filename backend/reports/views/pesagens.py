@@ -8,6 +8,7 @@ from ..serializers import PesagemSerializer
 from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import apply_date_filter, text
+from ..datetime_utils import fmt_gmt3_with_zone
 
 class PesagensReportView(APIView, PageNumberPagination):
     permission_classes = [IsReportViewer]
@@ -63,7 +64,7 @@ class PesagensReportView(APIView, PageNumberPagination):
         header = ["Data/Hora","OP","Produto","Matéria-Prima","Pesador","Bruto (kg)","Tara (kg)","Líquido (g)","Lote MP","Balança","Código Interno"]
         rows = [
             [
-                p.data_hora.strftime("%Y-%m-%d %H:%M"),
+                fmt_gmt3_with_zone(p.data_hora),
                 p.op.numero,
                 p.op.produto.nome,
                 p.item_op.materia_prima.nome if p.item_op else "",
