@@ -3,13 +3,18 @@ from rest_framework import serializers
 from registro.models import Pesagem, OrdemProducao, ItemOP, Balanca, Produto, MateriaPrima
 from registro.audit_models import AuditLog
 from django.contrib.auth import get_user_model
+from .datetime_utils import fmt_gmt3_with_zone
 User = get_user_model()
 
 class PesagemSerializer(serializers.ModelSerializer):
+    data_hora = serializers.SerializerMethodField()
     produto = serializers.CharField(source='op.produto.nome', read_only=True)
     materia_prima = serializers.CharField(source='item_op.materia_prima.nome', read_only=True)
     op_numero = serializers.CharField(source='op.numero', read_only=True)
     balanca_nome = serializers.CharField(source='balanca.nome', read_only=True)
+
+    def get_data_hora(self, obj):
+        return fmt_gmt3_with_zone(obj.data_hora)
 
     class Meta:
         model = Pesagem
@@ -34,13 +39,23 @@ class BalancaSerializer(serializers.ModelSerializer):
         fields = ['id','nome','identificador','tipo_conexao','localizacao','ativo']
 
 class UsuarioListSerializer(serializers.ModelSerializer):
+    last_login = serializers.SerializerMethodField()
     perfil = serializers.CharField(source='perfil.papel', read_only=True)
+
+    def get_last_login(self, obj):
+        return fmt_gmt3_with_zone(obj.last_login) if obj.last_login else "—"
+
     class Meta:
         model = User
         fields = ['id','username','first_name','last_name','email','last_login','is_active','perfil']
 
 class AuditLogSerializer(serializers.ModelSerializer):
+    timestamp = serializers.SerializerMethodField()
     usuario = serializers.SerializerMethodField()
+
+    def get_timestamp(self, obj):
+        return fmt_gmt3_with_zone(obj.timestamp)
+
     def get_usuario(self, obj):
         return obj.user.get_full_name() or obj.user.username if obj.user else "anônimo"
     class Meta:

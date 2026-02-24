@@ -236,18 +236,17 @@ export const REPORTS = {
   },
 
   aud_acoes: {
-    title: 'Auditoria — Ações de Usuário',
+    title: 'Administração — Alterações de Dados',
     path: '/auditoria/acoes/',
     columns: [
-      { key: 'timestamp', header: 'Data/Hora' },
+      { key: 'timestamp', header: 'Data/Hora (GMT-3)' },
       { key: 'usuario', header: 'Usuário' },
-      { key: 'action', header: 'Ação' },
-      { key: 'model', header: 'Modelo' },
-      { key: 'object_pk', header: 'Objeto' },
-      { key: 'path', header: 'Path' },
-      { key: 'method', header: 'Método' },
-      { key: 'status_code', header: 'Status' },
-      { key: 'ip', header: 'IP' },
+      { key: 'tipo_alteracao', header: 'Tipo de alteração' },
+      { key: 'registro', header: 'Registro' },
+      { key: 'descricao', header: 'Descrição da ação' },
+      { key: 'motivo', header: 'Motivo' },
+      { key: 'antes', header: 'Antes da alteração' },
+      { key: 'depois', header: 'Depois da alteração' },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
@@ -260,37 +259,16 @@ export const REPORTS = {
     exportParams: DEFAULT_EXPORT_PARAMS
   },
 
-  aud_exclusoes: {
-    title: 'Auditoria — Exclusões',
-    path: '/auditoria/exclusoes/',
-    columns: [
-      { key: 'timestamp', header: 'Data/Hora' },
-      { key: 'usuario', header: 'Usuário' },
-      { key: 'model', header: 'Modelo' },
-      { key: 'object_pk', header: 'Objeto' },
-      { key: 'path', header: 'Path' },
-      { key: 'status_code', header: 'Status' },
-    ],
-    filters: [
-      { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
-      { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
-      { name: 'usuario', label: 'Usuário', type: 'text' },
-      { name: 'model', label: 'Modelo', type: 'text' },
-    ],
-    primaryIcon: ShieldAlert,
-    exportParams: DEFAULT_EXPORT_PARAMS
-  },
-
   aud_auth: {
-    title: 'Auditoria — Erros e Login',
+    title: 'Administração — Erros e Login',
     path: '/auditoria/auth-erros/',
     columns: [
-      { key: 'timestamp', header: 'Data/Hora' },
+      { key: 'timestamp', header: 'Data/Hora (GMT-3)' },
       { key: 'usuario', header: 'Usuário' },
-      { key: 'action', header: 'Ação' },
-      { key: 'status_code', header: 'Status' },
-      { key: 'path', header: 'Path' },
-      { key: 'ip', header: 'IP' },
+      { key: 'evento', header: 'Evento' },
+      { key: 'resultado_tentativa', header: 'Resultado da tentativa de login' },
+      { key: 'motivo', header: 'Motivo da falha' },
+      { key: 'detalhes', header: 'Detalhes' },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },

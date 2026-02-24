@@ -1,11 +1,10 @@
 // src/pages/ReportsHome.jsx
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
-  Scale, Boxes, Network, Layers, Package, FlaskConical,
-  Users, ShieldCheck, ShieldAlert, FileWarning, Bug, DatabaseBackup,
+  Scale, Network, Layers, Package, FlaskConical,
+  Users, ShieldCheck, FileWarning, DatabaseBackup,
   RotateCcw, ListChecks
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -31,12 +30,11 @@ const CATEGORIES = [
     ],
   },
   {
-    title: 'Auditoria',
+    title: 'Administração',
     descr: 'Rastreabilidade de ações e segurança.',
     items: [
-      { label: 'Auditoria — Ações', href: '/relatorios/auditoria/acoes', icon: ListChecks, hint: 'Create/Update/Delete com diffs' },
-      { label: 'Auditoria — Exclusões', href: '/relatorios/auditoria/exclusoes', icon: ShieldAlert, hint: 'Hard/soft delete e motivo' },
-      { label: 'Auditoria — Erros/Login', href: '/relatorios/auditoria/auth', icon: FileWarning, hint: 'Falhas, lockouts e tentativas' },
+      { label: 'Administração — Ações', href: '/relatorios/auditoria/acoes', icon: ListChecks, hint: 'Inserções, edições e exclusões com antes/depois' },
+      { label: 'Administração — Erros/Login', href: '/relatorios/auditoria/auth', icon: FileWarning, hint: 'Tentativas de login com sucesso/falha e motivo' },
     ],
   },
   {

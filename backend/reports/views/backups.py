@@ -5,6 +5,7 @@ from registro.audit_models import AuditLog
 from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import audit_base_filters
+from ..datetime_utils import fmt_gmt3_with_zone
 
 class BackupsReportView(APIView):
     permission_classes = [IsReportViewer]
@@ -20,10 +21,11 @@ class BackupsReportView(APIView):
             arquivo = (a.extra or {}).get('arquivo')
             tamanho = (a.extra or {}).get('tamanho')
             obs = (a.extra or {}).get('obs') or ""
-            rows.append([a.timestamp.strftime("%Y-%m-%d %H:%M"),
+            ts = fmt_gmt3_with_zone(a.timestamp)
+            rows.append([ts,
                          (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
                          tipo, arquivo, tamanho, obs])
-            data.append({"timestamp":a.timestamp, "usuario": (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
+            data.append({"timestamp": ts, "usuario": (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
                          "tipo":tipo,"arquivo":arquivo,"tamanho":tamanho,"obs":obs})
         if export == 'csv':
             return export_csv("backups", header, rows)
@@ -43,10 +45,11 @@ class RestoresReportView(APIView):
             arquivo = (a.extra or {}).get('arquivo')
             resultado = (a.extra or {}).get('resultado')
             obs = (a.extra or {}).get('obs') or ""
-            rows.append([a.timestamp.strftime("%Y-%m-%d %H:%M"),
+            ts = fmt_gmt3_with_zone(a.timestamp)
+            rows.append([ts,
                          (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
                          arquivo, resultado, obs])
-            data.append({"timestamp":a.timestamp,"usuario": (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
+            data.append({"timestamp":ts,"usuario": (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
                         "arquivo":arquivo,"resultado":resultado,"obs":obs})
         if export == 'csv':
             return export_csv("restores", header, rows)

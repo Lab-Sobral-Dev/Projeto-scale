@@ -5,6 +5,7 @@ from registro.models import Pesagem
 from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import apply_date_filter, text
+from ..datetime_utils import fmt_gmt3_with_zone, fmt_gmt3
 
 
 class BalancasUsoReportView(APIView):
@@ -73,9 +74,9 @@ class BalancasUsoReportView(APIView):
             [
                 k,
                 v['count'],
-                v['min'].strftime('%Y-%m-%d %H:%M'),
-                v['max'].strftime('%Y-%m-%d %H:%M'),
-                v['ultima_calibracao'].strftime('%Y-%m-%d') if v['ultima_calibracao'] else '—',
+                fmt_gmt3_with_zone(v['min']),
+                fmt_gmt3_with_zone(v['max']),
+                fmt_gmt3(v['ultima_calibracao'], '%Y-%m-%d') if v['ultima_calibracao'] else '—',
                 v['frequencia_calibracao_dias'] if v['frequencia_calibracao_dias'] is not None else '—',
                 'Sim' if v['calibracao_realizada'] else 'Não',
                 'Sim' if v['em_calibracao'] else 'Não',
@@ -87,4 +88,13 @@ class BalancasUsoReportView(APIView):
             return export_csv('relatorio_balancas', header, rows)
         if export == 'pdf':
             return export_pdf('relatorio_balancas', 'Relatório de Utilização de Balanças', header, rows)
-        return Response([{'balanca': k, **v} for k, v in by_bal.items()])
+        return Response([
+            {
+                'balanca': k,
+                **v,
+                'min': fmt_gmt3_with_zone(v['min']),
+                'max': fmt_gmt3_with_zone(v['max']),
+                'ultima_calibracao': fmt_gmt3(v['ultima_calibracao'], '%Y-%m-%d') if v['ultima_calibracao'] else '—',
+            }
+            for k, v in by_bal.items()
+        ])
