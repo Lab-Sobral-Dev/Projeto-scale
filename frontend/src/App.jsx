@@ -34,7 +34,6 @@ import Estrutura from '@/pages/reports/Estrutura'
 import Usuarios from '@/pages/reports/Usuarios'
 import Permissoes from '@/pages/reports/Permissoes'
 import AuditoriaAcoes from '@/pages/reports/AuditoriaAcoes'
-import AuditoriaExclusoes from '@/pages/reports/AuditoriaExclusoes'
 import AuditoriaAuthErros from '@/pages/reports/AuditoriaAuthErros'
 import Backups from '@/pages/reports/Backups'
 import Restores from '@/pages/reports/Restores'
@@ -224,14 +223,6 @@ function App() {
             element={
               <RequireReportViewer>
                 <AuditoriaAcoes />
-              </RequireReportViewer>
-            }
-          />
-          <Route
-            path="/relatorios/auditoria/exclusoes"
-            element={
-              <RequireReportViewer>
-                <AuditoriaExclusoes />
               </RequireReportViewer>
             }
           />
