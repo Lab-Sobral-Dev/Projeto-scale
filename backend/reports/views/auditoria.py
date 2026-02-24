@@ -46,7 +46,14 @@ def _to_text(data):
 def _extract_reason(a: AuditLog):
     c = a.changes or {}
     e = a.extra or {}
-    return c.get("motivo") or e.get("motivo") or e.get("reason") or ""
+    return (
+        c.get("motivo")
+        or e.get("motivo")
+        or e.get("edit_reason_label")
+        or e.get("edit_reason")
+        or e.get("reason")
+        or ""
+    )
 
 
 def _before_after(a: AuditLog):
@@ -56,6 +63,9 @@ def _before_after(a: AuditLog):
             if isinstance(values, (list, tuple)) and len(values) == 2:
                 before[field] = values[0]
                 after[field] = values[1]
+            elif isinstance(values, dict) and ("old" in values or "new" in values):
+                before[field] = values.get("old")
+                after[field] = values.get("new")
         return before, after
     if a.action == "delete":
         return a.changes or {}, {}
