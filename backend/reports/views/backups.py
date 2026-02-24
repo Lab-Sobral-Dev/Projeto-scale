@@ -22,21 +22,19 @@ class BackupsReportView(APIView):
                 | Q(executed_by__last_name__icontains=usuario)
             )
         export = request.GET.get('export')
-        header = ["Data/Hora","Usuário","Tipo","Arquivo","Tamanho","Observações"]
+        header = ["Data/Hora","Usuário","Tipo","Status"]
         rows = []
         data = []
         for b in qs:
             tipo = "Automático" if (b.executed_by is None or "celery-auto-backup" in (b.user_agent or "")) else "Manual"
-            arquivo = b.output_file
-            tamanho = b.size_bytes
-            obs = b.error_message or ""
+            status = "OK" if b.status == "success" else "Erro"
             ts = fmt_gmt3_with_zone(b.created_at)
             usuario_nome = (b.executed_by.get_full_name() or b.executed_by.username) if b.executed_by else "sistema"
             rows.append([ts,
                          usuario_nome,
-                         tipo, arquivo, tamanho, obs])
+                         tipo, status])
             data.append({"timestamp": ts, "usuario": usuario_nome,
-                         "tipo":tipo,"arquivo":arquivo,"tamanho":tamanho,"obs":obs})
+                         "tipo": tipo, "status": status})
         if export == 'csv':
             return export_csv("backups", header, rows)
         if export == 'pdf':

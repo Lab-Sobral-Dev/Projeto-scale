@@ -290,9 +290,7 @@ export const REPORTS = {
       { key: 'timestamp', header: 'Data/Hora' },
       { key: 'usuario', header: 'Usuário' },
       { key: 'tipo', header: 'Tipo' },
-      { key: 'arquivo', header: 'Arquivo' },
-      { key: 'tamanho', header: 'Tamanho' },
-      { key: 'obs', header: 'Obs.' },
+      { key: 'status', header: 'Status' },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },
