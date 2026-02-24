@@ -108,10 +108,43 @@ class BackupRestoreView(views.APIView):
         try:
             # Chama a função blindada com backup de segurança
             run_restore(rec.output_file, user_info=user_info)
-            
+
+            AuditLog.objects.create(
+                user=user,
+                ip=ip,
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                path=request.path,
+                method="POST",
+                status_code=200,
+                action="restore",
+                model="BackupRecord",
+                object_pk=str(rec.pk),
+                extra={
+                    "arquivo": rec.output_file,
+                    "resultado": "sucesso",
+                    "obs": "Restore executado com backup preventivo.",
+                },
+            )
+
             return Response({
                 "detail": "Sistema restaurado com sucesso! Um backup de segurança foi criado antes da operação."
             }, status=status.HTTP_200_OK)
-            
+
         except Exception as e:
+            AuditLog.objects.create(
+                user=user,
+                ip=ip,
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                path=request.path,
+                method="POST",
+                status_code=500,
+                action="restore",
+                model="BackupRecord",
+                object_pk=str(rec.pk),
+                extra={
+                    "arquivo": rec.output_file,
+                    "resultado": "erro",
+                    "obs": str(e),
+                },
+            )
             return Response({"detail": f"Falha crítica no restore: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
