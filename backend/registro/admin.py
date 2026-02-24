@@ -378,19 +378,54 @@ class BackupRecordAdmin(admin.ModelAdmin):
 
         # Se for POST, executa a ação
         if request.method == 'POST':
+            ip = request.META.get('REMOTE_ADDR')
+            ua = request.META.get('HTTP_USER_AGENT', '')
             try:
-                user_info = f"{request.user.username} (Admin) - IP: {request.META.get('REMOTE_ADDR')}"
+                user_info = f"{request.user.username} (Admin) - IP: {ip}"
                 # Chama a função blindada que faz o snapshot de segurança antes
                 run_restore(obj.output_file, user_info=user_info)
-                
+
+                AuditLog.objects.create(
+                    user=request.user,
+                    ip=ip,
+                    user_agent=ua,
+                    path=request.path,
+                    method='POST',
+                    status_code=200,
+                    action='restore',
+                    model='BackupRecord',
+                    object_pk=str(obj.pk),
+                    extra={
+                        'arquivo': obj.output_file,
+                        'resultado': 'sucesso',
+                        'obs': 'Restore executado via Django Admin.',
+                    },
+                )
+
                 messages.success(
-                    request, 
+                    request,
                     f"SUCESSO: Sistema restaurado para a versão de {obj.created_at}. "
                     "Um backup de segurança dos dados anteriores foi criado automaticamente."
                 )
             except Exception as e:
+                AuditLog.objects.create(
+                    user=request.user,
+                    ip=ip,
+                    user_agent=ua,
+                    path=request.path,
+                    method='POST',
+                    status_code=500,
+                    action='restore',
+                    model='BackupRecord',
+                    object_pk=str(obj.pk),
+                    extra={
+                        'arquivo': obj.output_file,
+                        'resultado': 'erro',
+                        'obs': str(e),
+                    },
+                )
                 messages.error(request, f"FALHA CRÍTICA no restore: {str(e)}")
-            
+
             return HttpResponseRedirect(reverse('admin:registro_backuprecord_changelist'))
 
         # Se for GET, exibe página de confirmação (sem precisar de arquivo HTML extra)
