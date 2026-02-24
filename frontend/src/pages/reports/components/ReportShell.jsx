@@ -185,7 +185,7 @@ export default function ReportShell({ report }) {
                       if (val === null || val === undefined) val = ''
 
                       return (
-                        <td key={col.key} className={`px-3 py-2 ${col.wrap ? 'whitespace-normal' : 'whitespace-nowrap'}`}>
+                        <td key={col.key} className={`px-3 py-2 ${col.multiline ? 'whitespace-pre-line' : (col.wrap ? 'whitespace-normal' : 'whitespace-nowrap')}`}>
                           {String(val)}
                         </td>
                       )
