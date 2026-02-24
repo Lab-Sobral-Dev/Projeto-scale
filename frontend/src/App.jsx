@@ -35,7 +35,7 @@ import Usuarios from '@/pages/reports/Usuarios'
 import Permissoes from '@/pages/reports/Permissoes'
 import AuditoriaAcoes from '@/pages/reports/AuditoriaAcoes'
 import AuditoriaAuthErros from '@/pages/reports/AuditoriaAuthErros'
-import Backups from '@/pages/reports/Backups'
+import BackupsReport from '@/pages/reports/BackupsReport'
 import Restores from '@/pages/reports/Restores'
 
 import BackupConsole from '@/components/BackupConsole'
@@ -238,7 +238,7 @@ function App() {
             path="/relatorios/backups"
             element={
               <RequireReportViewer>
-                <Backups />
+                <BackupsReport />
               </RequireReportViewer>
             }
           />
