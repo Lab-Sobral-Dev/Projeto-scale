@@ -44,7 +44,10 @@ class BackupsReportView(APIView):
 class RestoresReportView(APIView):
     permission_classes = [IsReportViewer]
     def get(self, request):
-        qs = AuditLog.objects.filter(action='restore')
+        qs = AuditLog.objects.filter(
+            Q(action='restore')
+            | Q(path__icontains='/restore/', method='POST')
+        ).select_related('user')
         qs = apply_date_filter(qs, request, 'timestamp')
         usuario = text(request, 'usuario')
         if usuario:
@@ -57,15 +60,21 @@ class RestoresReportView(APIView):
         header = ["Data/Hora","Usuário","Arquivo Origem","Resultado","Observações"]
         rows, data = [], []
         for a in qs:
-            arquivo = (a.extra or {}).get('arquivo')
+            arquivo = (a.extra or {}).get('arquivo') or a.path
             resultado = (a.extra or {}).get('resultado')
-            obs = (a.extra or {}).get('obs') or ""
+            if not resultado:
+                resultado = 'sucesso' if (a.status_code and a.status_code < 400) else 'erro'
+            obs = (a.extra or {}).get('obs') or ''
             ts = fmt_gmt3_with_zone(a.timestamp)
-            rows.append([ts,
-                         (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
-                         arquivo, resultado, obs])
-            data.append({"timestamp":ts,"usuario": (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
-                        "arquivo":arquivo,"resultado":resultado,"obs":obs})
+            usuario_nome = (a.user.get_full_name() or a.user.username) if a.user else 'anônimo'
+            rows.append([ts, usuario_nome, arquivo, resultado, obs])
+            data.append({
+                'timestamp': ts,
+                'usuario': usuario_nome,
+                'arquivo': arquivo,
+                'resultado': resultado,
+                'obs': obs,
+            })
         if export == 'csv':
             return export_csv("restores", header, rows)
         if export == 'pdf':
