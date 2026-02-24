@@ -246,8 +246,8 @@ export const REPORTS = {
       { key: 'registro', header: 'Registro' },
       { key: 'motivo', header: 'Motivo' },
       { key: 'descricao', header: 'Descrição da ação', wrap: true },
-      { key: 'antes', header: 'Antes da alteração', wrap: true },
-      { key: 'depois', header: 'Depois da alteração', wrap: true },
+      { key: 'antes', header: 'Antes da alteração', wrap: true, multiline: true },
+      { key: 'depois', header: 'Depois da alteração', wrap: true, multiline: true },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
@@ -271,8 +271,7 @@ export const REPORTS = {
       { key: 'resultado_tentativa', header: 'Resultado da tentativa de login' },
       { key: 'falha_usuario', header: 'Usuário incorreto?' },
       { key: 'falha_senha', header: 'Senha incorreta?' },
-      { key: 'motivo', header: 'Motivo da falha' },
-      { key: 'detalhes', header: 'Detalhes', wrap: true },
+      { key: 'motivo', header: 'Motivo da falha', wrap: true, multiline: true },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },

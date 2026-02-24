@@ -39,7 +39,13 @@ def _to_text(data):
     if not data:
         return ""
     if isinstance(data, dict):
-        return "; ".join([f"{k}: {v}" for k, v in data.items()])
+        linhas = []
+        for k in sorted(data.keys()):
+            v = data.get(k)
+            linhas.append(f"• {k}: {v}")
+        return "\n".join(linhas)
+    if isinstance(data, list):
+        return "\n".join([f"• {x}" for x in data])
     return str(data)
 
 
@@ -227,7 +233,7 @@ class AuditoriaAuthErrosReportView(APIView):
 
         header = [
             "Data/Hora (GMT-3)", "Usuário informado", "Usuário identificado", "Resultado da tentativa",
-            "Usuário incorreto?", "Senha incorreta?", "Motivo", "Detalhes"
+            "Usuário incorreto?", "Senha incorreta?", "Motivo"
         ]
 
         def row(a: AuditLog):
@@ -240,7 +246,6 @@ class AuditoriaAuthErrosReportView(APIView):
                 "Sim" if falha_usuario else "Não",
                 "Sim" if falha_senha else "Não",
                 self._motivo(a),
-                (a.user_agent or "").replace("\n", " ").strip()[:120],
             ]
 
         export = (request.GET.get("export") or "").lower()
@@ -259,7 +264,6 @@ class AuditoriaAuthErrosReportView(APIView):
                 "falha_usuario": falha_usuario,
                 "falha_senha": falha_senha,
                 "motivo": self._motivo(a),
-                "detalhes": (a.user_agent or ""),
             }
 
         return _paginate(request, qs, to_payload)
