@@ -1,31 +1,41 @@
 # apps/reports/views/backups.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.db.models import Q
+from registro.backup import BackupRecord
 from registro.audit_models import AuditLog
 from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
-from ..filters import audit_base_filters
+from ..filters import apply_date_filter, text
 from ..datetime_utils import fmt_gmt3_with_zone
 
 class BackupsReportView(APIView):
     permission_classes = [IsReportViewer]
     def get(self, request):
-        qs = AuditLog.objects.filter(action='backup')
-        qs = audit_base_filters(qs, request)
+        qs = BackupRecord.objects.select_related('executed_by').all().order_by('-created_at')
+        qs = apply_date_filter(qs, request, 'created_at')
+        usuario = text(request, 'usuario')
+        if usuario:
+            qs = qs.filter(
+                Q(executed_by__username__icontains=usuario)
+                | Q(executed_by__first_name__icontains=usuario)
+                | Q(executed_by__last_name__icontains=usuario)
+            )
         export = request.GET.get('export')
         header = ["Data/Hora","Usuário","Tipo","Arquivo","Tamanho","Observações"]
         rows = []
         data = []
-        for a in qs:
-            tipo = (a.extra or {}).get('tipo')  # manual/automatico
-            arquivo = (a.extra or {}).get('arquivo')
-            tamanho = (a.extra or {}).get('tamanho')
-            obs = (a.extra or {}).get('obs') or ""
-            ts = fmt_gmt3_with_zone(a.timestamp)
+        for b in qs:
+            tipo = "Automático" if (b.executed_by is None or "celery-auto-backup" in (b.user_agent or "")) else "Manual"
+            arquivo = b.output_file
+            tamanho = b.size_bytes
+            obs = b.error_message or ""
+            ts = fmt_gmt3_with_zone(b.created_at)
+            usuario_nome = (b.executed_by.get_full_name() or b.executed_by.username) if b.executed_by else "sistema"
             rows.append([ts,
-                         (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
+                         usuario_nome,
                          tipo, arquivo, tamanho, obs])
-            data.append({"timestamp": ts, "usuario": (a.user.get_full_name() or a.user.username) if a.user else "anônimo",
+            data.append({"timestamp": ts, "usuario": usuario_nome,
                          "tipo":tipo,"arquivo":arquivo,"tamanho":tamanho,"obs":obs})
         if export == 'csv':
             return export_csv("backups", header, rows)
@@ -37,7 +47,14 @@ class RestoresReportView(APIView):
     permission_classes = [IsReportViewer]
     def get(self, request):
         qs = AuditLog.objects.filter(action='restore')
-        qs = audit_base_filters(qs, request)
+        qs = apply_date_filter(qs, request, 'timestamp')
+        usuario = text(request, 'usuario')
+        if usuario:
+            qs = qs.filter(
+                Q(user__username__icontains=usuario)
+                | Q(user__first_name__icontains=usuario)
+                | Q(user__last_name__icontains=usuario)
+            )
         export = request.GET.get('export')
         header = ["Data/Hora","Usuário","Arquivo Origem","Resultado","Observações"]
         rows, data = [], []
