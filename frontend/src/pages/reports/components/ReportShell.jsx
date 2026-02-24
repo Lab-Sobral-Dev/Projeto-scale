@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { fetchReport, openExport } from '@/services/reports'
 import { Download, RefreshCcw, Search } from 'lucide-react'
 
-// --- helpers ---
 function sanitizeParams(raw = {}) {
     const out = {}
     Object.entries(raw).forEach(([k, v]) => {
@@ -23,7 +22,6 @@ function formatMaybeDate(val) {
     if (typeof val === 'string' && ISO_DATETIME_RE.test(val)) {
         try {
             const d = new Date(val)
-            // Ex.: 15/09/2025 17:24:25
             return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).replace(',', '')
         } catch {
             return val
@@ -37,6 +35,7 @@ export default function ReportShell({ report }) {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState({ results: [], count: 0, next: null, previous: null })
     const [page, setPage] = useState(1)
+    const [dynamicOptions, setDynamicOptions] = useState({})
 
     const isPaginated = useMemo(() => typeof data?.results !== 'undefined', [data])
     const rows = isPaginated ? (data.results || []) : (Array.isArray(data) ? data : [])
@@ -58,7 +57,20 @@ export default function ReportShell({ report }) {
         }
     }
 
-    useEffect(() => { load(1) }, []) // carrega inicial
+    async function loadFilterOptions() {
+        if (!report.dynamicFilters) return
+        try {
+            const opts = await fetchReport(report.path, { meta: 'filters' })
+            setDynamicOptions(opts || {})
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    useEffect(() => {
+        load(1)
+        loadFilterOptions()
+    }, [])
 
     function clearFilters() {
         setParams({})
@@ -93,14 +105,16 @@ export default function ReportShell({ report }) {
                 </CardHeader>
 
                 <CardContent>
-                    {/* Filtros */}
                     <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                         {report.filters?.map((f) => {
                             const isSelect = f.type === 'select'
                             const rawVal = params[f.name]
-                            // valor seguro para o Select (não pode ser string vazia)
+                            const mergedOptions = [
+                                ...(f.options || []),
+                                ...((dynamicOptions?.[f.name] || []).filter(opt => !(f.options || []).some(base => base.value === opt.value))),
+                            ]
                             const safeVal = isSelect
-                                ? (rawVal === undefined || rawVal === null || rawVal === '' ? (f.options?.[0]?.value ?? '__all__') : rawVal)
+                                ? (rawVal === undefined || rawVal === null || rawVal === '' ? (mergedOptions?.[0]?.value ?? '__all__') : rawVal)
                                 : (rawVal ?? '')
 
                             return (
@@ -108,15 +122,12 @@ export default function ReportShell({ report }) {
                                     <Label htmlFor={f.name}>{f.label}</Label>
 
                                     {isSelect ? (
-                                        <Select
-                                            value={safeVal}
-                                            onValueChange={v => setParam(f.name, v)}
-                                        >
+                                        <Select value={safeVal} onValueChange={v => setParam(f.name, v)}>
                                             <SelectTrigger id={f.name} className="w-full">
                                                 <SelectValue placeholder="Selecione" />
                                             </SelectTrigger>
                                             <SelectContent className="w-[--radix-select-trigger-width] max-h-72">
-                                                {(f.options || []).map(opt => (
+                                                {mergedOptions.map(opt => (
                                                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -148,7 +159,6 @@ export default function ReportShell({ report }) {
                         </div>
                     </div>
 
-                    {/* Tabela */}
                     <div className="overflow-auto rounded border">
                         <table className="min-w-full text-sm">
                             <thead>
@@ -166,20 +176,16 @@ export default function ReportShell({ report }) {
                                         </td>
                                     </tr>
                                 ) : rows.map((row, idx) => (
-                                    <tr key={idx} className="border-t">
+                                    <tr key={idx} className="border-t align-top">
                                         {report.columns.map(col => {
                                             let val = row[col.key]
-
-                                            // Formatação amigável para datas/horas
                                             val = formatMaybeDate(val)
-
-                                            // Booleanos e nulos
                                             if (typeof val === 'boolean') val = val ? 'Sim' : 'Não'
                                             if (Array.isArray(val)) val = val.join(', ')
                                             if (val === null || val === undefined) val = ''
 
                                             return (
-                                                <td key={col.key} className="px-3 py-2 whitespace-nowrap">
+                                                <td key={col.key} className={`px-3 py-2 ${col.wrap ? 'whitespace-normal' : 'whitespace-nowrap'}`}>
                                                     {String(val)}
                                                 </td>
                                             )
@@ -190,22 +196,13 @@ export default function ReportShell({ report }) {
                         </table>
                     </div>
 
-                    {/* Paginação simples (quando houver results/count) */}
                     {isPaginated && (
                         <div className="flex items-center justify-end gap-2 mt-3">
-                            <Button
-                                variant="outline"
-                                disabled={!data.previous || loading}
-                                onClick={() => load(Math.max(1, page - 1))}
-                            >
+                            <Button variant="outline" disabled={!data.previous || loading} onClick={() => load(Math.max(1, page - 1))}>
                                 Anterior
                             </Button>
                             <span className="text-sm">Página {page}</span>
-                            <Button
-                                variant="outline"
-                                disabled={!data.next || loading}
-                                onClick={() => load(page + 1)}
-                            >
+                            <Button variant="outline" disabled={!data.next || loading} onClick={() => load(page + 1)}>
                                 Próxima
                             </Button>
                         </div>

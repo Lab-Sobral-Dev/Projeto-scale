@@ -38,7 +38,7 @@ class TokenWithFlagsSerializer(TokenObtainPairSerializer):
 class TokenWithFlagsView(TokenObtainPairView):
     serializer_class = TokenWithFlagsSerializer
 
-    def _audit_login(self, request, user=None, status_code=None, reason=""):
+    def _audit_login(self, request, user=None, status_code=None, reason="", failure_kind=""):
         AuditLog.objects.create(
             user=user if (user and user.is_authenticated) else None,
             ip=client_ip(request),
@@ -52,6 +52,7 @@ class TokenWithFlagsView(TokenObtainPairView):
             extra={
                 "reason": reason,
                 "username": request.data.get("username", ""),
+                "failure_kind": failure_kind,
             },
         )
 
@@ -62,7 +63,7 @@ class TokenWithFlagsView(TokenObtainPairView):
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
-            self._audit_login(request, status_code=status.HTTP_401_UNAUTHORIZED, reason="Usuário incorreto")
+            self._audit_login(request, status_code=status.HTTP_401_UNAUTHORIZED, reason="Usuário incorreto", failure_kind="username")
             return Response({"detail": "Usuário ou senha inválidos."}, status=status.HTTP_401_UNAUTHORIZED)
 
         sec = _sec(user)
@@ -82,14 +83,14 @@ class TokenWithFlagsView(TokenObtainPairView):
                 sec.is_locked = True
                 sec.locked_at = timezone.now()
             sec.save(update_fields=["failed_logins", "is_locked", "locked_at"])
-            self._audit_login(request, user=user, status_code=status.HTTP_401_UNAUTHORIZED, reason="Senha incorreta")
+            self._audit_login(request, user=user, status_code=status.HTTP_401_UNAUTHORIZED, reason="Senha incorreta", failure_kind="password")
             return Response({"detail": "Usuário ou senha inválidos."}, status=status.HTTP_401_UNAUTHORIZED)
 
         # sucesso → zera bloqueio
         if sec.failed_logins or sec.is_locked or sec.locked_at:
             sec.reset_lock()
 
-        self._audit_login(request, user=user, status_code=status.HTTP_200_OK, reason="Login realizado com sucesso")
+        self._audit_login(request, user=user, status_code=status.HTTP_200_OK, reason="Login realizado com sucesso", failure_kind="")
 
         # emite JWT com flags
         return super().post(request, *args, **kwargs)

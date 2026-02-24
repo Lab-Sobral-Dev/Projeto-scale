@@ -237,23 +237,24 @@ export const REPORTS = {
 
   aud_acoes: {
     title: 'Administração — Alterações de Dados',
+    dynamicFilters: true,
     path: '/auditoria/acoes/',
     columns: [
       { key: 'timestamp', header: 'Data/Hora (GMT-3)' },
       { key: 'usuario', header: 'Usuário' },
       { key: 'tipo_alteracao', header: 'Tipo de alteração' },
       { key: 'registro', header: 'Registro' },
-      { key: 'descricao', header: 'Descrição da ação' },
       { key: 'motivo', header: 'Motivo' },
-      { key: 'antes', header: 'Antes da alteração' },
-      { key: 'depois', header: 'Depois da alteração' },
+      { key: 'descricao', header: 'Descrição da ação', wrap: true },
+      { key: 'antes', header: 'Antes da alteração', wrap: true },
+      { key: 'depois', header: 'Depois da alteração', wrap: true },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date', icon: Calendar },
       { name: 'data_final', label: 'Data final', type: 'date', icon: Calendar },
-      { name: 'usuario', label: 'Usuário', type: 'text', icon: Users },
-      { name: 'action', label: 'Ação', type: 'text', icon: ShieldAlert },
-      { name: 'model', label: 'Modelo', type: 'text', icon: ClipboardList },
+      { name: 'usuario', label: 'Usuário', type: 'select', icon: Users, options: [{ value: '__all__', label: 'Todos' }] },
+      { name: 'action', label: 'Ação', type: 'select', icon: ShieldAlert, options: [{ value: '__all__', label: 'Todas' }] },
+      { name: 'model', label: 'Modelo', type: 'select', icon: ClipboardList, options: [{ value: '__all__', label: 'Todos' }] },
     ],
     primaryIcon: ShieldAlert,
     exportParams: DEFAULT_EXPORT_PARAMS
@@ -261,19 +262,23 @@ export const REPORTS = {
 
   aud_auth: {
     title: 'Administração — Erros e Login',
+    dynamicFilters: true,
     path: '/auditoria/auth-erros/',
     columns: [
       { key: 'timestamp', header: 'Data/Hora (GMT-3)' },
-      { key: 'usuario', header: 'Usuário' },
-      { key: 'evento', header: 'Evento' },
+      { key: 'usuario_informado', header: 'Usuário informado' },
+      { key: 'usuario', header: 'Usuário identificado' },
       { key: 'resultado_tentativa', header: 'Resultado da tentativa de login' },
+      { key: 'falha_usuario', header: 'Usuário incorreto?' },
+      { key: 'falha_senha', header: 'Senha incorreta?' },
       { key: 'motivo', header: 'Motivo da falha' },
-      { key: 'detalhes', header: 'Detalhes' },
+      { key: 'detalhes', header: 'Detalhes', wrap: true },
     ],
     filters: [
       { name: 'data_inicial', label: 'Data inicial', type: 'date' },
       { name: 'data_final', label: 'Data final', type: 'date' },
-      { name: 'usuario', label: 'Usuário', type: 'text' },
+      { name: 'usuario', label: 'Usuário identificado', type: 'select', options: [{ value: '__all__', label: 'Todos' }] },
+      { name: 'usuario_informado', label: 'Usuário informado', type: 'select', options: [{ value: '__all__', label: 'Todos' }] },
     ],
     primaryIcon: ShieldAlert,
     exportParams: DEFAULT_EXPORT_PARAMS
