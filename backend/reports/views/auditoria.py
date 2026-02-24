@@ -32,6 +32,11 @@ def _human_action(action):
         "create": "Inserção",
         "update": "Edição",
         "delete": "Exclusão",
+        "login": "Login",
+        "logout": "Logout",
+        "request": "Requisição",
+        "token_refresh": "Renovação de sessão",
+        "error": "Erro",
     }.get(action, action or "")
 
 
@@ -97,6 +102,46 @@ def _human_description(a: AuditLog):
     if a.action == "delete":
         return f"{_human_user(a.user)} excluiu um registro de {tipo} (ID {objeto})."
     return f"{_human_user(a.user)} realizou uma ação em {tipo} (ID {objeto})."
+
+
+def _human_profile(u):
+    if not u:
+        return "Sistema"
+    perfil = getattr(u, "perfil", None)
+    papel = getattr(perfil, "papel", "") if perfil else ""
+    return {
+        "admin": "Administrador",
+        "supervisor": "Supervisor",
+        "operador": "Operador",
+    }.get(papel, "Usuário")
+
+
+def _details_for_non_technical(a: AuditLog):
+    extra = a.extra or {}
+    if a.action == "login":
+        if a.status_code and a.status_code < 400:
+            return f"Acesso autenticado para o usuário {extra.get('username') or _human_user(a.user)}."
+        return f"Tentativa de login não concluída: {extra.get('reason') or 'usuário ou senha incorretos'}."
+
+    if a.action == "logout":
+        return "Encerramento de sessão do usuário."
+
+    if a.action in ("create", "update", "delete"):
+        model = _human_model_name(a.model)
+        obj = a.object_pk or "sem identificação"
+        if a.action == "create":
+            return f"Novo cadastro em {model} (ID {obj})."
+        if a.action == "delete":
+            return f"Exclusão de registro em {model} (ID {obj})."
+        changes = a.changes or {}
+        return f"Alteração em {model} (ID {obj}) com {len(changes)} campo(s) modificado(s)."
+
+    if a.action == "error":
+        return extra.get("error") or "Erro registrado no sistema."
+
+    if a.path:
+        return f"Ação registrada na rota {a.path}."
+    return "Evento registrado no log do sistema."
 
 
 def _paginate(request, queryset, serializer_fn):
@@ -264,6 +309,78 @@ class AuditoriaAuthErrosReportView(APIView):
                 "falha_usuario": falha_usuario,
                 "falha_senha": falha_senha,
                 "motivo": self._motivo(a),
+            }
+
+        return _paginate(request, qs, to_payload)
+
+
+class AuditoriaLogsSistemaReportView(APIView):
+    permission_classes = [IsReportViewer]
+
+    def _base_qs(self):
+        return AuditLog.objects.select_related("user", "user__perfil").order_by("-timestamp")
+
+    def get(self, request):
+        qs = audit_base_filters(self._base_qs(), request)
+
+        metodo = text(request, "method")
+        if metodo:
+            qs = qs.filter(method=metodo)
+
+        status_group = text(request, "status_group")
+        if status_group == "sucesso":
+            qs = qs.filter(status_code__gte=200, status_code__lt=400)
+        elif status_group == "falha":
+            qs = qs.filter(Q(status_code__gte=400) | Q(action="error"))
+
+        if (request.GET.get("meta") or "").lower() == "filters":
+            users = sorted({(x.user.username, _human_user(x.user)) for x in qs if x.user}, key=lambda y: y[1].lower())
+            actions = sorted({x.action for x in qs if x.action})
+            methods = sorted({x.method for x in qs if x.method})
+            models = sorted({x.model for x in qs if x.model})
+            return Response({
+                "usuario": [{"value": u[0], "label": u[1]} for u in users],
+                "action": [{"value": a, "label": _human_action(a)} for a in actions],
+                "method": [{"value": m, "label": m} for m in methods],
+                "model": [{"value": m, "label": _human_model_name(m)} for m in models],
+            })
+
+        header = [
+            "ID da transação",
+            "Data e hora (GMT-3)",
+            "Login de usuário",
+            "Nome e perfil",
+            "IP de origem da ação",
+            "Ação realizada",
+            "Detalhes",
+        ]
+
+        def row(a: AuditLog):
+            return [
+                str(a.pk).zfill(5),
+                _fmt_dt(a.timestamp),
+                (a.user.username if a.user else "Sistema"),
+                f"{_human_user(a.user)} ({_human_profile(a.user)})",
+                a.ip or "—",
+                _human_action(a.action),
+                _details_for_non_technical(a),
+            ]
+
+        export = (request.GET.get("export") or "").lower()
+        if export == "csv":
+            return export_csv("auditoria_logs_sistema", header, [row(a) for a in qs.iterator()])
+        if export == "pdf":
+            return export_pdf("auditoria_logs_sistema", "Relatório de Auditoria — Logs do Sistema", header, [row(a) for a in qs.iterator()])
+
+        def to_payload(a: AuditLog):
+            return {
+                "id_transacao": str(a.pk).zfill(5),
+                "data_hora": _fmt_dt(a.timestamp),
+                "login_usuario": (a.user.username if a.user else "Sistema"),
+                "nome_perfil": f"{_human_user(a.user)} ({_human_profile(a.user)})",
+                "ip_origem": a.ip or "—",
+                "acao_realizada": _human_action(a.action),
+                "detalhes": _details_for_non_technical(a),
             }
 
         return _paginate(request, qs, to_payload)

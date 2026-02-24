@@ -6,7 +6,8 @@ from .views.cadastros import ProdutosReportView, MateriasPrimasReportView
 from .views.estrutura import EstruturaProdutoReportView
 from .views.usuarios import UsuariosReportView, PermissoesTelasReportView
 from .views.auditoria import (
-    AuditoriaAcoesReportView, AuditoriaExclusoesReportView, AuditoriaAuthErrosReportView
+    AuditoriaAcoesReportView, AuditoriaExclusoesReportView, AuditoriaAuthErrosReportView,
+    AuditoriaLogsSistemaReportView
 )
 from .views.backups import BackupsReportView, RestoresReportView
 
@@ -21,6 +22,7 @@ urlpatterns = [
     path('auditoria/acoes/', AuditoriaAcoesReportView.as_view()),
     path('auditoria/exclusoes/', AuditoriaExclusoesReportView.as_view()),
     path('auditoria/auth-erros/', AuditoriaAuthErrosReportView.as_view()),
+    path('auditoria/logs-sistema/', AuditoriaLogsSistemaReportView.as_view()),
     path('backups/', BackupsReportView.as_view()),
     path('restores/', RestoresReportView.as_view()),
 ]
