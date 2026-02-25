@@ -22,17 +22,14 @@ const fmtDate = (iso) => {
 }
 
 const initialFilters = {
-  q: "",
-  action: "",
-  method: "",
-  model: "",
-  user: "",
-  path: "",
   start: "",
   end: "",
-  ordering: "-timestamp",
+  user: "",
+  action: "",
+  model: "",
   reason: "",
-  status_group: "",
+  q: "",
+  ordering: "-timestamp",
 }
 
 function extractReason(record) {
@@ -64,6 +61,11 @@ const statusClass = (s) => {
   return "bg-gray-50 text-gray-600"
 }
 
+const roleLabel = (raw) => {
+  const key = String(raw || "").toLowerCase().trim()
+  return ({ admin: "Administrador", supervisor: "Supervisor", operador: "Operador" }[key] || "—")
+}
+
 export default function LogsAuditoria() {
   const [filters, setFilters] = useState(initialFilters)
   const [data, setData] = useState({ count: 0, results: [] })
@@ -81,7 +83,7 @@ export default function LogsAuditoria() {
   }, [motivosEdit, motivosDelete])
 
   const [usersMap, setUsersMap] = useState(new Map())
-  const [dynamicOptions, setDynamicOptions] = useState({ usuario: [], action: [], method: [], model: [] })
+  const [dynamicOptions, setDynamicOptions] = useState({ action: [], model: [] })
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
@@ -118,13 +120,11 @@ export default function LogsAuditoria() {
         }
 
         setDynamicOptions({
-          usuario: dynRes?.usuario || [],
           action: dynRes?.action || [],
-          method: dynRes?.method || [],
           model: dynRes?.model || [],
         })
       } catch {
-        setDynamicOptions({ usuario: [], action: [], method: [], model: [] })
+        setDynamicOptions({ action: [], model: [] })
       }
     })()
   }, [])
@@ -133,7 +133,7 @@ export default function LogsAuditoria() {
     setLoading(true)
     try {
       const cleaned = {}
-      for (const k of ["q", "action", "method", "model", "user", "path", "ordering", "status_group"]) {
+      for (const k of ["q", "action", "model", "user", "ordering"]) {
         if (filters[k]) cleaned[k] = filters[k]
       }
 
@@ -165,24 +165,45 @@ export default function LogsAuditoria() {
     return idStr || "Sistema"
   }
 
+  const userProfile = (r) => roleLabel(r.user_role || r.role || r.papel)
+
   const reasonLabel = (reason) =>
     motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "—")
 
   const humanDetails = (r) => {
     const extra = r.extra || {}
+    const model = r.model || "registro"
+    const obj = r.object_pk || "sem identificação"
+    const { reason, note } = extractReason(r)
+
     if (r.action === "login") {
-      if ((r.status_code || 0) < 400 && r.status_code != null) return `Acesso autenticado para o usuário ${extra.username || userDisplay(r)}.`
-      return `Tentativa de login não concluída: ${extra.reason || "usuário ou senha incorretos"}.`
+      if ((r.status_code || 0) < 400 && r.status_code != null) {
+        return `Usuário ${userDisplay(r)} realizou login com sucesso no sistema.`
+      }
+      return `Tentativa de login não concluída para ${extra.username || "usuário informado"}: ${extra.reason || "usuário ou senha incorretos"}.`
     }
-    if (r.action === "logout") return "Encerramento de sessão do usuário."
-    if (["create", "update", "delete"].includes(r.action)) {
-      const model = r.model || "registro"
-      const obj = r.object_pk || "sem identificação"
-      if (r.action === "create") return `Novo cadastro em ${model} (ID ${obj}).`
-      if (r.action === "delete") return `Exclusão de registro em ${model} (ID ${obj}).`
-      return `Atualização em ${model} (ID ${obj}).`
+
+    if (r.action === "logout") return `Usuário ${userDisplay(r)} encerrou a sessão no sistema.`
+
+    if (r.action === "create") return `Foi realizado um novo cadastro em ${model} (ID ${obj}).`
+
+    if (r.action === "update") {
+      const fields = Object.keys(r.changes || {}).length
+      const motivoTxt = reason ? ` Motivo informado: ${reasonLabel(reason)}.` : ""
+      return `Foi realizada atualização em ${model} (ID ${obj}) com ${fields} campo(s) alterado(s).${motivoTxt}`
     }
-    return r.path ? `Ação registrada na rota ${r.path}.` : "Evento registrado no sistema."
+
+    if (r.action === "delete") {
+      const motivoTxt = reason ? ` Motivo informado: ${reasonLabel(reason)}.` : ""
+      return `Foi realizada exclusão de registro em ${model} (ID ${obj}).${motivoTxt}`
+    }
+
+    if (r.action === "error") {
+      return `Sistema registrou uma ocorrência de erro${extra?.error ? `: ${extra.error}` : "."}`
+    }
+
+    if (note) return `Ação registrada no sistema. Observação: ${note}`
+    return r.path ? `Ação registrada na funcionalidade ${r.path}.` : "Evento registrado no sistema."
   }
 
   async function onExportPdf() {
@@ -191,9 +212,7 @@ export default function LogsAuditoria() {
       data_final: filters.end || undefined,
       usuario: filters.user || undefined,
       action: filters.action || undefined,
-      method: filters.method || undefined,
       model: filters.model || undefined,
-      status_group: filters.status_group || undefined,
     }
     await openExport("/auditoria/logs-sistema/", params, "pdf")
   }
@@ -207,18 +226,23 @@ export default function LogsAuditoria() {
 
         <CardContent className="space-y-4">
           <form onSubmit={onApplyFilters} className="grid grid-cols-1 md:grid-cols-8 gap-4">
-            <div className="md:col-span-8">
-              <Label className="mb-1 block">Busca</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="rota, modelo, id, IP..."
-                  value={filters.q}
-                  onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
-                />
-                <Button type="submit" variant="secondary" disabled={loading}>
-                  <Search className="w-4 h-4" />
-                </Button>
-              </div>
+            <div className="md:col-span-2">
+              <Label className="mb-1 block">Data inicial</Label>
+              <Input type="date" value={filters.start} onChange={e => setFilters(f => ({ ...f, start: e.target.value }))} />
+            </div>
+
+            <div className="md:col-span-2">
+              <Label className="mb-1 block">Data final</Label>
+              <Input type="date" value={filters.end} onChange={e => setFilters(f => ({ ...f, end: e.target.value }))} />
+            </div>
+
+            <div className="md:col-span-2">
+              <Label className="mb-1 block">Usuário</Label>
+              <Input
+                placeholder="id, login ou nome"
+                value={filters.user}
+                onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
+              />
             </div>
 
             <div className="md:col-span-2">
@@ -228,17 +252,6 @@ export default function LogsAuditoria() {
                 <SelectContent>
                   <SelectItem value="__ALL__">(todas)</SelectItem>
                   {dynamicOptions.action.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="md:col-span-2">
-              <Label className="mb-1 block">Método HTTP</Label>
-              <Select value={filters.method || "__ALL__"} onValueChange={v => setFilters(f => ({ ...f, method: mapAll(v) }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="(todos)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__ALL__">(todos)</SelectItem>
-                  {dynamicOptions.method.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -255,43 +268,6 @@ export default function LogsAuditoria() {
             </div>
 
             <div className="md:col-span-2">
-              <Label className="mb-1 block">Usuário</Label>
-              <Input
-                placeholder="id, login ou nome"
-                value={filters.user}
-                onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label className="mb-1 block">Data inicial</Label>
-              <Input type="date" value={filters.start} onChange={e => setFilters(f => ({ ...f, start: e.target.value }))} />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label className="mb-1 block">Data final</Label>
-              <Input type="date" value={filters.end} onChange={e => setFilters(f => ({ ...f, end: e.target.value }))} />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label className="mb-1 block">Resultado</Label>
-              <Select value={filters.status_group || "__ALL__"} onValueChange={v => setFilters(f => ({ ...f, status_group: mapAll(v) }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="(todos)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__ALL__">(todos)</SelectItem>
-                  <SelectItem value="2xx">Sucesso (2xx)</SelectItem>
-                  <SelectItem value="4xx">Falha cliente (4xx)</SelectItem>
-                  <SelectItem value="5xx">Erro servidor (5xx)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="md:col-span-2">
-              <Label className="mb-1 block">Rota</Label>
-              <Input placeholder="/api/registro/..." value={filters.path} onChange={e => setFilters(f => ({ ...f, path: e.target.value }))} />
-            </div>
-
-            <div className="md:col-span-2">
               <Label className="mb-1 block">Motivo</Label>
               <Select value={filters.reason || "__ALL__"} onValueChange={v => setFilters(f => ({ ...f, reason: mapAll(v) }))}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="(todos)" /></SelectTrigger>
@@ -300,6 +276,31 @@ export default function LogsAuditoria() {
                   {motivoOptions.map(([key, label]) => (
                     <SelectItem key={key} value={key}>{label}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-4">
+              <Label className="mb-1 block">Busca</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="modelo, id, IP, usuário..."
+                  value={filters.q}
+                  onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
+                />
+                <Button type="submit" variant="secondary" disabled={loading}>
+                  <Search className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <Label className="mb-1 block">Ordenação</Label>
+              <Select value={filters.ordering} onValueChange={v => setFilters(f => ({ ...f, ordering: v }))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Escolha" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-timestamp">Mais recentes</SelectItem>
+                  <SelectItem value="timestamp">Mais antigos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -333,8 +334,8 @@ export default function LogsAuditoria() {
               <tr className="border-b text-center bg-muted/40">
                 <th className="px-2 py-2">ID</th>
                 <th className="px-2 py-2">Data e Hora</th>
-                <th className="px-2 py-2">Login de Usuário</th>
-                <th className="px-2 py-2">Nome e Perfil</th>
+                <th className="px-2 py-2">Nome</th>
+                <th className="px-2 py-2">Perfil</th>
                 <th className="px-2 py-2">IP de Origem</th>
                 <th className="px-2 py-2">Ação Realizada</th>
                 <th className="px-2 py-2 text-left">Detalhes</th>
@@ -344,23 +345,20 @@ export default function LogsAuditoria() {
             <tbody>
               {(data?.results || []).map((r, idx) => {
                 const key = `${r.id || idx}-${r.timestamp}-${r.action}`
-                const login = r.username || (r.user ? String(r.user) : "sistema")
-                const perfil = (r.user_role || "").toString().trim()
                 return (
                   <tr key={key} className="border-b hover:bg-muted/30 align-top">
                     <td className="px-2 py-2 text-center font-medium">{String(r.id || idx + 1).padStart(5, "0")}</td>
                     <td className="px-2 py-2 whitespace-nowrap text-center">{fmtDate(r.timestamp)}</td>
-                    <td className="px-2 py-2 text-center">{login}</td>
-                    <td className="px-2 py-2 text-center">{userDisplay(r)}{perfil ? ` (${perfil})` : ""}</td>
+                    <td className="px-2 py-2 text-center">{userDisplay(r)}</td>
+                    <td className="px-2 py-2 text-center">{userProfile(r)}</td>
                     <td className="px-2 py-2 text-center whitespace-nowrap">{r.ip || "—"}</td>
                     <td className="px-2 py-2 text-center">
                       <div className="space-y-1">
                         <span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{actionLabel(r.action)}</span>
-                        <div><span className={`inline-flex px-2 py-0.5 rounded ${methodClass(r.method)}`}>{r.method || "—"}</span></div>
                         <div><span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span></div>
                       </div>
                     </td>
-                    <td className="px-2 py-2 max-w-[420px] whitespace-normal">{humanDetails(r)}</td>
+                    <td className="px-2 py-2 max-w-[480px] whitespace-normal">{humanDetails(r)}</td>
                     <td className="px-2 py-2 text-center"><Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)}>Ver</Button></td>
                   </tr>
                 )
@@ -382,32 +380,73 @@ export default function LogsAuditoria() {
       </Card>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1600px] max-h-[95vh] p-8 rounded-xl">
-          <DialogHeader className="sticky top-0 bg-background z-10 pb-4">
-            <DialogTitle>Detalhes do Log</DialogTitle>
-            <DialogDescription>Informações completas do registro selecionado.</DialogDescription>
+        <DialogContent className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1300px] max-h-[95vh] p-6 rounded-xl">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b">
+            <DialogTitle>Detalhes da ocorrência</DialogTitle>
+            <DialogDescription>
+              Informações organizadas para leitura rápida de auditoria.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="overflow-y-auto max-h-[74vh] pr-1">
+          <div className="overflow-y-auto max-h-[76vh] pr-1">
             {selected && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div><div className="text-xs text-muted-foreground">Data/Hora</div><div className="font-medium">{fmtDate(selected.timestamp)}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Usuário</div><div className="font-medium">{userDisplay(selected)}</div></div>
-                  <div><div className="text-xs text-muted-foreground">IP</div><div className="font-medium">{selected.ip || "—"}</div></div>
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-muted/20 p-4">
+                  <div className="text-xs text-muted-foreground mb-1">Resumo da ação</div>
+                  <div className="text-sm font-medium leading-6">{humanDetails(selected)}</div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Data/Hora</div>
+                    <div className="font-medium mt-1">{fmtDate(selected.timestamp)}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Nome</div>
+                    <div className="font-medium mt-1">{userDisplay(selected)}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Perfil</div>
+                    <div className="font-medium mt-1">{userProfile(selected)}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">IP de origem</div>
+                    <div className="font-medium mt-1">{selected.ip || "—"}</div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div><div className="text-xs text-muted-foreground">Método</div><div className={`inline-flex px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Status</div><div className={`inline-flex px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Ação</div><div className={`inline-flex px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{actionLabel(selected.action)}</div></div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Ação</div>
+                    <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{actionLabel(selected.action)}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Método HTTP</div>
+                    <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method || "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Status da operação</div>
+                    <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="md:col-span-3"><div className="text-xs text-muted-foreground">Path</div><div className="font-mono text-xs bg-muted/30 rounded px-2 py-1 overflow-x-auto">{selected.path}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Modelo</div><div className="font-medium">{selected.model || "—"}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Objeto (PK)</div><div className="font-medium">{selected.object_pk || "—"}</div></div>
-                  <div><div className="text-xs text-muted-foreground">User-Agent</div><div className="text-xs break-words">{selected.user_agent || "—"}</div></div>
+                  <div className="md:col-span-3 rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Rota / funcionalidade</div>
+                    <div className="font-mono text-xs bg-muted/40 rounded px-2 py-1 mt-1 overflow-x-auto">{selected.path || "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Módulo</div>
+                    <div className="font-medium mt-1">{selected.model || "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Registro (ID)</div>
+                    <div className="font-medium mt-1">{selected.object_pk || "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground">Navegador (User-Agent)</div>
+                    <div className="text-xs mt-1 break-words">{selected.user_agent || "—"}</div>
+                  </div>
                 </div>
 
                 {(() => {
@@ -416,15 +455,31 @@ export default function LogsAuditoria() {
                   if (!reason && !note) return null
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div><div className="text-xs text-muted-foreground">Motivo</div><div className="font-medium">{label}</div></div>
-                      <div className="md:col-span-2"><div className="text-xs text-muted-foreground">Observação</div><div className="text-sm">{note || "—"}</div></div>
+                      <div className="rounded-lg border p-3">
+                        <div className="text-xs text-muted-foreground">Motivo informado</div>
+                        <div className="font-medium mt-1">{label}</div>
+                      </div>
+                      <div className="md:col-span-2 rounded-lg border p-3">
+                        <div className="text-xs text-muted-foreground">Observação complementar</div>
+                        <div className="text-sm mt-1">{note || "—"}</div>
+                      </div>
                     </div>
                   )
                 })()}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><div className="text-xs text-muted-foreground">Changes</div><pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">{JSON.stringify(selected.changes || {}, null, 2)}</pre></div>
-                  <div><div className="text-xs text-muted-foreground">Extra</div><pre className="text-xs bg-muted/30 rounded p-2 max-h-[40vh] overflow-auto">{JSON.stringify(selected.extra || {}, null, 2)}</pre></div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Dados brutos — Alterações (Changes)</div>
+                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[34vh] overflow-auto">
+                      {JSON.stringify(selected.changes || {}, null, 2)}
+                    </pre>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Dados brutos — Informações extras (Extra)</div>
+                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[34vh] overflow-auto">
+                      {JSON.stringify(selected.extra || {}, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               </div>
             )}
