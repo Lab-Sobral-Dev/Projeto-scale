@@ -167,6 +167,35 @@ export default function LogsAuditoria() {
 
   const userProfile = (r) => roleLabel(r.user_role || r.role || r.papel)
 
+  const describeRouteAction = (r) => {
+    const actor = userDisplay(r)
+    const path = String(r?.path || "").toLowerCase()
+
+    if (!path) return `${actor} realizou uma ação no sistema.`
+
+    const routes = [
+      { key: "/auditoria", text: `${actor} acessou a página de auditoria.` },
+      { key: "/nova-pesagem", text: `${actor} acessou a tela de nova pesagem.` },
+      { key: "/registro/pesagens", text: `${actor} registrou ou consultou informações de pesagem.` },
+      { key: "/pesagens/", text: `${actor} consultou ou atualizou uma pesagem.` },
+      { key: "/ops", text: `${actor} acessou informações de ordens de produção (OP).` },
+      { key: "/usuarios", text: `${actor} consultou ou atualizou dados de usuários.` },
+      { key: "/materias-primas", text: `${actor} consultou ou atualizou dados de matérias-primas.` },
+      { key: "/produtos", text: `${actor} consultou ou atualizou dados de produtos.` },
+      { key: "/balancas", text: `${actor} consultou ou atualizou dados de balanças.` },
+      { key: "/estrutura", text: `${actor} consultou ou atualizou estruturas de produto.` },
+      { key: "/historico", text: `${actor} acessou a página de histórico.` },
+      { key: "/relatorios", text: `${actor} acessou a área de relatórios.` },
+      { key: "/auth/login", text: `${actor} tentou autenticar no sistema.` },
+      { key: "/auth/refresh", text: `${actor} renovou a sessão de acesso.` },
+    ]
+
+    const found = routes.find((x) => path.includes(x.key))
+    if (found) return found.text
+
+    return `${actor} executou uma ação na funcionalidade ${r.path}.`
+  }
+
   const reasonLabel = (reason) =>
     motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "—")
 
@@ -203,7 +232,7 @@ export default function LogsAuditoria() {
     }
 
     if (note) return `Ação registrada no sistema. Observação: ${note}`
-    return r.path ? `Ação registrada na funcionalidade ${r.path}.` : "Evento registrado no sistema."
+    return describeRouteAction(r)
   }
 
   async function onExportPdf() {
@@ -432,8 +461,8 @@ export default function LogsAuditoria() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-3 rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Rota / funcionalidade</div>
-                    <div className="font-mono text-xs bg-muted/40 rounded px-2 py-1 mt-1 overflow-x-auto">{selected.path || "—"}</div>
+                    <div className="text-xs text-muted-foreground">Descrição da funcionalidade acessada</div>
+                    <div className="text-sm bg-muted/40 rounded px-2 py-1 mt-1">{describeRouteAction(selected)}</div>
                   </div>
                   <div className="rounded-lg border p-3">
                     <div className="text-xs text-muted-foreground">Módulo</div>
