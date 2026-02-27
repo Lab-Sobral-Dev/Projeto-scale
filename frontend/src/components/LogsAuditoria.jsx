@@ -414,7 +414,7 @@ export default function LogsAuditoria() {
       {/* MODAL DE DETALHES AJUSTADO */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1000px] max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
-          <DialogHeader className="p-6 bg-orange-900 text-white">
+          <DialogHeader className="p-6 bg-transparent text-white">
             <div className="flex justify-between items-start">
               <div>
                 <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
