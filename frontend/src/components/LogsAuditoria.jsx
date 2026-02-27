@@ -428,97 +428,112 @@ export default function LogsAuditoria() {
 
           <div className="overflow-y-auto max-h-[76vh] pr-1">
             {selected && (
-              <div className="space-y-4">
-                <div className="rounded-lg border bg-muted/20 p-4">
-                  <div className="text-xs text-muted-foreground mb-1">Resumo da ação</div>
-                  <div className="text-sm font-medium leading-6">{humanDetails(selected)}</div>
-                </div>
+              <div className="space-y-5 py-1">
+                <section className="rounded-xl border bg-gradient-to-r from-slate-50 to-slate-100/70 p-4 shadow-sm">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Resumo da ação</div>
+                  <p className="text-sm leading-6 font-medium text-slate-800">{humanDetails(selected)}</p>
+                </section>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Data/Hora</div>
-                    <div className="font-medium mt-1">{fmtDate(selected.timestamp)}</div>
+                <section className="space-y-2">
+                  <h4 className="text-sm font-semibold">Quem realizou</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Data/Hora</div>
+                      <div className="font-medium mt-1">{fmtDate(selected.timestamp)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Nome</div>
+                      <div className="font-medium mt-1">{userDisplay(selected)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Perfil</div>
+                      <div className="font-medium mt-1">{userProfile(selected)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">IP de origem</div>
+                      <div className="font-medium mt-1">{selected.ip || "—"}</div>
+                    </div>
                   </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Nome</div>
-                    <div className="font-medium mt-1">{userDisplay(selected)}</div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Perfil</div>
-                    <div className="font-medium mt-1">{userProfile(selected)}</div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">IP de origem</div>
-                    <div className="font-medium mt-1">{selected.ip || "—"}</div>
-                  </div>
-                </div>
+                </section>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Ação</div>
-                    <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{actionLabel(selected.action)}</div>
+                <section className="space-y-2">
+                  <h4 className="text-sm font-semibold">O que aconteceu</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Ação</div>
+                      <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{actionLabel(selected.action)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Método HTTP</div>
+                      <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method || "—"}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Status da operação</div>
+                      <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div>
+                    </div>
                   </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Método HTTP</div>
-                    <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method || "—"}</div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Status da operação</div>
-                    <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="md:col-span-3 rounded-lg border p-3">
+                  <div className="rounded-lg border bg-white p-3 shadow-sm">
                     <div className="text-xs text-muted-foreground">Descrição da funcionalidade acessada</div>
-                    <div className="text-sm bg-muted/40 rounded px-2 py-1 mt-1">{describeRouteAction(selected)}</div>
+                    <div className="text-sm bg-muted/40 rounded px-2 py-2 mt-1">{describeRouteAction(selected)}</div>
                   </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Módulo</div>
-                    <div className="font-medium mt-1">{selected.model || "—"}</div>
+                </section>
+
+                <section className="space-y-2">
+                  <h4 className="text-sm font-semibold">Contexto técnico</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Módulo</div>
+                      <div className="font-medium mt-1">{selected.model || "—"}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Registro (ID)</div>
+                      <div className="font-medium mt-1">{selected.object_pk || "—"}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 shadow-sm">
+                      <div className="text-xs text-muted-foreground">Navegador (User-Agent)</div>
+                      <div className="text-xs mt-1 break-words">{selected.user_agent || "—"}</div>
+                    </div>
                   </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Registro (ID)</div>
-                    <div className="font-medium mt-1">{selected.object_pk || "—"}</div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground">Navegador (User-Agent)</div>
-                    <div className="text-xs mt-1 break-words">{selected.user_agent || "—"}</div>
-                  </div>
-                </div>
+                </section>
 
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
                   if (!reason && !note) return null
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">Motivo informado</div>
-                        <div className="font-medium mt-1">{label}</div>
+                    <section className="space-y-2">
+                      <h4 className="text-sm font-semibold">Justificativa registrada</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="rounded-lg border bg-white p-3 shadow-sm">
+                          <div className="text-xs text-muted-foreground">Motivo informado</div>
+                          <div className="font-medium mt-1">{label}</div>
+                        </div>
+                        <div className="md:col-span-2 rounded-lg border bg-white p-3 shadow-sm">
+                          <div className="text-xs text-muted-foreground">Observação complementar</div>
+                          <div className="text-sm mt-1">{note || "—"}</div>
+                        </div>
                       </div>
-                      <div className="md:col-span-2 rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">Observação complementar</div>
-                        <div className="text-sm mt-1">{note || "—"}</div>
-                      </div>
-                    </div>
+                    </section>
                   )
                 })()}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground mb-1">Dados brutos — Alterações (Changes)</div>
-                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[34vh] overflow-auto">
+                <section className="space-y-3">
+                  <h4 className="text-sm font-semibold">Dados brutos para auditoria técnica</h4>
+                  <details className="rounded-lg border bg-white p-3 shadow-sm" open>
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Alterações (Changes)</summary>
+                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[28vh] overflow-auto mt-2">
                       {JSON.stringify(selected.changes || {}, null, 2)}
                     </pre>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="text-xs text-muted-foreground mb-1">Dados brutos — Informações extras (Extra)</div>
-                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[34vh] overflow-auto">
+                  </details>
+
+                  <details className="rounded-lg border bg-white p-3 shadow-sm">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Informações extras (Extra)</summary>
+                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[28vh] overflow-auto mt-2">
                       {JSON.stringify(selected.extra || {}, null, 2)}
                     </pre>
-                  </div>
-                </div>
+                  </details>
+                </section>
               </div>
             )}
           </div>
