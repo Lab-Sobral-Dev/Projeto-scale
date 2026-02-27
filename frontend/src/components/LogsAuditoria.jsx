@@ -1,4 +1,3 @@
-// src/pages/LogsAuditoria.jsx
 import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
 import { fetchReport, openExport } from "@/services/reports"
-import { Download, FileDown, RefreshCcw, Search, XCircle } from "lucide-react"
+import { Download, FileDown, RefreshCcw, Search, XCircle, User, Terminal, Fingerprint, Info } from "lucide-react"
 
 const mapAll = (v) => (v === "__ALL__" ? "" : v)
 
@@ -45,7 +44,7 @@ function extractReason(record) {
 }
 
 const methodClass = (m) =>
-  ({ GET: "bg-blue-50 text-blue-700", POST: "bg-green-50 text-green-700", PUT: "bg-amber-50 text-amber-700", PATCH: "bg-amber-50 text-amber-700", DELETE: "bg-red-50 text-red-700" }[m] || "bg-gray-50 text-gray-600")
+  ({ GET: "bg-blue-50 text-blue-700 border-blue-200", POST: "bg-green-50 text-green-700 border-green-200", PUT: "bg-amber-50 text-amber-700 border-amber-200", PATCH: "bg-amber-50 text-amber-700 border-amber-200", DELETE: "bg-red-50 text-red-700 border-red-200" }[m] || "bg-gray-50 text-gray-600")
 
 const actionClass = (a) =>
   ({ update: "bg-amber-50 text-amber-700", delete: "bg-red-50 text-red-700", create: "bg-green-50 text-green-700", login: "bg-emerald-50 text-emerald-700", logout: "bg-slate-50 text-slate-700", error: "bg-rose-50 text-rose-700" }[a] || "bg-gray-50 text-gray-700")
@@ -54,11 +53,11 @@ const actionLabel = (a) =>
   ({ create: "Cadastro", update: "Atualização", delete: "Exclusão", login: "Login", logout: "Logout", request: "Acesso", token_refresh: "Renovação de sessão", label_print: "Impressão", error: "Erro" }[a] || (a || "—"))
 
 const statusClass = (s) => {
-  if (!s && s !== 0) return "bg-gray-50 text-gray-600"
-  if (s >= 500) return "bg-rose-50 text-rose-700"
-  if (s >= 400) return "bg-amber-50 text-amber-700"
-  if (s >= 200) return "bg-green-50 text-green-700"
-  return "bg-gray-50 text-gray-600"
+  if (!s && s !== 0) return "bg-gray-100 text-gray-600"
+  if (s >= 500) return "bg-red-100 text-red-700"
+  if (s >= 400) return "bg-orange-100 text-orange-700"
+  if (s >= 200) return "bg-emerald-100 text-emerald-700"
+  return "bg-gray-100 text-gray-600"
 }
 
 const roleLabel = (raw) => {
@@ -137,17 +136,14 @@ export default function LogsAuditoria() {
       for (const k of ["q", "action", "model", "user", "ordering"]) {
         if (filters[k]) cleaned[k] = filters[k]
       }
-
       if (filters.start) cleaned.start = `${filters.start}T00:00:00`
       if (filters.end) cleaned.end = `${filters.end}T23:59:59`
 
       const resp = await listarLogs({ filters: cleaned, page: pg })
       let results = resp?.results || []
-
       if (filters.reason) {
         results = results.filter(r => extractReason(r).reason === filters.reason)
       }
-
       setData({ count: resp?.count ?? results.length, results })
       setPage(pg)
     } finally {
@@ -175,7 +171,6 @@ export default function LogsAuditoria() {
   const describeRouteAction = (r) => {
     const actor = userDisplay(r)
     const path = String(r?.path || "").toLowerCase()
-
     if (!path) return `${actor} realizou uma ação no sistema.`
 
     const routes = [
@@ -197,7 +192,6 @@ export default function LogsAuditoria() {
 
     const found = routes.find((x) => path.includes(x.key))
     if (found) return found.text
-
     return `${actor} executou uma ação na funcionalidade ${r.path}.`
   }
 
@@ -212,31 +206,25 @@ export default function LogsAuditoria() {
 
     if (r.action === "login") {
       if ((r.status_code || 0) < 400 && r.status_code != null) {
-        return `Usuário ${userDisplay(r)} realizou login com sucesso no sistema.`
+        return `Usuário ${userDisplay(r)} realizou login com sucesso.`
       }
-      return `Tentativa de login não concluída para ${extra.username || "usuário informado"}: ${extra.reason || "usuário ou senha incorretos"}.`
+      return `Tentativa de login não concluída para ${extra.username || "usuário"}: ${extra.reason || "falha na autenticação"}.`
     }
-
-    if (r.action === "logout") return `Usuário ${userDisplay(r)} encerrou a sessão no sistema.`
-
-    if (r.action === "create") return `Foi realizado um novo cadastro em ${model} (ID ${obj}).`
-
+    if (r.action === "logout") return `Usuário ${userDisplay(r)} encerrou a sessão.`
+    if (r.action === "create") return `Novo cadastro em ${model} (ID ${obj}).`
     if (r.action === "update") {
       const fields = Object.keys(r.changes || {}).length
-      const motivoTxt = reason ? ` Motivo informado: ${reasonLabel(reason)}.` : ""
-      return `Foi realizada atualização em ${model} (ID ${obj}) com ${fields} campo(s) alterado(s).${motivoTxt}`
+      const motivoTxt = reason ? ` Motivo: ${reasonLabel(reason)}.` : ""
+      return `Atualização em ${model} (ID ${obj}) com ${fields} campo(s) alterado(s).${motivoTxt}`
     }
-
     if (r.action === "delete") {
-      const motivoTxt = reason ? ` Motivo informado: ${reasonLabel(reason)}.` : ""
-      return `Foi realizada exclusão de registro em ${model} (ID ${obj}).${motivoTxt}`
+      const motivoTxt = reason ? ` Motivo: ${reasonLabel(reason)}.` : ""
+      return `Exclusão de registro em ${model} (ID ${obj}).${motivoTxt}`
     }
-
     if (r.action === "error") {
-      return `Sistema registrou uma ocorrência de erro${extra?.error ? `: ${extra.error}` : "."}`
+      return `Erro registrado pelo sistema${extra?.error ? `: ${extra.error}` : "."}`
     }
-
-    if (note) return `Ação registrada no sistema. Observação: ${note}`
+    if (note) return `Ação registrada. Obs: ${note}`
     return describeRouteAction(r)
   }
 
@@ -374,9 +362,8 @@ export default function LogsAuditoria() {
                 <th className="px-2 py-2">Data e Hora</th>
                 <th className="px-2 py-2">Nome</th>
                 <th className="px-2 py-2">Perfil</th>
-                <th className="px-2 py-2">IP de Origem</th>
-                <th className="px-2 py-2">Ação Realizada</th>
-                <th className="px-2 py-2 text-left">Detalhes</th>
+                <th className="px-2 py-2 text-left">Ação e Detalhes</th>
+                <th className="px-2 py-2">Status</th>
                 <th className="px-2 py-2">Mais</th>
               </tr>
             </thead>
@@ -385,24 +372,31 @@ export default function LogsAuditoria() {
                 const key = `${r.id || idx}-${r.timestamp}-${r.action}`
                 return (
                   <tr key={key} className="border-b hover:bg-muted/30 align-top">
-                    <td className="px-2 py-2 text-center font-medium">{String(r.id || idx + 1).padStart(5, "0")}</td>
-                    <td className="px-2 py-2 whitespace-nowrap text-center">{fmtDate(r.timestamp)}</td>
-                    <td className="px-2 py-2 text-center">{userDisplay(r)}</td>
-                    <td className="px-2 py-2 text-center">{userProfile(r)}</td>
-                    <td className="px-2 py-2 text-center whitespace-nowrap">{r.ip || "—"}</td>
-                    <td className="px-2 py-2 text-center">
-                      <div className="space-y-1">
-                        <span className={`inline-flex px-2 py-0.5 rounded ${actionClass(r.action)}`}>{actionLabel(r.action)}</span>
-                        <div><span className={`inline-flex px-2 py-0.5 rounded ${statusClass(r.status_code)}`}>{r.status_code ?? "-"}</span></div>
+                    <td className="px-2 py-2 text-center font-medium font-mono text-xs">{String(r.id || idx + 1).padStart(5, "0")}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-center text-xs">{fmtDate(r.timestamp)}</td>
+                    <td className="px-2 py-2 text-center font-medium">{userDisplay(r)}</td>
+                    <td className="px-2 py-2 text-center text-xs text-muted-foreground">{userProfile(r)}</td>
+                    <td className="px-2 py-2 max-w-[400px]">
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex w-fit px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${actionClass(r.action)}`}>
+                          {actionLabel(r.action)}
+                        </span>
+                        <span className="text-slate-600 leading-snug">{humanDetails(r)}</span>
                       </div>
                     </td>
-                    <td className="px-2 py-2 max-w-[480px] whitespace-normal">{humanDetails(r)}</td>
-                    <td className="px-2 py-2 text-center"><Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)}>Ver</Button></td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full font-mono text-xs border ${statusClass(r.status_code)}`}>
+                        {r.status_code ?? "-"}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <Button type="button" variant="outline" size="sm" onClick={() => openDetails(r)} className="h-8">Ver</Button>
+                    </td>
                   </tr>
                 )
               })}
               {!loading && (data?.results || []).length === 0 && (
-                <tr><td className="px-2 py-6 text-center" colSpan={8}>Sem registros</td></tr>
+                <tr><td className="px-2 py-6 text-center" colSpan={7}>Sem registros</td></tr>
               )}
             </tbody>
           </table>
@@ -417,125 +411,171 @@ export default function LogsAuditoria() {
         </CardContent>
       </Card>
 
+      {/* MODAL DE DETALHES AJUSTADO */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1300px] max-h-[95vh] p-6 rounded-xl">
-          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b">
-            <DialogTitle>Detalhes da ocorrência</DialogTitle>
-            <DialogDescription>
-              Informações organizadas para leitura rápida de auditoria.
-            </DialogDescription>
+        <DialogContent className="!w-[98vw] sm:!max-w-[98vw] lg:!max-w-[1000px] max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <div className="flex justify-between items-start">
+              <div>
+                <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
+                  <Terminal className="w-5 h-5 text-blue-400" />
+                  Detalhes do Log #{String(selected?.id).padStart(5, "0")}
+                </DialogTitle>
+                <DialogDescription className="text-slate-400 mt-1">
+                  Rastreabilidade do evento registrado em {selected && fmtDate(selected.timestamp)}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="overflow-y-auto max-h-[76vh] pr-1">
+          <div className="overflow-y-auto p-6 bg-slate-50/50 flex-1">
             {selected && (
-              <div className="space-y-5 py-1">
-                <section className="rounded-xl border bg-gradient-to-r from-slate-50 to-slate-100/70 p-4 shadow-sm">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Resumo da ação</div>
-                  <p className="text-sm leading-6 font-medium text-slate-800">{humanDetails(selected)}</p>
-                </section>
-
-                <section className="space-y-2">
-                  <h4 className="text-sm font-semibold">Quem realizou</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Data/Hora</div>
-                      <div className="font-medium mt-1">{fmtDate(selected.timestamp)}</div>
+              <div className="space-y-6">
+                {/* Resumo e Status */}
+                <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-3 rounded-xl border border-blue-100 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info className="w-4 h-4 text-blue-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Descrição do Evento</span>
                     </div>
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Nome</div>
-                      <div className="font-medium mt-1">{userDisplay(selected)}</div>
-                    </div>
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Perfil</div>
-                      <div className="font-medium mt-1">{userProfile(selected)}</div>
-                    </div>
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">IP de origem</div>
-                      <div className="font-medium mt-1">{selected.ip || "—"}</div>
+                    <p className="text-slate-700 leading-relaxed font-medium">
+                      {humanDetails(selected)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-center items-center text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Código HTTP</span>
+                    <div className={`px-4 py-2 rounded-full font-bold text-lg border ${statusClass(selected.status_code)}`}>
+                      {selected.status_code || "—"}
                     </div>
                   </div>
                 </section>
 
-                <section className="space-y-2">
-                  <h4 className="text-sm font-semibold">O que aconteceu</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Ação</div>
-                      <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${actionClass(selected.action)}`}>{actionLabel(selected.action)}</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Ator */}
+                  <section className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 px-1">
+                      <User className="w-3.5 h-3.5 text-blue-500" /> Ator do Evento
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-white border rounded-lg shadow-sm">
+                        <p className="text-[10px] text-slate-400 uppercase font-semibold">Usuário</p>
+                        <p className="font-semibold text-slate-800 truncate">{userDisplay(selected)}</p>
+                      </div>
+                      <div className="p-3 bg-white border rounded-lg shadow-sm">
+                        <p className="text-[10px] text-slate-400 uppercase font-semibold">Perfil</p>
+                        <p className="font-semibold text-slate-800">{userProfile(selected)}</p>
+                      </div>
+                      <div className="p-3 bg-white border rounded-lg shadow-sm col-span-2">
+                        <p className="text-[10px] text-slate-400 uppercase font-semibold">Endereço IP</p>
+                        <p className="font-mono text-sm text-slate-600">{selected.ip || "Não identificado"}</p>
+                      </div>
                     </div>
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Método HTTP</div>
-                      <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${methodClass(selected.method)}`}>{selected.method || "—"}</div>
-                    </div>
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Status da operação</div>
-                      <div className={`inline-flex mt-1 px-2 py-0.5 rounded ${statusClass(selected.status_code)}`}>{selected.status_code ?? "—"}</div>
-                    </div>
-                  </div>
+                  </section>
 
-                  <div className="rounded-lg border bg-white p-3 shadow-sm">
-                    <div className="text-xs text-muted-foreground">Descrição da funcionalidade acessada</div>
-                    <div className="text-sm bg-muted/40 rounded px-2 py-2 mt-1">{describeRouteAction(selected)}</div>
-                  </div>
-                </section>
+                  {/* Contexto */}
+                  <section className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 px-1">
+                      <Fingerprint className="w-3.5 h-3.5 text-amber-500" /> Localização Técnica
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-white border rounded-lg shadow-sm">
+                        <p className="text-[10px] text-slate-400 uppercase font-semibold">Módulo/Tabela</p>
+                        <p className="font-semibold text-slate-800 uppercase text-xs">{selected.model || "—"}</p>
+                      </div>
+                      <div className="p-3 bg-white border rounded-lg shadow-sm">
+                        <p className="text-[10px] text-slate-400 uppercase font-semibold">ID do Objeto</p>
+                        <p className="font-semibold text-slate-800">#{selected.object_pk || "—"}</p>
+                      </div>
+                      <div className="p-3 bg-white border rounded-lg shadow-sm col-span-2">
+                        <p className="text-[10px] text-slate-400 uppercase font-semibold">Método e Rota</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${methodClass(selected.method)}`}>{selected.method}</span>
+                          <p className="font-mono text-[11px] text-slate-500 truncate">{selected.path || "—"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
 
-                <section className="space-y-2">
-                  <h4 className="text-sm font-semibold">Contexto técnico</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Módulo</div>
-                      <div className="font-medium mt-1">{selected.model || "—"}</div>
-                    </div>
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Registro (ID)</div>
-                      <div className="font-medium mt-1">{selected.object_pk || "—"}</div>
-                    </div>
-                    <div className="rounded-lg border bg-white p-3 shadow-sm">
-                      <div className="text-xs text-muted-foreground">Navegador (User-Agent)</div>
-                      <div className="text-xs mt-1 break-words">{selected.user_agent || "—"}</div>
-                    </div>
-                  </div>
-                </section>
-
+                {/* Justificativa (se houver) */}
                 {(() => {
                   const { reason, note } = extractReason(selected)
                   const label = reasonLabel(reason)
                   if (!reason && !note) return null
                   return (
                     <section className="space-y-2">
-                      <h4 className="text-sm font-semibold">Justificativa registrada</h4>
+                      <h4 className="text-xs font-bold text-slate-500 uppercase px-1">Justificativa Registrada</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="rounded-lg border bg-white p-3 shadow-sm">
-                          <div className="text-xs text-muted-foreground">Motivo informado</div>
-                          <div className="font-medium mt-1">{label}</div>
+                        <div className="rounded-lg border bg-amber-50/50 border-amber-100 p-3 shadow-sm">
+                          <p className="text-[10px] text-amber-600 uppercase font-bold">Motivo</p>
+                          <p className="font-semibold text-slate-800 mt-1">{label}</p>
                         </div>
                         <div className="md:col-span-2 rounded-lg border bg-white p-3 shadow-sm">
-                          <div className="text-xs text-muted-foreground">Observação complementar</div>
-                          <div className="text-sm mt-1">{note || "—"}</div>
+                          <p className="text-[10px] text-slate-400 uppercase font-semibold">Observação Complementar</p>
+                          <p className="text-sm text-slate-700 mt-1">{note || "—"}</p>
                         </div>
                       </div>
                     </section>
                   )
                 })()}
 
-                <section className="space-y-3">
-                  <h4 className="text-sm font-semibold">Dados brutos para auditoria técnica</h4>
-                  <details className="rounded-lg border bg-white p-3 shadow-sm" open>
-                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Alterações (Changes)</summary>
-                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[28vh] overflow-auto mt-2">
-                      {JSON.stringify(selected.changes || {}, null, 2)}
-                    </pre>
-                  </details>
+                {/* Tabela de Alterações de Dados */}
+                {selected.changes && Object.keys(selected.changes).length > 0 && (
+                  <section className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2 px-1">
+                      <RefreshCcw className="w-3.5 h-3.5 text-emerald-500" /> Alterações de Dados (Diff)
+                    </h4>
+                    <div className="border rounded-xl overflow-hidden bg-white shadow-md">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-100 border-b">
+                          <tr>
+                            <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-600 uppercase">Campo Modificado</th>
+                            <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-600 uppercase">Novo Valor / Estado Atual</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {Object.entries(selected.changes).map(([field, value]) => {
+                            // Ignora campos de motivo que já mostramos acima
+                            if (field.includes('motivo') || field.includes('reason')) return null;
+                            return (
+                              <tr key={field} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="px-4 py-2.5 font-mono text-[11px] text-blue-700 bg-blue-50/20 w-1/3 border-r font-bold">{field}</td>
+                                <td className="px-4 py-2.5">
+                                  <span className="text-slate-700 font-mono text-xs break-all">
+                                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                  </span>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
 
-                  <details className="rounded-lg border bg-white p-3 shadow-sm">
-                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Informações extras (Extra)</summary>
-                    <pre className="text-xs bg-muted/40 rounded p-2 max-h-[28vh] overflow-auto mt-2">
-                      {JSON.stringify(selected.extra || {}, null, 2)}
-                    </pre>
+                {/* Dados Brutos colapsáveis */}
+                <section className="pt-2">
+                  <details className="group border rounded-lg bg-white overflow-hidden shadow-sm">
+                    <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Payload Completo (JSON Extra)</span>
+                      <div className="text-slate-400 group-open:rotate-180 transition-transform text-[10px]">▼</div>
+                    </summary>
+                    <div className="p-4 border-t bg-slate-900 overflow-x-auto">
+                      <pre className="text-[11px] font-mono text-emerald-400 leading-relaxed">
+                        {JSON.stringify(selected.extra || {}, null, 2)}
+                      </pre>
+                    </div>
                   </details>
                 </section>
               </div>
             )}
+          </div>
+
+          <div className="p-4 bg-white border-t flex justify-end gap-3 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+            <Button variant="outline" onClick={() => setDetailOpen(false)} className="px-6 font-semibold">
+              Fechar Relatório
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
