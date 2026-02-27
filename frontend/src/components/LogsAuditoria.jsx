@@ -82,8 +82,8 @@ export default function LogsAuditoria() {
     return entries
   }, [motivosEdit, motivosDelete])
 
-  const [usersMap, setUsersMap] = useState(new Map())
-  const [dynamicOptions, setDynamicOptions] = useState({ action: [], model: [] })
+  const [usersMeta, setUsersMeta] = useState(new Map())
+  const [dynamicOptions, setDynamicOptions] = useState({ usuario: [], action: [], model: [] })
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const openDetails = (r) => { setSelected(r); setDetailOpen(true) }
@@ -114,17 +114,18 @@ export default function LogsAuditoria() {
           const mp = new Map()
           for (const u of list) {
             const name = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.username || String(u.id)
-            mp.set(String(u.id), name)
+            mp.set(String(u.id), { name, papel: u.papel || "" })
           }
-          setUsersMap(mp)
+          setUsersMeta(mp)
         }
 
         setDynamicOptions({
+          usuario: dynRes?.usuario || [],
           action: dynRes?.action || [],
           model: dynRes?.model || [],
         })
       } catch {
-        setDynamicOptions({ action: [], model: [] })
+        setDynamicOptions({ usuario: [], action: [], model: [] })
       }
     })()
   }, [])
@@ -161,11 +162,15 @@ export default function LogsAuditoria() {
     const direct = r.user_name || r.user_display || r.username
     if (direct) return direct
     const idStr = r.user != null ? String(r.user) : ""
-    if (idStr && usersMap.has(idStr)) return usersMap.get(idStr)
+    if (idStr && usersMeta.has(idStr)) return usersMeta.get(idStr)?.name || idStr
     return idStr || "Sistema"
   }
 
-  const userProfile = (r) => roleLabel(r.user_role || r.role || r.papel)
+  const userProfile = (r) => {
+    const idStr = r.user != null ? String(r.user) : ""
+    const papelFromMap = idStr && usersMeta.has(idStr) ? usersMeta.get(idStr)?.papel : ""
+    return roleLabel(r.user_role || r.role || r.papel || papelFromMap)
+  }
 
   const describeRouteAction = (r) => {
     const actor = userDisplay(r)
@@ -267,11 +272,15 @@ export default function LogsAuditoria() {
 
             <div className="md:col-span-2">
               <Label className="mb-1 block">Usuário</Label>
-              <Input
-                placeholder="id, login ou nome"
-                value={filters.user}
-                onChange={e => setFilters(f => ({ ...f, user: e.target.value }))}
-              />
+              <Select value={filters.user || "__ALL__"} onValueChange={v => setFilters(f => ({ ...f, user: mapAll(v) }))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="(todos)" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="__ALL__">(todos)</SelectItem>
+                  {dynamicOptions.usuario.map((u) => (
+                    <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="md:col-span-2">
