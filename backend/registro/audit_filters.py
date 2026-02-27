@@ -70,14 +70,14 @@ class AuditLogFilter(django_filters.FilterSet):
             Q(object_pk__icontains=v) |
             Q(user_agent__icontains=v) |
             Q(ip__icontains=v) |
-            Q(username__icontains=v)
+            Q(user__username__icontains=v)
         )
 
     def filter_user_any(self, qs, name, value):
         if not value:
             return qs
         v = value.strip()
-        q = Q(username__icontains=v) | Q(user__first_name__icontains=v) | Q(user__last_name__icontains=v)
+        q = Q(user__username__icontains=v) | Q(user__first_name__icontains=v) | Q(user__last_name__icontains=v)
         if v.isdigit():
             q |= Q(user_id=int(v))
         return qs.filter(q)
@@ -124,9 +124,9 @@ class AuditLogFilter(django_filters.FilterSet):
     def filter_anon(self, qs, name, value):
         v = (value or "").lower().strip()
         if v == "sim":
-            return qs.filter(user__isnull=True).filter(Q(username__isnull=True) | Q(username=""))
+            return qs.filter(user__isnull=True)
         if v == "nao":
-            return qs.filter(Q(user__isnull=False) | (Q(username__isnull=False) & ~Q(username="")))
+            return qs.filter(user__isnull=False)
         return qs
 
     def _q_has_any_reason_key(self):
