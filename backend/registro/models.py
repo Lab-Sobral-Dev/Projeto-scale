@@ -1,8 +1,9 @@
+# models.py
+
 from decimal import Decimal
-from datetime import timedelta
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from django.db.models import F, Sum
+from django.db.models import F, Sum, Q
 from django.utils import timezone
 
 KG_TO_G = Decimal('1000')
@@ -109,8 +110,6 @@ class Balanca(models.Model):
     divisao = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     protocolo = models.CharField(max_length=50, blank=True, default='')
     ultima_calibracao = models.DateField(null=True, blank=True)
-    frequencia_calibracao_dias = models.PositiveIntegerField(default=365)
-    calibracao_realizada = models.BooleanField(default=False)
 
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -122,17 +121,6 @@ class Balanca(models.Model):
 
     def __str__(self):
         return f'{self.nome} ({self.identificador})'
-
-    def esta_em_calibracao(self, data_referencia=None):
-        if not self.ultima_calibracao:
-            return False
-
-        referencia = data_referencia or timezone.localdate()
-        if not self.calibracao_realizada:
-            return False
-
-        validade_ate = self.ultima_calibracao + timedelta(days=self.frequencia_calibracao_dias)
-        return referencia <= validade_ate
 
 
 # =========================
@@ -190,16 +178,9 @@ class OrdemProducao(models.Model):
         )
 
     def verificar_e_concluir(self):
-        """
-        Conclui a OP somente quando TODOS os itens estiverem pelo menos no mínimo permitido.
-        (O máximo já é protegido no momento da pesagem.)
-        """
-        itens = list(self.itemop_set.select_related('materia_prima'))
-
-        pendente = any(
-            (item.quantidade_pesada or Decimal('0')) < item.quantidade_minima_permitida
-            for item in itens
-        )
+        pendente = self.itemop_set.filter(
+            Q(quantidade_pesada__lt=F("quantidade_necessaria"))
+        ).exists()
 
         novo_status = StatusOP.EM_ANDAMENTO if pendente else StatusOP.CONCLUIDA
         campos = ["status"]
@@ -234,12 +215,12 @@ class ItemOP(models.Model):
     def quantidade_restante(self):
         return self.quantidade_necessaria - self.quantidade_pesada
 
-    # Limite inferior permitido (g) com tolerância de 5%
+    # Adicionado: Limite inferior permitido (g) com tolerância de 5%
     @property
     def quantidade_minima_permitida(self):
         return self.quantidade_necessaria * (Decimal('1') - TOLERANCIA_PERCENTUAL)
 
-    # Limite superior permitido (g)
+    # Tolerância: limite superior permitido (g)
     @property
     def quantidade_maxima_permitida(self):
         return self.quantidade_necessaria * (Decimal('1') + TOLERANCIA_PERCENTUAL)
@@ -258,7 +239,7 @@ class Pesagem(models.Model):
     • Entrada do operador no formulário: líquido (kg) + tara (kg)
     • Backend calcula bruto (kg) e converte líquido para g para armazenar/validar
     • Todo o controle de saldo/operação interna é feito em g
-    • >>> Regra: permitir parciais (valida só o teto aqui) e fechar OP quando atingir o mínimo.
+    • >>> Respeita tolerância de +/- 5% sobre a quantidade necessária do ItemOP
     """
     op = models.ForeignKey(
         OrdemProducao,
@@ -294,6 +275,7 @@ class Pesagem(models.Model):
     )
 
     # Metadados adicionais
+    
     balanca = models.ForeignKey(
         Balanca,
         null=True,
@@ -303,11 +285,12 @@ class Pesagem(models.Model):
     )
     codigo_interno = models.CharField(max_length=50, default='TEMP')
 
-    # Lote da MP utilizada — OBRIGATÓRIO
+    # Lote da MP utilizada
     lote_mp = models.CharField(
         "lote_MP",
         max_length=60,
-        blank=False,                 # obrigatório em forms/admin/DRF
+        blank=True,
+        default="",
         db_index=True,
         help_text="Identificador do lote da matéria-prima usado nesta pesagem (ex.: 24A0321)."
     )
@@ -325,107 +308,89 @@ class Pesagem(models.Model):
 
         # Entradas devem permitir cálculo positivo
         tara_kg = self.tara or 0
-        liquido_kg_informado = self.liquido or 0  # front manda em kg (vamos converter no save)
+        liquido_kg_informado = self.liquido or 0  # aqui o front manda em kg
         if tara_kg < 0 or liquido_kg_informado <= 0:
             raise ValidationError("Informe tara (kg) ≥ 0 e líquido (kg) > 0.")
-
-        # Lote MP obrigatório
-        if not self.lote_mp or not str(self.lote_mp).strip():
-            raise ValidationError("Informe o lote da matéria-prima (lote_MP é obrigatório).")
 
     @transaction.atomic
     def save(self, *args, **kwargs):
         # Normaliza o lote
-        if self.lote_mp is not None:
-            self.lote_mp = str(self.lote_mp).strip()
+        if self.lote_mp:
+            self.lote_mp = self.lote_mp.strip()
 
-        # Garante obrigatoriedade fora do clean()
-        if not self.lote_mp:
-            raise ValidationError("Informe o lote da matéria-prima (lote_MP é obrigatório).")
+        if not self.item_op_id:
+            raise ValidationError("A pesagem deve estar vinculada a um item da OP.")
 
-        # Lê entradas em kg (front manda em kg)
+        # Se for atualização, captura estado anterior para ajustar o acumulado corretamente.
+        original = None
+        if self.pk:
+            original = Pesagem.objects.select_related("item_op").filter(pk=self.pk).first()
+
+        # Lê entradas em kg
         tara_kg = self.tara or 0
-        liquido_kg_informado = self.liquido or 0
+        liquido_kg_informado = self.liquido or 0  # **frontend manda em kg**
+        # Converte para g para regra interna
+        liquido_g = liquido_kg_informado * KG_TO_G
 
-        if tara_kg < 0 or liquido_kg_informado <= 0:
-            raise ValidationError("Informe tara (kg) ≥ 0 e líquido (kg) > 0.")
-
-        # Converte para g (regra interna) e calcula bruto (kg) no backend
-        novo_liquido_g = Decimal(liquido_kg_informado) * KG_TO_G
-        if novo_liquido_g <= 0:
+        if liquido_g <= 0:
             raise ValidationError("O líquido calculado deve ser positivo após a conversão para g.")
+
+        # Calcula o bruto (kg) no backend — não confiar no valor vindo do front
         self.bruto = tara_kg + liquido_kg_informado
 
-        # Coerência OP x ItemOP
-        if self.item_op and self.op_id and self.item_op.op_id != self.op_id:
-            raise ValidationError("item_op não pertence à OP informada.")
-        if not self.item_op_id:
-            raise ValidationError("Selecione um item da OP para vincular a pesagem.")
+        # Trava o item atual e (se necessário) o item original para evitar corrida
+        item_ids = [self.item_op_id]
+        if original and original.item_op_id and original.item_op_id != self.item_op_id:
+            item_ids.append(original.item_op_id)
 
-        if self.balanca_id:
-            balanca = self.balanca or Balanca.objects.get(pk=self.balanca_id)
-            if not balanca.esta_em_calibracao():
-                raise ValidationError(
-                    f"A balança '{balanca.nome}' está fora da calibração e não pode ser usada para pesagem."
-                )
+        items_travados = {
+            item.pk: item
+            for item in ItemOP.objects.select_for_update().filter(pk__in=item_ids)
+        }
+        item = items_travados[self.item_op_id]
+        
+        # Obtém os limites inferior e superior
+        limite_superior_g = item.quantidade_maxima_permitida
+        limite_inferior_g = item.quantidade_minima_permitida
+        
+        liquido_original = original.liquido if original else Decimal("0")
+        total_base_g = (item.quantidade_pesada or 0)
+        if original and original.item_op_id == self.item_op_id:
+            total_base_g -= liquido_original
 
-        # Estado anterior (para edições)
-        antigo_liquido_g = Decimal('0')
-        antigo_item_id = None
-        if self.pk:
-            antigo = (
-                Pesagem.objects
-                .select_for_update()
-                .only('id', 'item_op_id', 'liquido')
-                .get(pk=self.pk)
-            )
-            antigo_liquido_g = Decimal(antigo.liquido or 0)
-            antigo_item_id = antigo.item_op_id
+        novo_total_g = total_base_g + liquido_g
 
-        # Lock do novo item
-        item_novo = ItemOP.objects.select_for_update().get(pk=self.item_op_id)
-
-        # Total projetado para validar teto (+5%)
-        if antigo_item_id and antigo_item_id == self.item_op_id:
-            # Edição no MESMO item: base - antigo + novo
-            total_projetado_g = (item_novo.quantidade_pesada or 0) - antigo_liquido_g + novo_liquido_g
-            tentativa_g_para_msg = novo_liquido_g - antigo_liquido_g  # delta
-        else:
-            # Criação ou TROCA de item: validar no novo item com +novo
-            total_projetado_g = (item_novo.quantidade_pesada or 0) + novo_liquido_g
-            tentativa_g_para_msg = novo_liquido_g
-
-        limite_superior_g = item_novo.quantidade_maxima_permitida
-        if total_projetado_g > limite_superior_g:
+        # Verifica se o novo total está fora da faixa de tolerância
+        if not (limite_inferior_g <= novo_total_g <= limite_superior_g):
             raise ValidationError(
-                f"Ultrapassa o limite superior (+/- 5%) para {item_novo.materia_prima}. "
-                f"Máximo: {limite_superior_g:.3f} g | "
-                f"Já pesado: {item_novo.quantidade_pesada:.3f} g | "
-                f"Tentativa: +{tentativa_g_para_msg:.3f} g (total {total_projetado_g:.3f} g)."
+                f"Quantidade excede a faixa de tolerância de +/- 5% para {item.materia_prima}. "
+                f"Faixa permitida: {limite_inferior_g:.3f} g a {limite_superior_g:.3f} g | "
+                f"Já pesado: {item.quantidade_pesada:.3f} g | "
+                f"Tentativa: +{liquido_g:.3f} g (total {novo_total_g:.3f} g)."
             )
 
         # Persiste a pesagem guardando **líquido em g**
-        self.liquido = novo_liquido_g
+        self.liquido = liquido_g
         super().save(*args, **kwargs)
 
-        # Atualiza acumulados com DELTA
-        if antigo_item_id and antigo_item_id != self.item_op_id:
-            # Troca de item: remove do antigo e soma no novo
-            ItemOP.objects.filter(pk=antigo_item_id).update(
-                quantidade_pesada=F("quantidade_pesada") - antigo_liquido_g
+        # Reverte acumulado no item antigo (quando alterado) e aplica no item atual.
+        if original and original.item_op_id and original.item_op_id != self.item_op_id:
+            ItemOP.objects.filter(pk=original.item_op_id).update(
+                quantidade_pesada=F("quantidade_pesada") - liquido_original
             )
-            ItemOP.objects.filter(pk=item_novo.pk).update(
-                quantidade_pesada=F("quantidade_pesada") + novo_liquido_g
-            )
-        else:
-            # Mesmo item (ou criação): aplica delta
-            delta = novo_liquido_g - antigo_liquido_g
-            if delta != 0:
-                ItemOP.objects.filter(pk=item_novo.pk).update(
+
+        if original and original.item_op_id == self.item_op_id:
+            delta = self.liquido - liquido_original
+            if delta:
+                ItemOP.objects.filter(pk=item.pk).update(
                     quantidade_pesada=F("quantidade_pesada") + delta
                 )
+        else:
+            ItemOP.objects.filter(pk=item.pk).update(
+                quantidade_pesada=F("quantidade_pesada") + self.liquido
+            )
 
-        # Atualiza status da OP
+        # Atualiza status da OP (continua igual: conclui quando pesada >= necessaria)
         self.op.refresh_from_db(fields=[])
         if self.op.status in [StatusOP.ABERTA, StatusOP.EM_ANDAMENTO]:
             self.op.verificar_e_concluir()
@@ -433,3 +398,15 @@ class Pesagem(models.Model):
     def __str__(self):
         base = f"{self.item_op.materia_prima.nome} - OP {self.op.numero} (lote {self.op.lote})"
         return f"{base} | MP {self.lote_mp}" if self.lote_mp else base
+
+    @transaction.atomic
+    def delete(self, *args, **kwargs):
+        item_id = self.item_op_id
+        liquido = self.liquido or Decimal("0")
+
+        super().delete(*args, **kwargs)
+
+        if item_id and liquido:
+            ItemOP.objects.filter(pk=item_id).update(
+                quantidade_pesada=F("quantidade_pesada") - liquido
+            )
