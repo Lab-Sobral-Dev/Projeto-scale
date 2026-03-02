@@ -323,8 +323,10 @@ class Pesagem(models.Model):
 
         # Se for atualização, captura estado anterior para ajustar o acumulado corretamente.
         original = None
+        op_original_id = None
         if self.pk:
-            original = Pesagem.objects.select_related("item_op").filter(pk=self.pk).first()
+            original = Pesagem.objects.select_related("item_op", "op").filter(pk=self.pk).first()
+            op_original_id = original.op_id if original else None
 
         # Lê entradas em kg
         tara_kg = self.tara or 0
@@ -390,10 +392,15 @@ class Pesagem(models.Model):
                 quantidade_pesada=F("quantidade_pesada") + self.liquido
             )
 
-        # Atualiza status da OP (continua igual: conclui quando pesada >= necessaria)
-        self.op.refresh_from_db(fields=[])
-        if self.op.status in [StatusOP.ABERTA, StatusOP.EM_ANDAMENTO]:
-            self.op.verificar_e_concluir()
+        # Atualiza status das OPs afetadas (quando houver movimentação entre OPs).
+        op_ids_para_reavaliar = {self.op_id}
+        if op_original_id and op_original_id != self.op_id:
+            op_ids_para_reavaliar.add(op_original_id)
+
+        for op_id in op_ids_para_reavaliar:
+            op = OrdemProducao.objects.get(pk=op_id)
+            if op.status in [StatusOP.ABERTA, StatusOP.EM_ANDAMENTO, StatusOP.CONCLUIDA]:
+                op.verificar_e_concluir()
 
     def __str__(self):
         base = f"{self.item_op.materia_prima.nome} - OP {self.op.numero} (lote {self.op.lote})"
@@ -403,6 +410,7 @@ class Pesagem(models.Model):
     def delete(self, *args, **kwargs):
         item_id = self.item_op_id
         liquido = self.liquido or Decimal("0")
+        op_id = self.op_id
 
         super().delete(*args, **kwargs)
 
@@ -410,3 +418,8 @@ class Pesagem(models.Model):
             ItemOP.objects.filter(pk=item_id).update(
                 quantidade_pesada=F("quantidade_pesada") - liquido
             )
+
+        if op_id:
+            op = OrdemProducao.objects.get(pk=op_id)
+            if op.status in [StatusOP.ABERTA, StatusOP.EM_ANDAMENTO, StatusOP.CONCLUIDA]:
+                op.verificar_e_concluir()
