@@ -318,6 +318,14 @@ class Pesagem(models.Model):
         if self.lote_mp:
             self.lote_mp = self.lote_mp.strip()
 
+        if not self.item_op_id:
+            raise ValidationError("A pesagem deve estar vinculada a um item da OP.")
+
+        # Se for atualização, captura estado anterior para ajustar o acumulado corretamente.
+        original = None
+        if self.pk:
+            original = Pesagem.objects.select_related("item_op").filter(pk=self.pk).first()
+
         # Lê entradas em kg
         tara_kg = self.tara or 0
         liquido_kg_informado = self.liquido or 0  # **frontend manda em kg**
@@ -330,14 +338,27 @@ class Pesagem(models.Model):
         # Calcula o bruto (kg) no backend — não confiar no valor vindo do front
         self.bruto = tara_kg + liquido_kg_informado
 
-        # Trava o item e checa SALDO com TOLERÂNCIA (em g)
-        item = ItemOP.objects.select_for_update().get(pk=self.item_op_id)
+        # Trava o item atual e (se necessário) o item original para evitar corrida
+        item_ids = [self.item_op_id]
+        if original and original.item_op_id and original.item_op_id != self.item_op_id:
+            item_ids.append(original.item_op_id)
+
+        items_travados = {
+            item.pk: item
+            for item in ItemOP.objects.select_for_update().filter(pk__in=item_ids)
+        }
+        item = items_travados[self.item_op_id]
         
         # Obtém os limites inferior e superior
         limite_superior_g = item.quantidade_maxima_permitida
         limite_inferior_g = item.quantidade_minima_permitida
         
-        novo_total_g = (item.quantidade_pesada or 0) + liquido_g
+        liquido_original = original.liquido if original else Decimal("0")
+        total_base_g = (item.quantidade_pesada or 0)
+        if original and original.item_op_id == self.item_op_id:
+            total_base_g -= liquido_original
+
+        novo_total_g = total_base_g + liquido_g
 
         # Verifica se o novo total está fora da faixa de tolerância
         if not (limite_inferior_g <= novo_total_g <= limite_superior_g):
@@ -352,10 +373,22 @@ class Pesagem(models.Model):
         self.liquido = liquido_g
         super().save(*args, **kwargs)
 
-        # Atualiza acumulado (g)
-        ItemOP.objects.filter(pk=item.pk).update(
-            quantidade_pesada=F("quantidade_pesada") + self.liquido
-        )
+        # Reverte acumulado no item antigo (quando alterado) e aplica no item atual.
+        if original and original.item_op_id and original.item_op_id != self.item_op_id:
+            ItemOP.objects.filter(pk=original.item_op_id).update(
+                quantidade_pesada=F("quantidade_pesada") - liquido_original
+            )
+
+        if original and original.item_op_id == self.item_op_id:
+            delta = self.liquido - liquido_original
+            if delta:
+                ItemOP.objects.filter(pk=item.pk).update(
+                    quantidade_pesada=F("quantidade_pesada") + delta
+                )
+        else:
+            ItemOP.objects.filter(pk=item.pk).update(
+                quantidade_pesada=F("quantidade_pesada") + self.liquido
+            )
 
         # Atualiza status da OP (continua igual: conclui quando pesada >= necessaria)
         self.op.refresh_from_db(fields=[])
@@ -365,3 +398,15 @@ class Pesagem(models.Model):
     def __str__(self):
         base = f"{self.item_op.materia_prima.nome} - OP {self.op.numero} (lote {self.op.lote})"
         return f"{base} | MP {self.lote_mp}" if self.lote_mp else base
+
+    @transaction.atomic
+    def delete(self, *args, **kwargs):
+        item_id = self.item_op_id
+        liquido = self.liquido or Decimal("0")
+
+        super().delete(*args, **kwargs)
+
+        if item_id and liquido:
+            ItemOP.objects.filter(pk=item_id).update(
+                quantidade_pesada=F("quantidade_pesada") - liquido
+            )
