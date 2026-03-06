@@ -1,5 +1,6 @@
 # models.py
 
+from datetime import timedelta
 from decimal import Decimal
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
@@ -110,6 +111,8 @@ class Balanca(models.Model):
     divisao = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     protocolo = models.CharField(max_length=50, blank=True, default='')
     ultima_calibracao = models.DateField(null=True, blank=True)
+    frequencia_calibracao_dias = models.PositiveIntegerField(default=365)
+    calibracao_realizada = models.BooleanField(default=False)
 
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -121,6 +124,14 @@ class Balanca(models.Model):
 
     def __str__(self):
         return f'{self.nome} ({self.identificador})'
+
+    def esta_em_calibracao(self):
+        if not self.calibracao_realizada or not self.ultima_calibracao:
+            return False
+
+        frequencia = max(1, int(self.frequencia_calibracao_dias or 365))
+        validade = self.ultima_calibracao + timedelta(days=frequencia)
+        return timezone.localdate() <= validade
 
 
 # =========================
@@ -311,6 +322,13 @@ class Pesagem(models.Model):
         liquido_kg_informado = self.liquido or 0  # aqui o front manda em kg
         if tara_kg < 0 or liquido_kg_informado <= 0:
             raise ValidationError("Informe tara (kg) ≥ 0 e líquido (kg) > 0.")
+
+        lote_mp = (self.lote_mp or "").strip()
+        if not lote_mp:
+            raise ValidationError("Informe o lote da matéria-prima (lote_mp).")
+
+        if self.balanca_id and not self.balanca.esta_em_calibracao():
+            raise ValidationError("A balança selecionada está fora da calibração.")
 
     @transaction.atomic
     def save(self, *args, **kwargs):

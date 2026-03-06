@@ -517,7 +517,7 @@ const NovaPesagem = () => {
 
               {/* OP — Select controlado (sempre string) */}
               <div className="space-y-2 min-w-0">
-                <RequiredLabel htmlFor="op">Ordem de Produção<RequiredAsterisk /></RequiredLabel>
+                <RequiredLabel htmlFor="op">Ordem de Produção</RequiredLabel>
                 <Select
                   value={String(formData.op || '')}
                   onValueChange={handleOPChange}
