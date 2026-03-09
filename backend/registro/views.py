@@ -669,6 +669,7 @@ def gerar_etiqueta_pdf(request, pk):
     escrever(f"Balança: {balanca_txt}")
     escrever(f"Pesador: {pesagem.pesador}")
     escrever(f"Data: {dt_local_fmt(pesagem.data_hora)}")
+    escrever(f"Emitido em: {dt_local_fmt(timezone.now())}")
 
     p.showPage()
     p.save()
