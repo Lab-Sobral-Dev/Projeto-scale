@@ -367,7 +367,7 @@ class Pesagem(models.Model):
         }
         item = items_travados[self.item_op_id]
         
-        # Obtém os limites inferior e superior
+        # Obtém os limites de tolerância
         limite_superior_g = item.quantidade_maxima_permitida
         limite_inferior_g = item.quantidade_minima_permitida
         
@@ -378,10 +378,11 @@ class Pesagem(models.Model):
 
         novo_total_g = total_base_g + liquido_g
 
-        # Verifica se o novo total está fora da faixa de tolerância
-        if not (limite_inferior_g <= novo_total_g <= limite_superior_g):
+        # Parciais abaixo do limite inferior são permitidas.
+        # O limite mínimo é exigido apenas para concluir a OP (verificar_e_concluir).
+        if novo_total_g > limite_superior_g:
             raise ValidationError(
-                f"Quantidade excede a faixa de tolerância de +/- 5% para {item.materia_prima}. "
+                f"Quantidade excede o limite superior de tolerância (+5%) para {item.materia_prima}. "
                 f"Faixa permitida: {limite_inferior_g:.3f} g a {limite_superior_g:.3f} g | "
                 f"Já pesado: {item.quantidade_pesada:.3f} g | "
                 f"Tentativa: +{liquido_g:.3f} g (total {novo_total_g:.3f} g)."
