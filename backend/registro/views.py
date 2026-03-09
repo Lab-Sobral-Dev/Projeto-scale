@@ -669,7 +669,10 @@ def gerar_etiqueta_pdf(request, pk):
     escrever(f"Balança: {balanca_txt}")
     escrever(f"Pesador: {pesagem.pesador}")
     escrever(f"Data: {dt_local_fmt(pesagem.data_hora)}")
-    escrever(f"Emitido em: {dt_local_fmt(timezone.now())}")
+    p.setFont(base_font, 7)
+    p.drawString(margem_esq, linha, f"Emitido em: {dt_local_fmt(timezone.now())}")
+    pular_linha()
+    p.setFont(base_font, base_size)
 
     p.showPage()
     p.save()
