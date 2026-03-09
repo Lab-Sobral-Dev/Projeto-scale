@@ -1,5 +1,15 @@
 import { Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
 import { useMe } from '@/hooks/useMe'
+import api from '@/services/api'
+
+function clearSession() {
+  localStorage.removeItem('access')
+  localStorage.removeItem('refresh')
+  localStorage.removeItem('user')
+  localStorage.removeItem('allowed_screens')
+  localStorage.removeItem('pwd_flags')
+}
 
 function isTokenExpired(token) {
   if (!token) return true
@@ -9,7 +19,8 @@ function isTokenExpired(token) {
     if (!exp) return false
     return exp * 1000 <= Date.now()
   } catch {
-    return false
+    // token inválido/malformado: tratar como expirado
+    return true
   }
 }
 
@@ -17,13 +28,40 @@ export default function RequireAuth({ children }) {
   const { isAuthenticated, loadingMe } = useMe()
   const location = useLocation()
   const access = localStorage.getItem('access')
+  const refresh = localStorage.getItem('refresh')
 
-  if (isTokenExpired(access)) {
-    localStorage.removeItem('access')
-    localStorage.removeItem('refresh')
-    localStorage.removeItem('user')
-    localStorage.removeItem('allowed_screens')
-    localStorage.removeItem('pwd_flags')
+  const accessExpired = useMemo(() => isTokenExpired(access), [access])
+  const [checkingRefresh, setCheckingRefresh] = useState(false)
+  const [refreshOk, setRefreshOk] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+
+    async function tryRefreshOnBoot() {
+      if (!accessExpired || !refresh) return
+      setCheckingRefresh(true)
+      const ok = await api.refreshToken()
+      if (!mounted) return
+
+      setRefreshOk(ok)
+      setCheckingRefresh(false)
+
+      if (!ok) {
+        clearSession()
+        sessionStorage.setItem('session_expired', '1')
+      }
+    }
+
+    tryRefreshOnBoot()
+    return () => {
+      mounted = false
+    }
+  }, [accessExpired, refresh])
+
+  if (checkingRefresh) return null
+
+  if (accessExpired && !refreshOk) {
+    clearSession()
     sessionStorage.setItem('session_expired', '1')
     return <Navigate to="/login" replace state={{ from: location }} />
   }

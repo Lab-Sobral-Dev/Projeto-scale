@@ -42,7 +42,7 @@ import BackupConsole from '@/components/BackupConsole'
 import './App.css'
 
 // IMPORTADO AGORA DO LOCAL CORRETO
-import { getUserRole, canViewReports } from '@/utils/authRoles'
+import { canViewReports } from '@/utils/authRoles'
 
 // Wrapper simples para relatórios
 function RequireReportViewer({ children }) {
@@ -55,12 +55,23 @@ function App() {
   const [bootChecked, setBootChecked] = useState(false)
 
   useEffect(() => {
-    const access = localStorage.getItem('access')
-    const userData = localStorage.getItem('user')
-    if (access && userData) {
-      setUser(JSON.parse(userData))
+    try {
+      const access = localStorage.getItem('access')
+      const userData = localStorage.getItem('user')
+      if (access && userData) {
+        setUser(JSON.parse(userData))
+      }
+    } catch {
+      // evita quebra da aplicação se o localStorage estiver corrompido
+      localStorage.removeItem('access')
+      localStorage.removeItem('refresh')
+      localStorage.removeItem('user')
+      localStorage.removeItem('allowed_screens')
+      localStorage.removeItem('pwd_flags')
+      setUser(null)
+    } finally {
+      setBootChecked(true)
     }
-    setBootChecked(true)
   }, [])
 
   const handleLogin = (userData, accessToken) => {
