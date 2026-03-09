@@ -40,6 +40,10 @@ ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 # CORS/CSRF (com protocolo) vindos do .env
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
+CORS_ALLOWED_ORIGIN_REGEXES = env_list(
+    "CORS_ALLOWED_ORIGIN_REGEXES",
+    r"^https://([a-z0-9-]+\.)?laboratoriosobral\.com\.br$",
+)
 
 # --- CORS (com credenciais) ---
 # Não usar wildcard quando for trocar cookies/credenciais
