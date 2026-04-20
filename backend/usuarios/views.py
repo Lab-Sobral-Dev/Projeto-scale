@@ -4,6 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 
+from registro.db_context import get_env
+
 from .serializers import (
     UserSerializer, UserCreateSerializer,
     PerfilUsuarioSerializer, PerfilUsuarioUpdateSerializer,
@@ -111,4 +113,5 @@ class MeView(APIView):
             "is_staff": u.is_staff,     # mantido só como info, não como regra de negócio
             "is_superuser": u.is_superuser,
             "allowed_screens": allowed,
+            "env": get_env(),   # "prod" ou "hml"
         })
