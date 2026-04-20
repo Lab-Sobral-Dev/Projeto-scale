@@ -33,8 +33,10 @@ def env_list(key, default=""):
 # =========================
 # Base
 # =========================
-SECRET_KEY = env("SECRET_KEY", "change-me-in-prod")
-DEBUG = env_bool("DEBUG", True)
+SECRET_KEY = env("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY não definida no .env. Configure antes de iniciar o servidor.")
+DEBUG = env_bool("DEBUG", False)
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 # CORS/CSRF (com protocolo) vindos do .env
@@ -75,6 +77,7 @@ INSTALLED_APPS = [
 
     # Terceiros
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",  # <- NECESSÁRIO para filtros no endpoint de auditoria
 
@@ -127,10 +130,9 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(env("ACCESS_TOKEN_MINUTES", "60"))),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(env("REFRESH_TOKEN_DAYS", "7"))),
 
-    # extras úteis (segue padrão seguro)
     "AUTH_HEADER_TYPES": ("Bearer",),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 ROOT_URLCONF = "conf.urls"
@@ -236,8 +238,6 @@ if AUDIT_ENABLED:
         },
     }
 
-
-import os
 
 # Broker/Backend (usando Redis)
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")

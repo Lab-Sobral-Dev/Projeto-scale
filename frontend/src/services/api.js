@@ -2,10 +2,10 @@
 // Serviço de API para Django DRF + SimpleJWT
 // Base paths: /api/registro/... e /api/usuarios/...
 
-const API_BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  process.env.REACT_APP_API_URL ||
-  "https://apiscale.laboratoriosobral.com.br/api";
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL;
+if (!API_BASE_URL) {
+  throw new Error("VITE_API_BASE_URL não definida. Configure no arquivo .env antes de iniciar.");
+}
 
 const REGISTRO_BASE = `${API_BASE_URL}/registro`;
 const USUARIOS_BASE = `${API_BASE_URL}/usuarios`;
@@ -264,8 +264,7 @@ class ApiService {
 
   // ===== Produtos (/api/registro/produtos/) =====
   async getProdutos(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/produtos/${qs ? `?${qs}` : ""}`);
+    return this.get("/registro/produtos/", { params });
   }
   async getProduto(id) {
     return this.request(`${this.baseRegistro}/produtos/${id}/`);
@@ -290,10 +289,7 @@ class ApiService {
 
   // ===== Matérias-Primas (/api/registro/materias-primas/) =====
   async getMateriasPrimas(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(
-      `${this.baseRegistro}/materias-primas/${qs ? `?${qs}` : ""}`
-    );
+    return this.get("/registro/materias-primas/", { params });
   }
   async getMateriaPrima(id) {
     return this.request(`${this.baseRegistro}/materias-primas/${id}/`);
@@ -318,8 +314,7 @@ class ApiService {
 
   // ===== Balanças (/api/registro/balancas/) =====
   async getBalancas(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/balancas/${qs ? `?${qs}` : ""}`);
+    return this.get("/registro/balancas/", { params });
   }
   async getBalanca(id) {
     return this.request(`${this.baseRegistro}/balancas/${id}/`);
@@ -344,10 +339,7 @@ class ApiService {
 
   // ===== Estruturas (BOM) (/api/registro/estruturas/) =====
   async getEstruturas(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(
-      `${this.baseRegistro}/estruturas/${qs ? `?${qs}` : ""}`
-    );
+    return this.get("/registro/estruturas/", { params });
   }
   async getEstrutura(id) {
     return this.request(`${this.baseRegistro}/estruturas/${id}/`);
@@ -375,8 +367,7 @@ class ApiService {
 
   // ===== OPs (/api/registro/ops/) =====
   async getOPs(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/ops/${qs ? `?${qs}` : ""}`);
+    return this.get("/registro/ops/", { params });
   }
   async getOP(id) {
     return this.request(`${this.baseRegistro}/ops/${id}/`);
@@ -422,8 +413,7 @@ class ApiService {
 
   // ===== Itens-OP (CRUD direto se precisar) (/api/registro/itens-op/) =====
   async getItensOP(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(`${this.baseRegistro}/itens-op/${qs ? `?${qs}` : ""}`);
+    return this.get("/registro/itens-op/", { params });
   }
   async getItemOP(id) {
     return this.request(`${this.baseRegistro}/itens-op/${id}/`);
@@ -437,10 +427,7 @@ class ApiService {
 
   // ===== Pesagens (/api/registro/pesagens/) =====
   async getPesagens(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(
-      `${this.baseRegistro}/pesagens/${qs ? `?${qs}` : ""}`
-    );
+    return this.get("/registro/pesagens/", { params });
   }
   async getPesagem(id) {
     return this.request(`${this.baseRegistro}/pesagens/${id}/`);
@@ -449,13 +436,6 @@ class ApiService {
     return this.request(`${this.baseRegistro}/pesagens/`, {
       method: "POST",
       body: JSON.stringify(pesagem),
-    });
-  }
-  async createPesagemOP(payload) {
-    // { op_id, item_op_id, bruto, tara, volume?, balanca_id?, codigo_interno? }
-    return this.request(`${this.baseRegistro}/pesagens/`, {
-      method: "POST",
-      body: JSON.stringify(payload),
     });
   }
   async updatePesagem(id, pesagem) {
@@ -472,10 +452,7 @@ class ApiService {
 
   // ===== Backups (/api/registro/backups/) =====
   async getBackups(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(
-      `${this.baseRegistro}/backups/${qs ? `?${qs}` : ""}`
-    );
+    return this.get("/registro/backups/", { params });
   }
 
   async executeBackup() {
@@ -512,9 +489,11 @@ class ApiService {
 
   // ===== Dashboard helper (opcional no front) =====
   async getDashboardStats() {
-    const pesagens = await this.getPesagens();
-    const produtos = await this.getProdutos();
-    const materias = await this.getMateriasPrimas();
+    const [pesagens, produtos, materias] = await Promise.all([
+      this.getPesagens(),
+      this.getProdutos(),
+      this.getMateriasPrimas(),
+    ]);
 
     const pesList = Array.isArray(pesagens)
       ? pesagens

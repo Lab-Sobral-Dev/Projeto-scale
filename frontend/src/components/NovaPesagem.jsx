@@ -402,7 +402,7 @@ const NovaPesagem = () => {
     setCreatedId(null)
 
     try {
-      const created = await api.createPesagemOP(pendingPayload)
+      const created = await api.createPesagem(pendingPayload)
       setCreatedId(created?.id)
       setSuccess('Pesagem registrada com sucesso! A OP será concluída quando todos os itens atingirem pelo menos o mínimo permitido.')
 

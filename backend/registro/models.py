@@ -410,7 +410,7 @@ class Pesagem(models.Model):
             )
 
         # Atualiza status da OP (continua igual: conclui quando pesada >= necessaria)
-        self.op.refresh_from_db(fields=[])
+        self.op.refresh_from_db(fields=["status"])
         if self.op.status in [StatusOP.ABERTA, StatusOP.EM_ANDAMENTO]:
             self.op.verificar_e_concluir()
 

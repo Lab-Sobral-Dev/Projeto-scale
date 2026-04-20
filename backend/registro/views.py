@@ -1,20 +1,24 @@
 # registro/views.py
-from rest_framework import viewsets, filters, status, permissions
-from rest_framework.decorators import action
-from rest_framework.response import Response
+import logging
+import os
 
-from django.db.models.deletion import ProtectedError
-from django.db.models import F
-from django.http import HttpResponse
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.conf import settings
+from django.db.models import F
+from django.db.models.deletion import ProtectedError
+from django.http import HttpResponse
 
 from reportlab.lib.pagesizes import A7
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 
-from decimal import Decimal, ROUND_HALF_UP
-import os
+from rest_framework import viewsets, filters, status, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+logger = logging.getLogger(__name__)
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -30,6 +34,7 @@ from .serializers import AuditLogSerializer
 
 from usuarios.permissions import IsSupervisorOrAdminOrReadOnly, IsAdmin, IsOperatorCreateOrSupervisorEdit
 from registro.permissions import IsAdminOrReadOnly  # mantido para compatibilidade/legado
+from registro.utils.audit import client_ip
 
 from .models import (
     Produto, MateriaPrima, Balanca,
@@ -111,7 +116,7 @@ class RequireDeleteReasonAuditMixin:
         try:
             AuditLog.objects.create(
                 user=request.user if request.user.is_authenticated else None,
-                ip=request.META.get("REMOTE_ADDR"),
+                ip=client_ip(request),
                 user_agent=request.META.get("HTTP_USER_AGENT", ""),
                 path=request.path,
                 method=request.method,
@@ -119,16 +124,15 @@ class RequireDeleteReasonAuditMixin:
                 action="delete",
                 model=self.MODEL_LABEL or self.queryset.model.__name__,
                 object_pk=str(getattr(instance, "pk", "")),
-                changes=snapshot,  # snapshot do registro antes de apagar
+                changes=snapshot,
                 extra={
                     "delete_reason": motivo,
                     "delete_reason_label": self.DELETE_MOTIVOS.get(motivo),
                     "delete_reason_note": motivo_obs,
                 },
             )
-        except Exception:
-            # Não bloqueia o fluxo por falha de auditoria
-            pass
+        except Exception as e:
+            logger.warning("Falha ao registrar auditoria (destroy mixin): %s", e, exc_info=True)
 
         return response
 
@@ -416,7 +420,7 @@ class PesagemViewSet(viewsets.ModelViewSet):
 
             AuditLog.objects.create(
                 user=request.user if request.user.is_authenticated else None,
-                ip=request.META.get("REMOTE_ADDR"),
+                ip=client_ip(request),
                 user_agent=request.META.get("HTTP_USER_AGENT", ""),
                 path=request.path,
                 method=request.method,
@@ -431,9 +435,8 @@ class PesagemViewSet(viewsets.ModelViewSet):
                     "edit_reason_note": motivo_obs,
                 },
             )
-        except Exception:
-            # falha de auditoria não deve quebrar a edição
-            pass
+        except Exception as e:
+            logger.warning("Falha ao registrar auditoria (pesagem update): %s", e, exc_info=True)
         return response
 
     def partial_update(self, request, *args, **kwargs):
@@ -465,7 +468,7 @@ class PesagemViewSet(viewsets.ModelViewSet):
         try:
             AuditLog.objects.create(
                 user=request.user if request.user.is_authenticated else None,
-                ip=request.META.get("REMOTE_ADDR"),
+                ip=client_ip(request),
                 user_agent=request.META.get("HTTP_USER_AGENT", ""),
                 path=request.path,
                 method=request.method,
@@ -480,8 +483,8 @@ class PesagemViewSet(viewsets.ModelViewSet):
                     "delete_reason_note": motivo_obs,
                 },
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Falha ao registrar auditoria (pesagem destroy): %s", e, exc_info=True)
         return response
 
 
@@ -489,13 +492,8 @@ class PesagemViewSet(viewsets.ModelViewSet):
 # Etiqueta PDF (g)
 # ======================
 
-from decimal import Decimal, ROUND_HALF_UP
-from django.http import HttpResponse
 from django.utils import timezone
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import inch
-from reportlab.lib.utils import ImageReader
-import os
+
 
 def gerar_etiqueta_pdf(request, pk):
     try:
