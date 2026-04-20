@@ -91,6 +91,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "registro.middleware_env.EnvSwitchMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",  # <- antes de CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
