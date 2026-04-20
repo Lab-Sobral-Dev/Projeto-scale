@@ -27,12 +27,22 @@ class ApiService {
   setTokens({ access, refresh }) {
     if (access) localStorage.setItem("access", access);
     if (refresh) localStorage.setItem("refresh", refresh);
+    // Extrai env da claim do JWT e persiste para o badge do Layout
+    if (access) {
+      try {
+        const payload = JSON.parse(atob(access.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload?.env) localStorage.setItem("app_env", payload.env);
+      } catch {
+        // JWT malformado — ignora
+      }
+    }
   }
   clearTokens() {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
     localStorage.removeItem("allowed_screens");
     localStorage.removeItem("pwd_flags");
+    localStorage.removeItem("app_env");
   }
 
   _flagSessionExpired() {
@@ -186,14 +196,15 @@ class ApiService {
   }
 
   // ===== Auth (/api/usuarios/auth/...) =====
-  async login({ username, password }) {
+  async login({ username, password, env = "prod" }) {
+    const envParam = ["prod", "hml"].includes(env) ? env : "prod";
     const data = await this.request(
-      `${this.baseUsuarios}/auth/login/`,
+      `${this.baseUsuarios}/auth/login/?env=${envParam}`,
       {
         method: "POST",
         body: JSON.stringify({ username, password }),
       },
-      { retry: false } // não tenta refresh no login
+      { retry: false }
     );
     if (data?.access) this.setTokens({ access: data.access, refresh: data.refresh });
     return data;

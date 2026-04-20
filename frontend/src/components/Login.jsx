@@ -26,6 +26,7 @@ const Login = ({ onLogin }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [logoError, setLogoError] = useState(false) // fallback da logo
+  const [env, setEnv] = useState('prod')
 
 
   useEffect(() => {
@@ -51,6 +52,7 @@ const Login = ({ onLogin }) => {
       const tokens = await api.login({
         username: formData.usuario.trim(),
         password: formData.senha,
+        env,
       })
 
       if (!tokens?.access) {
@@ -223,6 +225,38 @@ const Login = ({ onLogin }) => {
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
+                </div>
+              </div>
+
+              {/* Seletor de ambiente */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Ambiente</Label>
+                <div className="flex gap-3">
+                  {[
+                    { value: 'prod', label: 'Produção', color: 'blue' },
+                    { value: 'hml',  label: 'Homologação', color: 'orange' },
+                  ].map(({ value, label, color }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setEnv(value)}
+                      disabled={loading}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all
+                        ${env === value
+                          ? color === 'orange'
+                            ? 'bg-orange-50 border-orange-400 text-orange-700 shadow-sm'
+                            : 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                    >
+                      <span className={`inline-block h-2 w-2 rounded-full mr-2 ${
+                        env === value
+                          ? color === 'orange' ? 'bg-orange-500' : 'bg-blue-500'
+                          : 'bg-slate-300'
+                      }`} />
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
