@@ -8,6 +8,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models_security import LoginSecurity
 from registro.audit_models import AuditLog
 from registro.utils.audit import client_ip
+from registro.db_context import get_env
 
 User = get_user_model()
 LOCK_THRESHOLD = 5  # bloqueio após 5 falhas
@@ -33,6 +34,10 @@ class TokenWithFlagsSerializer(TokenObtainPairSerializer):
 
         token["username"] = user.username
         token["is_staff"] = user.is_staff
+
+        # Ambiente ativo no momento do login (lido do thread-local já setado pelo middleware)
+        token["env"] = get_env()
+
         return token
 
 class TokenWithFlagsView(TokenObtainPairView):
