@@ -208,9 +208,13 @@ class PesagemSerializer(serializers.ModelSerializer):
         ]
 
     def get_produto_nome(self, obj):
+        if not obj.op:
+            return None
         return getattr(obj.op.produto, "nome", None)
 
     def get_materia_prima_nome(self, obj):
+        if not obj.item_op:
+            return None
         return getattr(obj.item_op.materia_prima, "nome", None)
 
     def validate(self, attrs):

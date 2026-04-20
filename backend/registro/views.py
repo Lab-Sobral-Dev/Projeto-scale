@@ -1,7 +1,7 @@
 # registro/views.py
 import logging
 import os
-
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
@@ -395,6 +395,28 @@ class PesagemViewSet(viewsets.ModelViewSet):
             "delete": self.DELETE_MOTIVOS,
         })
 
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request):
+        """
+        Contagens de pesagens calculadas no banco — evita truncamento por paginação.
+        GET /api/registro/pesagens/stats/
+        """
+        from django.utils import timezone as tz
+        today = tz.localdate()
+        days_since_sunday = today.isoweekday() % 7
+        week_start = today - timedelta(days=days_since_sunday)
+
+        qs = Pesagem.objects.all()
+        ultimas = (
+            self.get_queryset()[:5]
+        )
+        from .serializers import PesagemSerializer as _PS
+        return Response({
+            "pesagens_hoje": qs.filter(data_hora__date=today).count(),
+            "pesagens_semana": qs.filter(data_hora__date__gte=week_start).count(),
+            "ultimas": _PS(ultimas, many=True).data,
+        })
+
     # ====== Edição (supervisor/admin, com motivo) ======
     def update(self, request, *args, **kwargs):
         motivo = (request.data.get("motivo_edicao") or "").strip()
@@ -440,7 +462,7 @@ class PesagemViewSet(viewsets.ModelViewSet):
         return response
 
     def partial_update(self, request, *args, **kwargs):
-        # usa a mesma lógica de update (motivo obrigatório)
+        kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
 
     # ====== Exclusão (somente admin, com motivo) ======

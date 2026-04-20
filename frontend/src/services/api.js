@@ -487,43 +487,20 @@ class ApiService {
     }
   }
 
-  // ===== Dashboard helper (opcional no front) =====
+  // ===== Dashboard helper =====
   async getDashboardStats() {
-    const [pesagens, produtos, materias] = await Promise.all([
-      this.getPesagens(),
+    const [stats, produtos, materias] = await Promise.all([
+      this.get("/registro/pesagens/stats/"),
       this.getProdutos(),
       this.getMateriasPrimas(),
     ]);
 
-    const pesList = Array.isArray(pesagens)
-      ? pesagens
-      : pesagens?.results ?? [];
-    const produtosCount = Array.isArray(produtos)
-      ? produtos.length
-      : produtos?.count ?? 0;
-    const materiasCount = Array.isArray(materias)
-      ? materias.length
-      : materias?.count ?? 0;
-
-    const now = new Date();
-    const todayKey = now.toISOString().slice(0, 10);
-    const startWeek = new Date(now);
-    startWeek.setDate(startWeek.getDate() - startWeek.getDay());
-    const startWeekKey = startWeek.toISOString().slice(0, 10);
-
-    const pesagensHoje = pesList.filter((p) =>
-      (p.data_hora || "").startsWith(todayKey)
-    ).length;
-    const pesagensSemana = pesList.filter(
-      (p) => (p.data_hora || "") >= startWeekKey
-    ).length;
-
     return {
-      pesagensHoje,
-      pesagensSemana,
-      produtosCadastrados: produtosCount,
-      materiasPrimas: materiasCount,
-      ultimasPesagens: pesList.slice(0, 5),
+      pesagensHoje: stats?.pesagens_hoje ?? 0,
+      pesagensSemana: stats?.pesagens_semana ?? 0,
+      produtosCadastrados: Array.isArray(produtos) ? produtos.length : (produtos?.count ?? 0),
+      materiasPrimas: Array.isArray(materias) ? materias.length : (materias?.count ?? 0),
+      ultimasPesagens: stats?.ultimas ?? [],
     };
   }
 }

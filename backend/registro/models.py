@@ -189,8 +189,10 @@ class OrdemProducao(models.Model):
         )
 
     def verificar_e_concluir(self):
+        # Considera item concluído quando pesado >= 95% (tolerância de -5%)
+        limite_inferior = Decimal("1") - TOLERANCIA_PERCENTUAL
         pendente = self.itemop_set.filter(
-            Q(quantidade_pesada__lt=F("quantidade_necessaria"))
+            quantidade_pesada__lt=F("quantidade_necessaria") * limite_inferior
         ).exists()
 
         novo_status = StatusOP.EM_ANDAMENTO if pendente else StatusOP.CONCLUIDA
