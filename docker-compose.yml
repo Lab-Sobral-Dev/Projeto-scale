@@ -98,8 +98,12 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME_HML: ${DB_NAME_HML:-scale_hml}
+      DB_USER_HML: ${DB_USER_HML:-scale_hml}
+      DB_PASSWORD_HML: ${DB_PASSWORD_HML:-scale_hml}
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
 
 volumes:
   db_data:
