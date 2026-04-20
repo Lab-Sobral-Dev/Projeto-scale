@@ -168,7 +168,16 @@ if DB_ENGINE == "postgres":
             "HOST": env("DB_HOST", "db"),
             "PORT": env("DB_PORT", "5432"),
             "CONN_MAX_AGE": int(env("DB_CONN_MAX_AGE", "60")),
-        }
+        },
+        "hml": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("DB_NAME_HML", ""),
+            "USER": env("DB_USER_HML", ""),
+            "PASSWORD": env("DB_PASSWORD_HML", ""),
+            "HOST": env("DB_HOST_HML", env("DB_HOST", "db")),
+            "PORT": env("DB_PORT_HML", env("DB_PORT", "5432")),
+            "CONN_MAX_AGE": int(env("DB_CONN_MAX_AGE", "60")),
+        },
     }
 else:
     DATABASES = {
@@ -177,6 +186,8 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
+DATABASE_ROUTERS = ["registro.db_router.EnvRouter"]
 
 # =========================
 # Política de Senhas
