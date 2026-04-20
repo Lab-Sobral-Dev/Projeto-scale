@@ -45,8 +45,14 @@ function mergeAllowed(...lists) {
   return Array.from(set)
 }
 
+// Lê o ambiente ativo — persiste durante toda a sessão
+function getActiveEnv() {
+  return localStorage.getItem("app_env") || "prod"
+}
+
 const Layout = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeEnv, setActiveEnv] = useState(getActiveEnv)
   const [logoError, setLogoError] = useState(false)
   const [me, setMe] = useState(null)
   const [loadingMe, setLoadingMe] = useState(false)
@@ -87,6 +93,10 @@ const Layout = ({ user, onLogout }) => {
       })()
 
     return () => { mounted = false }
+  }, [user])
+
+  useEffect(() => {
+    setActiveEnv(getActiveEnv())
   }, [user])
 
   // escolhe a melhor fonte do usuário efetivo
@@ -196,8 +206,12 @@ const Layout = ({ user, onLogout }) => {
                 className="h-10 w-auto drop-shadow-md"
                 onError={() => setLogoError(true)}
               />
-              <span className="text-[11px] font-semibold text-slate-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
-                v1.0 Homologação
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                activeEnv === 'hml'
+                  ? 'text-orange-700 bg-orange-50 border-orange-200'
+                  : 'text-blue-700 bg-blue-50 border-blue-200'
+              }`}>
+                {activeEnv === 'hml' ? 'Homologação' : 'Produção'}
               </span>
             </div>
             <Button
@@ -303,11 +317,17 @@ const Layout = ({ user, onLogout }) => {
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* “Homologação” centralizado, com pill */}
-          <div className="absolute inset-x-0 flex justify-center items-center pointer-events-none">
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 tracking-wide uppercase bg-orange-50/90 text-orange-700 px-3 py-1 rounded-full border border-orange-200 shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-              Homologação
+          {/* Badge de ambiente centralizado */}
+          <div className=”absolute inset-x-0 flex justify-center items-center pointer-events-none”>
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold tracking-wide uppercase px-3 py-1 rounded-full border shadow-sm ${
+              activeEnv === 'hml'
+                ? 'bg-orange-50/90 text-orange-700 border-orange-200'
+                : 'bg-blue-50/90 text-blue-700 border-blue-200'
+            }`}>
+              <span className={`h-2 w-2 rounded-full animate-pulse ${
+                activeEnv === 'hml' ? 'bg-orange-500' : 'bg-blue-500'
+              }`} />
+              {activeEnv === 'hml' ? 'Homologação' : 'Produção'}
             </span>
           </div>
 
