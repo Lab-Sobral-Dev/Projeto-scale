@@ -21,12 +21,12 @@ const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'https://apiscale.labora
  */
 const fixToHttps = (u) => {
   if (!u) return u
+  if (API_BASE.startsWith('http://')) return u // local dev: skip https coercion
   try {
-    const urlObj = new URL(u, API_BASE) // resolve relativo também
+    const urlObj = new URL(u, API_BASE)
     urlObj.protocol = 'https:'
     return urlObj.toString()
   } catch {
-    // fallback bruto
     return String(u).replace(/^http:\/\//i, 'https://')
   }
 }

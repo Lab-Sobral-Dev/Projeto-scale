@@ -6,6 +6,7 @@ from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.db.models import F, Sum, Q
 from django.utils import timezone
+from registro.db_context import get_db
 
 KG_TO_G = Decimal('1000')
 
@@ -161,25 +162,25 @@ class OrdemProducao(models.Model):
     def __str__(self):
         return f"OP {self.numero} - {self.produto} (lote {self.lote})"
 
-    @transaction.atomic
     def gerar_itens_a_partir_da_estrutura(self, forcar=False):
-        if self.itemop_set.exists() and not forcar:
-            raise ValidationError("Esta OP já possui itens. Use forcar=True para recriar.")
+        with transaction.atomic(using=get_db()):
+            if self.itemop_set.exists() and not forcar:
+                raise ValidationError("Esta OP já possui itens. Use forcar=True para recriar.")
 
-        self.itemop_set.all().delete()
+            self.itemop_set.all().delete()
 
-        itens = []
-        for item in self.estrutura.itens.select_related("materia_prima"):
-            itens.append(ItemOP(
-                op=self,
-                materia_prima=item.materia_prima,
-                quantidade_necessaria=item.quantidade_por_lote,  # já em g
-                unidade=UnidadeMedida.G
-            ))
-        ItemOP.objects.bulk_create(itens)
+            itens = []
+            for item in self.estrutura.itens.select_related("materia_prima"):
+                itens.append(ItemOP(
+                    op=self,
+                    materia_prima=item.materia_prima,
+                    quantidade_necessaria=item.quantidade_por_lote,
+                    unidade=UnidadeMedida.G
+                ))
+            ItemOP.objects.bulk_create(itens)
 
-        self.status = StatusOP.ABERTA if itens else StatusOP.CANCELADA
-        self.save(update_fields=["status"])
+            self.status = StatusOP.ABERTA if itens else StatusOP.CANCELADA
+            self.save(update_fields=["status"])
 
     def saldo_por_mp(self):
         return self.itemop_set.values("materia_prima__id", "materia_prima__nome").annotate(
@@ -332,8 +333,11 @@ class Pesagem(models.Model):
         if self.balanca_id and not self.balanca.esta_em_calibracao():
             raise ValidationError("A balança selecionada está fora da calibração.")
 
-    @transaction.atomic
     def save(self, *args, **kwargs):
+        with transaction.atomic(using=get_db()):
+            self._save_atomic(*args, **kwargs)
+
+    def _save_atomic(self, *args, **kwargs):
         # Normaliza o lote
         if self.lote_mp:
             self.lote_mp = self.lote_mp.strip()
@@ -420,14 +424,14 @@ class Pesagem(models.Model):
         base = f"{self.item_op.materia_prima.nome} - OP {self.op.numero} (lote {self.op.lote})"
         return f"{base} | MP {self.lote_mp}" if self.lote_mp else base
 
-    @transaction.atomic
     def delete(self, *args, **kwargs):
-        item_id = self.item_op_id
-        liquido = self.liquido or Decimal("0")
+        with transaction.atomic(using=get_db()):
+            item_id = self.item_op_id
+            liquido = self.liquido or Decimal("0")
 
-        super().delete(*args, **kwargs)
+            super().delete(*args, **kwargs)
 
-        if item_id and liquido:
-            ItemOP.objects.filter(pk=item_id).update(
-                quantidade_pesada=F("quantidade_pesada") - liquido
-            )
+            if item_id and liquido:
+                ItemOP.objects.filter(pk=item_id).update(
+                    quantidade_pesada=F("quantidade_pesada") - liquido
+                )
