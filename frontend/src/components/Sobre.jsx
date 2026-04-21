@@ -1,18 +1,7 @@
 // src/pages/Sobre.jsx
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Info, Scale, Printer, History, Package, Layers, ListChecks } from 'lucide-react'
-
-/**
- * Helpers de ambiente/versão
- */
-const getAmbiente = () => {
-    const env = import.meta.env?.VITE_APP_ENV
-    if (env) return env
-    const host = window.location.hostname.toLowerCase()
-    if (host.includes('hml') || host.includes('homolog')) return 'Homologação'
-    return 'Produção'
-}
 
 const getVersao = () => import.meta.env?.VITE_APP_VERSION || 'v1.0.0'
 
@@ -24,9 +13,19 @@ const getBuildDate = () => {
 }
 
 const Sobre = () => {
-    const ambiente = getAmbiente()
+    const [activeEnv, setActiveEnv] = useState(() => localStorage.getItem('app_env') || 'prod')
     const versao = getVersao()
     const buildDate = getBuildDate()
+
+    useEffect(() => {
+        const onStorage = (e) => {
+            if (e.key === 'app_env') setActiveEnv(e.newValue || 'prod')
+        }
+        window.addEventListener('storage', onStorage)
+        return () => window.removeEventListener('storage', onStorage)
+    }, [])
+
+    const ambienteLabel = activeEnv === 'hml' ? 'Homologação' : 'Produção'
 
     const pilares = useMemo(() => ([
         {
@@ -162,7 +161,16 @@ const Sobre = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                         <div>
                             <p className="text-xs text-gray-500">Ambiente</p>
-                            <p className="font-semibold text-gray-900">{ambiente}</p>
+                            <span className={`inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                activeEnv === 'hml'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-orange-50 text-orange-700 border-orange-200'
+                            }`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${
+                                    activeEnv === 'hml' ? 'bg-blue-500' : 'bg-orange-500'
+                                }`} />
+                                {ambienteLabel}
+                            </span>
                         </div>
                         <div>
                             <p className="text-xs text-gray-500">Versão</p>

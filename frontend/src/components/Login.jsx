@@ -233,8 +233,8 @@ const Login = ({ onLogin }) => {
                 <Label className="text-sm font-medium text-slate-700">Ambiente</Label>
                 <div className="flex gap-3">
                   {[
-                    { value: 'prod', label: 'Produção', color: 'blue' },
-                    { value: 'hml',  label: 'Homologação', color: 'orange' },
+                    { value: 'prod', label: 'Produção', color: 'orange' },
+                    { value: 'hml',  label: 'Homologação', color: 'blue' },
                   ].map(({ value, label, color }) => (
                     <button
                       key={value}

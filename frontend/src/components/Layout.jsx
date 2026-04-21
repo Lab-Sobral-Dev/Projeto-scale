@@ -183,10 +183,18 @@ const Layout = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 text-slate-900 relative">
-      {/* Glows de fundo (mesma linguagem do login/alterar senha) */}
+      {/* Glows de fundo — cor varia por ambiente */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -left-32 top-0 h-72 w-72 bg-gradient-to-tr from-orange-500/20 via-transparent to-orange-400/20 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-80 w-80 bg-gradient-to-tr from-indigo-500/15 via-transparent to-orange-400/15 blur-3xl" />
+        <div className={`absolute -left-32 top-0 h-72 w-72 blur-3xl bg-gradient-to-tr via-transparent ${
+          activeEnv === 'hml'
+            ? 'from-blue-500/20 to-blue-400/20'
+            : 'from-orange-500/20 to-orange-400/20'
+        }`} />
+        <div className={`absolute bottom-0 right-0 h-80 w-80 blur-3xl bg-gradient-to-tr via-transparent ${
+          activeEnv === 'hml'
+            ? 'from-blue-500/15 to-indigo-400/15'
+            : 'from-indigo-500/15 to-orange-400/15'
+        }`} />
       </div>
 
       {/* Mobile sidebar */}
@@ -197,8 +205,12 @@ const Layout = ({ user, onLogout }) => {
         />
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white/95 backdrop-blur-md border-r border-white/10 shadow-2xl rounded-r-2xl overflow-hidden">
           <div className="relative flex h-16 items-center justify-between px-4 border-b border-white/20 bg-white/80">
-            {/* Faixinha laranja no topo da sidebar mobile */}
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
+            {/* Faixa de ambiente no topo da sidebar mobile */}
+            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${
+              activeEnv === 'hml'
+                ? 'from-blue-500 via-blue-400 to-blue-500'
+                : 'from-orange-500 via-orange-400 to-orange-500'
+            }`} />
             <div className="flex items-center gap-2 mt-1">
               <img
                 src={logoError ? '/logo.png' : '/logo2.png'}
@@ -208,8 +220,8 @@ const Layout = ({ user, onLogout }) => {
               />
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
                 activeEnv === 'hml'
-                  ? 'text-orange-700 bg-orange-50 border-orange-200'
-                  : 'text-blue-700 bg-blue-50 border-blue-200'
+                  ? 'text-blue-700 bg-blue-50 border-blue-200'
+                  : 'text-orange-700 bg-orange-50 border-orange-200'
               }`}>
                 {activeEnv === 'hml' ? 'Homologação' : 'Produção'}
               </span>
@@ -258,8 +270,12 @@ const Layout = ({ user, onLogout }) => {
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white/90 backdrop-blur-sm border-r border-white/20 shadow-2xl overflow-hidden">
           <div className="relative flex h-16 items-center px-4 border-b border-white/20 bg-white/80">
-            {/* Faixa laranja fina no topo da sidebar desktop, igual linguagem do login */}
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
+            {/* Faixa de ambiente no topo da sidebar desktop */}
+            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${
+              activeEnv === 'hml'
+                ? 'from-blue-500 via-blue-400 to-blue-500'
+                : 'from-orange-500 via-orange-400 to-orange-500'
+            }`} />
             <div className="flex items-center gap-3 mt-1">
               <div className="p-2">
                 <img
@@ -305,8 +321,12 @@ const Layout = ({ user, onLogout }) => {
       <div className="lg:pl-64">
         {/* Top bar */}
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-white/30 bg-white/90 backdrop-blur-sm px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8 relative">
-          {/* mini faixinha no topo da topbar (continuidade visual) */}
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500" />
+          {/* Faixa de ambiente no topo da topbar */}
+          <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${
+            activeEnv === 'hml'
+              ? 'from-blue-500 via-blue-400 to-blue-500'
+              : 'from-orange-500 via-orange-400 to-orange-500'
+          }`} />
 
           <Button
             variant="ghost"
@@ -318,14 +338,14 @@ const Layout = ({ user, onLogout }) => {
           </Button>
 
           {/* Badge de ambiente centralizado */}
-          <div className=”absolute inset-x-0 flex justify-center items-center pointer-events-none”>
+          <div className="absolute inset-x-0 flex justify-center items-center pointer-events-none">
             <span className={`inline-flex items-center gap-1 text-xs font-semibold tracking-wide uppercase px-3 py-1 rounded-full border shadow-sm ${
               activeEnv === 'hml'
-                ? 'bg-orange-50/90 text-orange-700 border-orange-200'
-                : 'bg-blue-50/90 text-blue-700 border-blue-200'
+                ? 'bg-blue-50/90 text-blue-700 border-blue-200'
+                : 'bg-orange-50/90 text-orange-700 border-orange-200'
             }`}>
               <span className={`h-2 w-2 rounded-full animate-pulse ${
-                activeEnv === 'hml' ? 'bg-orange-500' : 'bg-blue-500'
+                activeEnv === 'hml' ? 'bg-blue-500' : 'bg-orange-500'
               }`} />
               {activeEnv === 'hml' ? 'Homologação' : 'Produção'}
             </span>
