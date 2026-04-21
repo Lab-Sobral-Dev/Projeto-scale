@@ -9,7 +9,7 @@ def preencher_calibracao_realizada(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('registro', '0014_backupconfig'),
+        ('registro', '0009_backupconfig'),
     ]
 
     operations = [

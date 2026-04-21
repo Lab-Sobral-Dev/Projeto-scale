@@ -1,0 +1,45 @@
+from django.db import migrations, models
+import datetime
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('registro', '0008_remove_pesagem_volume'),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='BackupConfig',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('enabled', models.BooleanField(default=False, verbose_name='Backup automático ativo')),
+                ('schedule_type', models.CharField(
+                    choices=[('daily', 'Diário em horário fixo'), ('interval', 'Intervalo em horas')],
+                    default='daily',
+                    max_length=20,
+                    verbose_name='Tipo de agendamento',
+                )),
+                ('time_of_day', models.TimeField(
+                    default=datetime.time(3, 0),
+                    help_text='Horário diário para execução do backup.',
+                    verbose_name='Horário (hora local)',
+                )),
+                ('interval_hours', models.PositiveIntegerField(
+                    default=24,
+                    help_text='Executa a cada X horas (usado no modo Intervalo).',
+                    verbose_name='Intervalo (horas)',
+                )),
+                ('retention_days', models.PositiveIntegerField(
+                    default=30,
+                    help_text='Quantos dias manter backups antes de deletar.',
+                    verbose_name='Retenção (dias)',
+                )),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+            ],
+            options={
+                'verbose_name': 'Configuração de Backup Automático',
+                'verbose_name_plural': 'Configuração de Backup Automático',
+            },
+        ),
+    ]

@@ -58,7 +58,11 @@ export default function RequireAuth({ children }) {
     }
   }, [accessExpired, refresh])
 
-  if (checkingRefresh) return null
+  if (checkingRefresh) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
+    </div>
+  )
 
   if (accessExpired && !refreshOk) {
     clearSession()
@@ -66,7 +70,11 @@ export default function RequireAuth({ children }) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 
-  if (loadingMe) return null
+  if (loadingMe) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
+    </div>
+  )
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }

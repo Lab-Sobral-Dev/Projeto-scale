@@ -88,7 +88,11 @@ function App() {
     setUser(null)
   }
 
-  if (!bootChecked) return null
+  if (!bootChecked) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
+    </div>
+  )
 
   return (
     <Router>

@@ -299,6 +299,8 @@ const Historico = () => {
     if (filtros.produto) filtered = filtered.filter(p => p.produto === filtros.produto)
     if (filtros.materiaPrima) filtered = filtered.filter(p => p.materiaPrima === filtros.materiaPrima)
     if (filtros.op) filtered = filtered.filter(p => (p.op || '').toLowerCase().includes(filtros.op.toLowerCase()))
+    if (filtros.lote) filtered = filtered.filter(p => (p.lote || '').toLowerCase().includes(filtros.lote.toLowerCase()))
+    if (filtros.loteMP) filtered = filtered.filter(p => (p.loteMP || '').toLowerCase().includes(filtros.loteMP.toLowerCase()))
     if (filtros.pesador) filtered = filtered.filter(p => (p.pesador || '').toLowerCase().includes(filtros.pesador.toLowerCase()))
     filtered = filtered.filter(p => inDateRange(p.dataHora))
     return filtered
