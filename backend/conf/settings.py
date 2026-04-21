@@ -285,3 +285,47 @@ BACKUP_ALERT_EMAILS = env_list("BACKUP_ALERT_EMAILS", "")
 ADMINS = [
     ("TI", env("ADMIN_EMAIL", "suporte@laboratoriosobral.com")),
 ]
+
+# =========================
+# Permissões de telas
+# =========================
+
+# Registro canônico de telas do sistema.
+# Cada entrada: (code, label) — code deve bater com requiredScreen no frontend.
+SCREENS_REGISTRY = [
+    ("dashboard",          "Home / Dashboard"),
+    ("nova_pesagem",       "Nova Pesagem"),
+    ("historico_pesagens", "Histórico de Pesagens"),
+    ("ops",                "Ordens de Produção"),
+    ("nova_op",            "Nova OP"),
+    ("cadastro_produto",   "Cadastro de Produtos"),
+    ("cadastro_mp",        "Cadastro de Matérias-Primas"),
+    ("estruturas",         "Estruturas de Produto"),
+    ("balancas",           "Balanças"),
+    ("relatorios",         "Relatórios"),
+    ("auditoria",          "Auditoria"),
+    ("usuarios",           "Gerenciamento de Usuários"),
+    ("backups",            "Backups"),
+]
+
+# Telas padrão por papel (admin sempre recebe todas via post_migrate)
+ROLE_DEFAULT_SCREENS = {
+    "supervisor": [
+        "dashboard",
+        "nova_pesagem",
+        "historico_pesagens",
+        "ops",
+        "nova_op",
+        "cadastro_produto",
+        "cadastro_mp",
+        "estruturas",
+        "balancas",
+        "relatorios",
+    ],
+    "operador": [
+        "dashboard",
+        "nova_pesagem",
+        "historico_pesagens",
+        "ops",
+    ],
+}

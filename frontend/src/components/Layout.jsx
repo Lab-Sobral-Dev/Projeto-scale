@@ -161,13 +161,7 @@ const Layout = ({ user, onLogout }) => {
     // Admin vê tudo
     if (isAdmin) return true
 
-    // --- FIX: Forçar visibilidade para Operador na 'Nova Pesagem' ---
-    // Isso garante que o botão apareça mesmo se o DB estiver desatualizado
-    if (item.requiredScreen === 'nova_pesagem' && effectiveUser?.tipo === 'operador') {
-      return true
-    }
-
-    // Demais: depende das permissões
+    // Demais: depende das permissões vindas do JWT/backend
     return allowed.has(String(item.requiredScreen).trim().toLowerCase())
   }
 

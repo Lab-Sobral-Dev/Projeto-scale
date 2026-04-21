@@ -8,10 +8,9 @@ from django.db.utils import ProgrammingError, OperationalError
 def ensure_defaults(sender, **kwargs):
     """
     Roda após migrate:
-    - Só executa se as tabelas necessárias existirem.
-    - Garante papel 'admin'
-    - Cria telas do SCREENS_REGISTRY (se houver)
-    - Atribui todas as telas ao papel admin
+    - Cria todas as telas do SCREENS_REGISTRY
+    - Garante roles admin/supervisor/operador com telas padrão do ROLE_DEFAULT_SCREENS
+    - Admin sempre recebe todas as telas
     """
     using = kwargs.get("using", "default")
     conn = connections[using]
@@ -19,13 +18,11 @@ def ensure_defaults(sender, **kwargs):
     try:
         existing_tables = set(conn.introspection.table_names())
     except Exception:
-        # em casos muito iniciais de setup, apenas saia
         return
 
     required = {
         "usuarios_role",
         "usuarios_screen",
-        # m2m (nomes podem variar conforme o schema, mantenha estes):
         "usuarios_role_screens",
         "usuarios_perfilusuario_roles",
         "usuarios_perfilusuario_extra_screens",
@@ -34,22 +31,34 @@ def ensure_defaults(sender, **kwargs):
     if not required.issubset(existing_tables):
         return
 
-    from .models import Role, Screen  # importa só depois da checagem
+    from .models import Role, Screen
 
     try:
         with transaction.atomic(using=using):
-            admin_role, _ = Role.objects.using(using).get_or_create(name="admin")
-
+            # 1. Cria/atualiza telas do registry
             registry = getattr(settings, "SCREENS_REGISTRY", None)
             if registry:
                 for code, label in registry:
                     Screen.objects.using(using).get_or_create(code=code, defaults={"label": label})
 
+            # 2. Admin recebe todas as telas
+            admin_role, _ = Role.objects.using(using).get_or_create(name="admin")
             all_screens = list(Screen.objects.using(using).all())
             if all_screens:
                 admin_role.screens.set(all_screens)
+
+            # 3. Supervisor e operador recebem telas padrão (sem sobrescrever extras já atribuídos)
+            role_defaults = getattr(settings, "ROLE_DEFAULT_SCREENS", {})
+            for role_name, screen_codes in role_defaults.items():
+                role, _ = Role.objects.using(using).get_or_create(name=role_name)
+                screens = list(Screen.objects.using(using).filter(code__in=screen_codes))
+                # Adiciona apenas as que ainda não estão no role (não remove customizações)
+                current_ids = set(role.screens.using(using).values_list("id", flat=True))
+                to_add = [s for s in screens if s.id not in current_ids]
+                if to_add:
+                    role.screens.add(*to_add)
+
     except (ProgrammingError, OperationalError):
-        # se ainda assim algo falhar por ordem de migrações, silencie e deixe para a próxima execução
         return
 
 
