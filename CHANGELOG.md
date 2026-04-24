@@ -19,7 +19,18 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 
 - **[C-4]** Exportação de auditoria antes do restore usava `order_by("-created_at")` e `log.created_at`, campo inexistente no modelo `AuditLog` (campo correto: `timestamp`). O erro era silenciado por `except Exception`, fazendo o sistema exibir "backup de segurança criado" sem salvar nada. (`backend/registro/services/backup_db.py:154,166`)
 - **[C-7]** `Pesagem._save_atomic()` agora chama `self.full_clean()` antes de persistir, invocando `Pesagem.clean()` que valida se a balança está dentro da calibração. Antes, a validação era ignorada pela API pois `model.save()` não chama `full_clean()` automaticamente. (`backend/registro/models.py`)
-- **[C-10]** `PesagemDetalhe.jsx` reimplementava localmente toda a classe `ApiService` apontando para URL fixa de produção (`https://apiscale.laboratoriosobral.com.br/api`), ignorando `VITE_API_BASE_URL`. Substituída pela importação do serviço central `@/services/api`, que já expõe `getPesagem()` e `gerarEtiquetaPDF()`. (`frontend/src/components/PesagemDetalhe.jsx`)
+- **[C-10]** `PesagemDetalhe.jsx` reimplementava localmente toda a classe `ApiService` apontando para URL fixa de produção, ignorando `VITE_API_BASE_URL`. Substituída pela importação do serviço central `@/services/api`. (`frontend/src/components/PesagemDetalhe.jsx`)
+- **[A-2]** `UserSecurityView` usava `IsAdminUser` (verifica `is_staff`) para operações de unlock/force-reset de senhas. Substituído por `IsAdmin` (verifica `perfil.papel == 'admin'`), alinhando com o modelo de permissões do projeto. (`backend/usuarios/views_security.py`)
+- **[A-3/A-4]** `IsBackupAdmin` (baseada em `is_staff`) removida. Todas as views de backup — `BackupExecuteView`, `BackupListView` e `BackupRestoreView` — agora usam `IsAdmin`. `BackupListView` antes permitia qualquer usuário autenticado ver caminhos físicos dos backups. (`backend/registro/api/backups.py`)
+- **[A-6]** `_before = {}` global nos signals de auditoria causava race condition: dois saves simultâneos da mesma instância em threads diferentes produziam diffs incorretos no `AuditLog`. Substituído por `threading.local()`. (`backend/registro/signals.py`)
+- **[A-11]** `Backups.jsx` (reports): `const { data } = await api.get(...)` → `const data = await api.get(...)`. A tela de relatório de backups nunca exibia dados. (`frontend/src/pages/reports/Backups.jsx`)
+- **[A-12]** `BackupCard.jsx` removido — componente não roteado em nenhum ponto da aplicação, duplicava lógica de `BackupConsole` com os mesmos bugs e referências a Axios. (`frontend/src/components/BackupCard.jsx`)
+- **[A-13]** `LogsAuditoria.jsx` e `PesagemEditar.jsx` usavam `fetch` direto com token manual, bypassando o interceptor de refresh JWT do `api.js`. Token expirado resultava em silêncio ou tela travada. Substituídos por `api.get()`. 
+- **[A-15]** `useApi.js`: sem cleanup no `useEffect`, `setState` era chamado em componentes já desmontados. Adicionada flag `cancelled` com função de cleanup `return () => { cancelled = true }`. (`frontend/src/hooks/useApi.js`)
+- **[A-16]** `docker-compose.yml`: removido bind mount `./backend:/app` de `backend`, `worker` e `beat`. Containers agora usam o código imutável da imagem, não o diretório local.
+- **[A-17]** `docker-compose.yml`: adicionado `healthcheck` com `pg_isready` no serviço `db` e `condition: service_healthy` no `depends_on` do `backend`, eliminando race condition no startup.
+- **[A-18]** Redis: adicionado `requirepass` via variável `REDIS_PASSWORD` e volume `redis_data:/data` para persistência. `CELERY_BROKER_URL` e `CELERY_RESULT_BACKEND` atualizados em todos os serviços. **Ação necessária:** definir `REDIS_PASSWORD` no `.env` de produção.
+- **[A-19]** `backend/Dockerfile`: criado usuário `appuser` (non-root) com `adduser --system`. Gunicorn, Celery worker e beat agora executam sem privilégios de root.
 
 ### Pending (requer ação manual ou infraestrutura)
 
@@ -31,4 +42,4 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 ## Referências
 
 - Análise completa que originou estas correções: `docs/2026-04-23-analise-completa-do-projeto.md`
-- Itens ainda pendentes (🟠 Altos, 🟡 Médios, 🟢 Baixos) estão documentados no relatório acima e serão incorporados em entradas futuras deste changelog.
+- Itens pendentes (🟡 Médios, 🟢 Baixos) documentados no relatório acima serão incorporados em entradas futuras.
