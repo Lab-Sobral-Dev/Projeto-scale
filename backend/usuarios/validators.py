@@ -17,4 +17,4 @@ class ComplexityValidator:
             raise ValidationError(_("A senha deve conter ao menos um símbolo."))
 
     def get_help_text(self):
-        return _("Mínimo 10 caracteres, com maiúscula, minúscula, dígito e símbolo.")
+        return _("Mínimo 8 caracteres, com maiúscula, minúscula, dígito e símbolo.")

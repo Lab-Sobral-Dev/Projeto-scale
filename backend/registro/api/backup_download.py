@@ -2,21 +2,16 @@
 from pathlib import Path
 from django.conf import settings
 from django.http import HttpResponse, FileResponse, Http404
-from rest_framework import permissions, views, status
+from rest_framework import views, status
 from rest_framework.response import Response
 from registro.backup import BackupRecord
+from registro.audit_models import AuditLog
+from registro.utils.audit import client_ip
+from usuarios.permissions import IsAdmin
 
-class CanDownloadBackup(permissions.BasePermission):
-    """
-    CORREÇÃO DE SEGURANÇA:
-    Alterado para permitir apenas usuários da equipe (Staff/Admin).
-    """
-    def has_permission(self, request, view):
-        # Apenas usuários logados E com permissão de staff podem baixar
-        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
 
 class BackupDownloadView(views.APIView):
-    permission_classes = [CanDownloadBackup]
+    permission_classes = [IsAdmin]
 
     def get(self, request, pk: int):
         try:
@@ -35,13 +30,25 @@ class BackupDownloadView(views.APIView):
 
         download_name = path.name
 
-        # Caso Nginx esteja na frente
         accel_prefix = getattr(settings, "BACKUP_ACCEL_PREFIX", None)
         backup_dir = Path(getattr(settings, "BACKUP_DIR"))
         try:
             relpath = path.relative_to(backup_dir)
         except ValueError:
             return Response({"detail": "Caminho inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        AuditLog.objects.create(
+            user=request.user,
+            ip=client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            path=request.path,
+            method="GET",
+            status_code=200,
+            action="download",
+            model="BackupRecord",
+            object_pk=str(rec.pk),
+            extra={"arquivo": download_name, "tamanho": rec.size_bytes},
+        )
 
         if accel_prefix and not settings.DEBUG:
             resp = HttpResponse(status=200)
@@ -50,7 +57,6 @@ class BackupDownloadView(views.APIView):
             resp["X-Accel-Redirect"] = f"{accel_prefix}/{relpath.as_posix()}"
             return resp
 
-        # Ambiente de desenvolvimento
         return FileResponse(open(path, "rb"),
                             as_attachment=True,
                             filename=download_name,

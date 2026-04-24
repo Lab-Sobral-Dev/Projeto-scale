@@ -164,6 +164,10 @@ class OrdemProducao(models.Model):
 
     def gerar_itens_a_partir_da_estrutura(self, forcar=False):
         with transaction.atomic(using=get_db()):
+            if self.status in (StatusOP.CONCLUIDA, StatusOP.CANCELADA):
+                raise ValidationError(
+                    f"Não é possível recriar itens de uma OP com status '{self.get_status_display()}'."
+                )
             if self.itemop_set.exists() and not forcar:
                 raise ValidationError("Esta OP já possui itens. Use forcar=True para recriar.")
 
@@ -264,8 +268,6 @@ class Pesagem(models.Model):
         ItemOP,
         on_delete=models.PROTECT,
         related_name="pesagens",
-        null=True,
-        blank=True
     )
     pesador = models.CharField(max_length=100)
     data_hora = models.DateTimeField(auto_now_add=True)
@@ -297,7 +299,7 @@ class Pesagem(models.Model):
         on_delete=models.SET_NULL,
         related_name='pesagens'
     )
-    codigo_interno = models.CharField(max_length=50, default='TEMP')
+    codigo_interno = models.CharField(max_length=50, default='', blank=True)
 
     # Lote da MP utilizada
     lote_mp = models.CharField(

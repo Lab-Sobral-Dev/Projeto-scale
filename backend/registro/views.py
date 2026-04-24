@@ -403,6 +403,20 @@ class PesagemViewSet(viewsets.ModelViewSet):
             detail = " ".join(msgs) if msgs else str(e)
             raise DRFValidationError({"detail": detail})
 
+    @action(detail=False, methods=["get"], url_path="pesadores")
+    def pesadores(self, request):
+        """
+        Retorna lista de pesadores distintos registrados nas pesagens.
+        GET /api/registro/pesagens/pesadores/
+        """
+        nomes = (
+            Pesagem.objects.exclude(pesador="")
+            .values_list("pesador", flat=True)
+            .distinct()
+            .order_by("pesador")
+        )
+        return Response(sorted(nomes))
+
     @action(detail=False, methods=["get"], url_path="motivos")
     def motivos(self, request):
         """
@@ -720,15 +734,6 @@ def gerar_etiqueta_pdf(request, pk):
 # ======================
 # Auditoria
 # ======================
-
-class IsAdminOnly(permissions.BasePermission):
-    """
-    Versão antiga baseada em is_staff.
-    Mantida por compatibilidade, mas o controle atual usa IsAdmin (PerfilUsuario.papel).
-    """
-    def has_permission(self, request, view):
-        return request.user and request.user.is_staff
-
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
