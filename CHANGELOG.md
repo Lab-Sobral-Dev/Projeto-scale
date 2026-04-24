@@ -75,10 +75,14 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 - **[B-6]** `useApi.js`: `refetch` era duplicata da lógica do `useEffect` sem flag `cancelled`. Substituído por `setTick(t => t + 1)` que re-dispara o `useEffect` existente, eliminando a duplicação. (`frontend/src/hooks/useApi.js`)
 - **[B-8]** `vite.config.js`: `console.*` e `debugger` removidos automaticamente do bundle de produção via `esbuild.drop`. Em desenvolvimento o comportamento é inalterado. (`frontend/vite.config.js`)
 
+- **[C-8]** Django: adicionado bloco de configurações HTTPS — `SECURE_PROXY_SSL_HEADER`, `SECURE_SSL_REDIRECT`, `SECURE_HSTS_*`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` e `X_FRAME_OPTIONS`. Ativados com `HTTPS_PROXY=true` no `.env` (para quando TLS é terminado em proxy externo). `SECURE_CONTENT_TYPE_NOSNIFF` e `X_FRAME_OPTIONS=DENY` ativos em qualquer `DEBUG=False`. (`backend/conf/settings.py`)
+- **[C-8]** Nginx: adicionados headers de segurança (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Strict-Transport-Security`) nos dois vhosts de produção. (`nginx/nginx.conf`)
+- **[C-1 parcial]** `.gitignore` corrigido: `.env` e `.env.*` agora ignorados (linhas estavam comentadas). `.env` removido do índice git (`git rm --cached`) — arquivo permanece no disco mas não será mais commitado. Criado `.env.example` com todos os campos e valores-placeholder. **Histórico ainda precisa de limpeza manual** (`git filter-repo` + force-push). (`.gitignore`, `.env.example`)
+
 ### Pending (requer ação manual ou infraestrutura)
 
-- **[C-1]** Credenciais reais (`DB_PASSWORD`, `EMAIL_HOST_PASSWORD`, `SECRET_KEY`) gravadas em commits históricos do `.env`. **Ação necessária:** revogar todas as credenciais, gerar nova `SECRET_KEY`, executar `git filter-repo --path .env --invert-paths` + force-push, adicionar `.env` ao `.gitignore`.
-- **[C-8]** Nginx configurado apenas com `listen 80` (HTTP puro). **Ação necessária:** configurar terminação TLS (Let's Encrypt ou certificado próprio) ou documentar explicitamente que a terminação ocorre em proxy externo (Cloudflare) e garantir `SECURE_PROXY_SSL_HEADER` no Django.
+- **[C-1]** Credenciais reais (`DB_PASSWORD`, `EMAIL_HOST_PASSWORD`, `SECRET_KEY`) ainda presentes em commits históricos. **Ação necessária:** revogar credenciais, gerar nova `SECRET_KEY`, executar `git filter-repo --path .env --invert-paths` + force-push.
+- **[C-8]** Certificado TLS não configurado no Nginx (escuta apenas na porta 80). Se o proxy externo (Cloudflare) já faz terminação TLS: definir `HTTPS_PROXY=true` no `.env` de produção para ativar as configurações acima.
 
 ---
 

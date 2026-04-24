@@ -19,8 +19,9 @@ pip-wheel-metadata/
 .venv/
 venv/
 env/
-#.env
-#.env.*        # manter um .env.example versionado
+.env
+.env.*
+!.env.example
 db.sqlite3
 media/
 staticfiles/   # seu STATIC_ROOT coletado (se usar collectstatic)

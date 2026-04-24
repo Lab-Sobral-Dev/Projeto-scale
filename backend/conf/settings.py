@@ -67,6 +67,25 @@ CORS_ALLOW_HEADERS = [
 # Cabeçalhos expostos ao browser (útil para downloads com filename)
 CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 
+# =========================
+# Segurança HTTPS
+# =========================
+# Definir HTTPS_PROXY=true no .env quando TLS é terminado num proxy externo
+# (Cloudflare, load balancer). Nunca ativar sem proxy confiável na frente.
+_https_proxy = env_bool("HTTPS_PROXY", False)
+if _https_proxy:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+if not DEBUG:
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SESSION_COOKIE_SECURE = _https_proxy
+    CSRF_COOKIE_SECURE = _https_proxy
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

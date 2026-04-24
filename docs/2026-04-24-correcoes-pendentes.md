@@ -121,8 +121,8 @@ Stack traces completos e dados internos (incluindo potencialmente tokens e paylo
 
 | ID | Severidade | Status | Tipo |
 |---|---|---|---|
-| C-1 | 🔴 Crítico | Pendente — ação manual | Segurança |
-| C-8 | 🔴 Crítico | Pendente — ação manual | Infra |
+| C-1 | 🔴 Crítico | ⚠️ Parcial — `.env` untrackado, histórico ainda exposto | Segurança |
+| C-8 | 🔴 Crítico | ✅ Django + Nginx implementados em `2026-04-24`; definir `HTTPS_PROXY=true` no `.env` | Infra |
 | A-1 | 🟠 Alto | Não iniciado | Segurança |
 | A-10 | 🟠 Alto | Não iniciado | DevOps |
 | M-5 | 🟡 Médio | ✅ Falso positivo — `0015` depende explicitamente de `0009` | Backend |
