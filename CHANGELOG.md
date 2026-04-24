@@ -32,6 +32,22 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 - **[A-18]** Redis: adicionado `requirepass` via variável `REDIS_PASSWORD` e volume `redis_data:/data` para persistência. `CELERY_BROKER_URL` e `CELERY_RESULT_BACKEND` atualizados em todos os serviços. **Ação necessária:** definir `REDIS_PASSWORD` no `.env` de produção.
 - **[A-19]** `backend/Dockerfile`: criado usuário `appuser` (non-root) com `adduser --system`. Gunicorn, Celery worker e beat agora executam sem privilégios de root.
 
+### Added
+
+- **[A-5]** Rate limiting DRF: `AnonRateThrottle` (200/dia) + `UserRateThrottle` (2000/dia) como defaults globais. Endpoint de login (`TokenWithFlagsView`) usa `ScopedRateThrottle` com escopo `login` (5 tentativas/min). (`backend/conf/settings.py`, `backend/usuarios/auth.py`)
+- **[A-14]** `Historico.jsx`: removida carga de 500+ pesagens para filtragem client-side. Agora usa filtros server-side via `PesagemFilter` (django-filters) com debounce de 400ms em campos de texto. Paginação controlada pelo backend (`count`/`results`). (`backend/registro/views.py`, `frontend/src/components/Historico.jsx`)
+- **[M-12]** `ErrorBoundary` adicionado em `main.jsx` envolvendo toda a aplicação React. Qualquer erro JS não capturado exibe tela de erro amigável com botão de reload, em vez de tela branca total. (`frontend/src/components/ErrorBoundary.jsx`, `frontend/src/main.jsx`)
+- **[M-21]** `LOGGING` agora ativo em todos os ambientes (WARNING para `django`, ERROR para `django.request`, WARNING para `django.security`). Quando `AUDIT_ENABLED=True`, adiciona handler de arquivo rotacionado e eleva `django.request` para INFO. (`backend/conf/settings.py`)
+
+### Fixed (continuação)
+
+- **[A-7]** `BackupExecuteView`: `run_full_backup()` (I/O de disco) não mais executa dentro de `transaction.atomic()`. Record criado com `status="running"` antes do I/O; atualizado com `update()` após conclusão. Elimina lock de transação durante operação longa. (`backend/registro/api/backups.py`)
+- **[A-8]** `AuditoriaAcoesReportView`, `AuditoriaErrosLoginReportView`, `AuditoriaLogsSistemaReportView`: filtros de metadados substituíram iteração Python sobre todos os registros por `values_list().distinct()`, eliminando risco de OOM em tabelas grandes. (`backend/reports/views/auditoria.py`)
+- **[A-9]** `auto_backup` (Celery task): adicionado `acks_late=True` (confirmação só após conclusão), `max_retries=3` e `default_retry_delay=300s`. Status inicial muda de `"success"` para `"running"`, evitando falso-positivo no registro. (`backend/registro/tasks.py`)
+- **[M-3]** `PesagemViewSet.update()`: `save()` e `AuditLog.create()` agora envolvidos em `transaction.atomic()`, garantindo que pesagem editada sem log de auditoria seja impossível. (`backend/registro/views.py`)
+- **[M-6]** `CELERY_ENABLE_UTC=True` + `CELERY_TIMEZONE="UTC"`: alinha Celery Beat com Django `USE_TZ=True`, eliminando inconsistência de timestamps nas tarefas agendadas. (`backend/conf/settings.py`)
+- **[M-7]** `force_reset`: senha temporária agora enviada por e-mail (para o e-mail do usuário ou do admin como fallback) em vez de retornada no corpo da resposta HTTP, prevenindo exposição em logs de acesso e proxies. (`backend/usuarios/views_security.py`)
+
 ### Pending (requer ação manual ou infraestrutura)
 
 - **[C-1]** Credenciais reais (`DB_PASSWORD`, `EMAIL_HOST_PASSWORD`, `SECRET_KEY`) gravadas em commits históricos do `.env`. **Ação necessária:** revogar todas as credenciais, gerar nova `SECRET_KEY`, executar `git filter-repo --path .env --invert-paths` + force-push, adicionar `.env` ao `.gitignore`.
