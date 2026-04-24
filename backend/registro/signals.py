@@ -68,7 +68,12 @@ def _log_change(instance, action, changes=None):
 # Conjunto de modelos rastreados
 # -------------------------
 _tracked = (Pesagem, Produto, MateriaPrima, OrdemProducao, ItemOP, Balanca)
-_before = {}
+_state = local()
+
+def _before():
+    if not hasattr(_state, "before"):
+        _state.before = {}
+    return _state.before
 
 # -------------------------
 # Sinais
@@ -81,7 +86,7 @@ def before_save(sender, instance, **kwargs):
         return
     try:
         old = sender.objects.get(pk=instance.pk)
-        _before[(sender, instance.pk)] = snapshot(old)
+        _before()[(sender, instance.pk)] = snapshot(old)
     except sender.DoesNotExist:
         pass
 
@@ -94,7 +99,7 @@ def after_save(sender, instance, created, **kwargs):
     if created:
         _log_change(instance, "create", snapshot(instance))
     else:
-        old = _before.pop((sender, instance.pk), {})
+        old = _before().pop((sender, instance.pk), {})
         new = snapshot(instance)
         changes = diff_dict(old, new)
         if changes:
