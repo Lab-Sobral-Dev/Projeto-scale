@@ -63,6 +63,7 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 - **[M-17]** Migration `0018`: cria `BackupConfig` com `enabled=True` via `get_or_create`. Após novo deploy, backup automático já fica ativo sem intervenção manual. (`backend/registro/migrations/0018_backupconfig_default_enabled.py`)
 - **[M-20]** Download de backup agora registra `AuditLog` com `action="download"`, `model="BackupRecord"` e metadados (nome do arquivo, tamanho). Antes, não havia rastro de quem baixou o dump completo do banco. (`backend/registro/api/backup_download.py`)
 
+- **[M-19]** `run_restore()`: adicionado `_cleanup_safety_backups()` chamado após restore bem-sucedido (PostgreSQL e SQLite). Mantém apenas os 5 últimos `safety_before_restore_*`; arquivos mais antigos são removidos automaticamente, evitando acúmulo ilimitado no disco. (`backend/registro/services/backup_db.py`)
 - **[M-9]** URL do Django Admin agora lida da variável de ambiente `DJANGO_ADMIN_URL` (default: `admin/`). Em produção, definir como string aleatória para dificultar enumeração. (`backend/conf/urls.py`)
 - **[M-10]** CORS no bloco `/protected/backups/` do Nginx: `$http_origin` (wildcard) substituído por origem fixa `https://scale.laboratoriosobral.com.br`. (`nginx/nginx.conf`)
 - **[C-6]** `AUDIT_ENABLED` agora tem default `"true"`. Antes, sem `AUDIT_ENABLED=true` no `.env`, todos os signals de auditoria (`pre_save`/`post_save`) retornavam imediatamente sem gravar nada, criando falsa sensação de trilha de auditoria ativa. (`backend/conf/settings.py`)

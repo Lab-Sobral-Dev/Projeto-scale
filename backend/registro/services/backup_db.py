@@ -181,6 +181,20 @@ def _export_audit_log_to_csv(backup_dir: Path):
         print(f"Aviso: Falha ao exportar CSV de auditoria: {e}")
         return None
 
+def _cleanup_safety_backups(backup_dir: Path, keep_last: int = 5) -> None:
+    safety_files = sorted(
+        backup_dir.glob("safety_before_restore_*"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for old in safety_files[keep_last:]:
+        try:
+            old.unlink()
+            _log_restore_event(f"Safety backup antigo removido: {old.name}")
+        except OSError as e:
+            _log_restore_event(f"Aviso: não foi possível remover {old.name}: {e}")
+
+
 def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
     """
     Restaura o banco com 3 camadas de segurança:
@@ -264,6 +278,7 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
                 raise RuntimeError(f"Erro no psql: {proc_restore.stderr.decode('utf-8')}")
 
             _log_restore_event(f"SUCESSO: Banco restaurado para versão {path.name}.")
+            _cleanup_safety_backups(backup_dir)
             return True
 
         except Exception as e:
@@ -277,6 +292,7 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
             with gzip.open(path, "rb") as f_in, open(db_path, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
             _log_restore_event("SUCESSO: SQLite restaurado.")
+            _cleanup_safety_backups(backup_dir)
             return True
         except Exception as e:
             shutil.copy(str(db_path) + ".safety_backup", db_path)
