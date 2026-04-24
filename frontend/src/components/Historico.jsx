@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -99,20 +99,41 @@ function buildEdgesFromEstruturas(estruturas) {
   return edges
 }
 
+const normalizePesagem = (p) => {
+  const brutoKg = toNum(p.bruto ?? p.bruto_kg)
+  const taraKg = toNum(p.tara ?? p.tara_kg)
+  const liquidoG = toNum(p.liquido ?? p.liquido_g ?? p.peso_liquido)
+  const brutoG = kgToG(brutoKg)
+  const taraG = kgToG(taraKg)
+  return {
+    id: p.id,
+    dataHora: p.data_hora ?? p.dataHora,
+    produto: toDisplay(p.op?.produto?.nome ?? p.produto?.nome ?? p.produto_nome ?? p.produto),
+    materiaPrima: toDisplay(p.item_op?.materia_prima?.nome ?? p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
+    op: toDisplay(p.op?.numero ?? p.op),
+    lote: toDisplay(p.op?.lote ?? p.lote),
+    loteMP: toDisplay(p.lote_mp ?? p.loteMP ?? ''),
+    pesador: toDisplay(p.pesador),
+    bruto_g: brutoG,
+    tara_g: taraG,
+    liquido_g: liquidoG != null ? liquidoG : (brutoG != null && taraG != null ? brutoG - taraG : null),
+    codigoInterno: toDisplay(p.codigo_interno ?? p.codigoInterno),
+  }
+}
+
 const Historico = () => {
   const navigate = useNavigate()
   const [pesagens, setPesagens] = useState([])
+  const [count, setCount] = useState(0)
   const [produtos, setProdutos] = useState([])
   const [materiasPrimas, setMateriasPrimas] = useState([])
   const [edgesBOM, setEdgesBOM] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Papel do usuário (para controlar UI de edição)
   const [userRole, setUserRole] = useState('operador')
   const canEdit = useMemo(() => ['supervisor', 'admin'].includes(userRole), [userRole])
 
-  // Filtros
   const [filtros, setFiltros] = useState({
     produto: '',
     materiaPrima: '',
@@ -121,15 +142,15 @@ const Historico = () => {
     loteMP: '',
     dataInicio: '',
     dataFim: '',
-    pesador: ''
+    pesador: '',
   })
+  const [appliedFiltros, setAppliedFiltros] = useState(filtros)
+  const debounceRef = useRef(null)
 
-  // Paginação
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
 
   useEffect(() => {
-    // Descobrir papel do usuário logado
     try {
       const raw = localStorage.getItem('user')
       if (raw) {
@@ -140,79 +161,90 @@ const Historico = () => {
     } catch { }
   }, [])
 
+  // Load dropdown options once (small, static lists)
   useEffect(() => {
     let mounted = true
-      ; (async () => {
-        setLoading(true)
-        setError('')
-        try {
-          const [pes, prods, mps, estruturas] = await Promise.all([
-            api.getPesagens({ page_size: 500 }),
-            api.getProdutos({ page_size: 500 }),
-            api.getMateriasPrimas({ page_size: 500 }),
-            tryFetchEstruturas()
-          ])
-          if (!mounted) return
-
-          const pesList = normalizeList(pes).map((p) => {
-            const brutoKg = toNum(p.bruto ?? p.bruto_kg)
-            const taraKg = toNum(p.tara ?? p.tara_kg)
-            const liquidoG = toNum(p.liquido ?? p.liquido_g ?? p.peso_liquido)
-
-            const brutoG = kgToG(brutoKg)
-            const taraG = kgToG(taraKg)
-            const liquidoFinalG = liquidoG != null
-              ? liquidoG
-              : (brutoG != null && taraG != null ? (brutoG - taraG) : null)
-
-            return {
-              id: p.id,
-              dataHora: p.data_hora ?? p.dataHora,
-              produto: toDisplay(p.op?.produto?.nome ?? p.produto?.nome ?? p.produto_nome ?? p.produto),
-              materiaPrima: toDisplay(p.item_op?.materia_prima?.nome ?? p.materia_prima?.nome ?? p.materia_prima_nome ?? p.materia_prima),
-              op: toDisplay(p.op?.numero ?? p.op),
-              lote: toDisplay(p.op?.lote ?? p.lote),
-              loteMP: toDisplay(p.lote_mp ?? p.loteMP ?? ''),
-              pesador: toDisplay(p.pesador),
-              bruto_g: brutoG,
-              tara_g: taraG,
-              liquido_g: liquidoFinalG,
-              codigoInterno: toDisplay(p.codigo_interno ?? p.codigoInterno)
-            }
-          })
-
-          setPesagens(pesList)
-          const prodsList = normalizeList(prods).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) }))
-          const mpsList = normalizeList(mps).map((x) => ({ id: x.id, nome: toDisplay(x.nome ?? x) }))
-          setProdutos(prodsList)
-          setMateriasPrimas(mpsList)
-
-          if (Array.isArray(estruturas) && estruturas.length) {
-            setEdgesBOM(buildEdgesFromEstruturas(estruturas))
-          } else {
-            setEdgesBOM([])
-          }
-        } catch (e) {
-          console.error(e)
-          setError('Não foi possível carregar os dados. Verifique sua conexão e o token.')
-        } finally {
-          setLoading(false)
+    ;(async () => {
+      try {
+        const [prods, mps, estruturas] = await Promise.all([
+          api.getProdutos({ page_size: 500 }),
+          api.getMateriasPrimas({ page_size: 500 }),
+          tryFetchEstruturas(),
+        ])
+        if (!mounted) return
+        setProdutos(normalizeList(prods).map(x => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
+        setMateriasPrimas(normalizeList(mps).map(x => ({ id: x.id, nome: toDisplay(x.nome ?? x) })))
+        if (Array.isArray(estruturas) && estruturas.length) {
+          setEdgesBOM(buildEdgesFromEstruturas(estruturas))
         }
-      })()
+      } catch (e) {
+        console.error(e)
+      }
+    })()
     return () => { mounted = false }
   }, [])
 
-  const handleFiltroChange = (name, value) => setFiltros(prev => ({ ...prev, [name]: value }))
+  // Debounce text filter changes; select/date apply immediately
+  const handleFiltroChange = (name, value) => {
+    setFiltros(prev => ({ ...prev, [name]: value }))
+    const textFields = ['op', 'lote', 'loteMP', 'pesador']
+    if (textFields.includes(name)) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        setAppliedFiltros(prev => ({ ...prev, [name]: value }))
+        setPage(1)
+      }, 400)
+    } else {
+      setAppliedFiltros(prev => ({ ...prev, [name]: value }))
+      setPage(1)
+    }
+  }
+
   const limparFiltros = () => {
-    setFiltros({ produto: '', materiaPrima: '', op: '', lote: '', loteMP: '', dataInicio: '', dataFim: '', pesador: '' })
+    clearTimeout(debounceRef.current)
+    const empty = { produto: '', materiaPrima: '', op: '', lote: '', loteMP: '', dataInicio: '', dataFim: '', pesador: '' }
+    setFiltros(empty)
+    setAppliedFiltros(empty)
     setPage(1)
   }
 
-  // 1) Mapas via ESTRUTURA (preferido)
-  const { prodToMPs_BOM, mpToProds_BOM } = useMemo(() => {
+  // Reload pesagens from server when applied filters or page change
+  useEffect(() => {
+    let mounted = true
+    const params = { page, page_size: pageSize }
+    if (appliedFiltros.produto)      params.produto       = appliedFiltros.produto
+    if (appliedFiltros.materiaPrima) params.materia_prima = appliedFiltros.materiaPrima
+    if (appliedFiltros.op)           params.op            = appliedFiltros.op
+    if (appliedFiltros.lote)         params.lote          = appliedFiltros.lote
+    if (appliedFiltros.loteMP)       params.lote_mp       = appliedFiltros.loteMP
+    if (appliedFiltros.dataInicio)   params.data_inicio   = appliedFiltros.dataInicio
+    if (appliedFiltros.dataFim)      params.data_fim      = appliedFiltros.dataFim
+    if (appliedFiltros.pesador)      params.pesador       = appliedFiltros.pesador
+
+    ;(async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const data = await api.getPesagens(params)
+        if (!mounted) return
+        const results = data?.results ?? (Array.isArray(data) ? data : [])
+        setPesagens(results.map(normalizePesagem))
+        setCount(data?.count ?? results.length)
+      } catch (e) {
+        if (!mounted) return
+        console.error(e)
+        setError('Não foi possível carregar os dados. Verifique sua conexão e o token.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+  }, [page, pageSize, appliedFiltros])
+
+  // BOM cross-filter maps (from estruturas, no longer from pesagens)
+  const { prodToMPs, mpToProds } = useMemo(() => {
     const p2m = new Map()
     const m2p = new Map()
-    if (!edgesBOM.length) return { prodToMPs_BOM: p2m, mpToProds_BOM: m2p }
     for (const { prodNome, mpNome } of edgesBOM) {
       if (prodNome) {
         if (!p2m.has(prodNome)) p2m.set(prodNome, new Set())
@@ -223,101 +255,46 @@ const Historico = () => {
         if (prodNome) m2p.get(mpNome).add(prodNome)
       }
     }
-    return { prodToMPs_BOM: p2m, mpToProds_BOM: m2p }
+    return { prodToMPs: p2m, mpToProds: m2p }
   }, [edgesBOM])
-
-  // 2) Fallback via PESAGENS
-  const { prodToMPs_PES, mpToProds_PES } = useMemo(() => {
-    const p2m = new Map()
-    const m2p = new Map()
-    if (!pesagens.length) return { prodToMPs_PES: p2m, mpToProds_PES: m2p }
-    for (const p of pesagens) {
-      const prod = p.produto || ''
-      const mp = p.materiaPrima || ''
-      if (prod) {
-        if (!p2m.has(prod)) p2m.set(prod, new Set())
-        if (mp) p2m.get(prod).add(mp)
-      }
-      if (mp) {
-        if (!m2p.has(mp)) m2p.set(mp, new Set())
-        if (prod) m2p.get(mp).add(prod)
-      }
-    }
-    return { prodToMPs_PES: p2m, mpToProds_PES: m2p }
-  }, [pesagens])
-
-  const prodToMPs = prodToMPs_BOM.size ? prodToMPs_BOM : prodToMPs_PES
-  const mpToProds = mpToProds_BOM.size ? mpToProds_BOM : mpToProds_PES
 
   const prodByName = useMemo(() => new Map(produtos.map(p => [p.nome, p])), [produtos])
   const mpByName = useMemo(() => new Map(materiasPrimas.map(mp => [mp.nome, mp])), [materiasPrimas])
 
   const produtoOptions = useMemo(() => {
-    if (!filtros.materiaPrima) return produtos.map(p => p.nome)
+    if (!filtros.materiaPrima || !mpToProds.size) return produtos.map(p => p.nome)
     const prodsSet = mpToProds.get(filtros.materiaPrima)
-    return prodsSet ? Array.from(prodsSet) : []
+    return prodsSet ? Array.from(prodsSet) : produtos.map(p => p.nome)
   }, [produtos, mpToProds, filtros.materiaPrima])
 
   const mpOptions = useMemo(() => {
-    if (!filtros.produto) return materiasPrimas.map(mp => mp.nome)
+    if (!filtros.produto || !prodToMPs.size) return materiasPrimas.map(mp => mp.nome)
     const mpsSet = prodToMPs.get(filtros.produto)
-    return mpsSet ? Array.from(mpsSet) : []
+    return mpsSet ? Array.from(mpsSet) : materiasPrimas.map(mp => mp.nome)
   }, [materiasPrimas, prodToMPs, filtros.produto])
 
   useEffect(() => {
     if (filtros.produto && !mpOptions.includes(filtros.materiaPrima)) {
-      setFiltros(prev => ({ ...prev, materiaPrima: '' }))
+      handleFiltroChange('materiaPrima', '')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtros.produto, mpOptions.join('|')])
 
   useEffect(() => {
     if (filtros.materiaPrima && !produtoOptions.includes(filtros.produto)) {
-      setFiltros(prev => ({ ...prev, produto: '' }))
+      handleFiltroChange('produto', '')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtros.materiaPrima, produtoOptions.join('|')])
 
-  const inDateRange = (isoString) => {
-    if (!isoString) return false
-    if (!filtros.dataInicio && !filtros.dataFim) return true
-    const d = new Date(isoString)
-    if (Number.isNaN(d.getTime())) return false
-    if (filtros.dataInicio) {
-      const start = new Date(`${filtros.dataInicio}T00:00:00`)
-      if (d < start) return false
-    }
-    if (filtros.dataFim) {
-      const end = new Date(`${filtros.dataFim}T23:59:59`)
-      if (d > end) return false
-    }
-    return true
-  }
-
-  const filteredPesagens = useMemo(() => {
-    let filtered = pesagens
-    if (filtros.produto) filtered = filtered.filter(p => p.produto === filtros.produto)
-    if (filtros.materiaPrima) filtered = filtered.filter(p => p.materiaPrima === filtros.materiaPrima)
-    if (filtros.op) filtered = filtered.filter(p => (p.op || '').toLowerCase().includes(filtros.op.toLowerCase()))
-    if (filtros.lote) filtered = filtered.filter(p => (p.lote || '').toLowerCase().includes(filtros.lote.toLowerCase()))
-    if (filtros.loteMP) filtered = filtered.filter(p => (p.loteMP || '').toLowerCase().includes(filtros.loteMP.toLowerCase()))
-    if (filtros.pesador) filtered = filtered.filter(p => (p.pesador || '').toLowerCase().includes(filtros.pesador.toLowerCase()))
-    filtered = filtered.filter(p => inDateRange(p.dataHora))
-    return filtered
-  }, [pesagens, filtros])
-
-  // resetar para página 1 quando filtros ou dados mudarem
-  useEffect(() => { setPage(1) }, [filtros, pesagens])
-
-  // resetar quando mudar o pageSize
   useEffect(() => { setPage(1) }, [pageSize])
 
-  const total = filteredPesagens.length
+  const total = count
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const clampedPage = Math.min(page, totalPages)
   const startIndex = (clampedPage - 1) * pageSize
   const endIndex = Math.min(startIndex + pageSize, total)
-  const pageItems = filteredPesagens.slice(startIndex, endIndex)
+  const pageItems = pesagens
 
   const goFirst = () => setPage(1)
   const goPrev = () => setPage(p => Math.max(1, p - 1))

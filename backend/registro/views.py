@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
+import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
@@ -310,6 +311,21 @@ class ItemOPViewSet(viewsets.ModelViewSet):
 # Pesagem
 # ======================
 
+class PesagemFilter(django_filters.FilterSet):
+    produto      = django_filters.CharFilter(field_name='op__produto__nome', lookup_expr='icontains')
+    materia_prima = django_filters.CharFilter(field_name='item_op__materia_prima__nome', lookup_expr='icontains')
+    op           = django_filters.CharFilter(field_name='op__numero', lookup_expr='icontains')
+    lote         = django_filters.CharFilter(field_name='op__lote', lookup_expr='icontains')
+    lote_mp      = django_filters.CharFilter(lookup_expr='icontains')
+    data_inicio  = django_filters.DateFilter(field_name='data_hora', lookup_expr='date__gte')
+    data_fim     = django_filters.DateFilter(field_name='data_hora', lookup_expr='date__lte')
+    pesador      = django_filters.CharFilter(lookup_expr='icontains')
+
+    class Meta:
+        model = Pesagem
+        fields = ['produto', 'materia_prima', 'op', 'lote', 'lote_mp', 'data_inicio', 'data_fim', 'pesador']
+
+
 class PesagemViewSet(viewsets.ModelViewSet):
     queryset = (
         Pesagem.objects
@@ -318,7 +334,8 @@ class PesagemViewSet(viewsets.ModelViewSet):
         .order_by('-data_hora')
     )
     serializer_class = PesagemSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = PesagemFilter
     search_fields = ['op__numero', 'item_op__materia_prima__nome', 'codigo_interno']
     ordering_fields = ['data_hora', 'op__numero']
 
