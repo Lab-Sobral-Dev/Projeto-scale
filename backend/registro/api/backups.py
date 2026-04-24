@@ -2,7 +2,6 @@
 from rest_framework import serializers, permissions, status, views
 from rest_framework.response import Response
 from django.utils.timezone import now
-from django.db import transaction
 from pathlib import Path
 
 from registro.backup import BackupRecord
@@ -44,32 +43,32 @@ class BackupExecuteView(views.APIView):
         ip = request.META.get("REMOTE_ADDR")
         ua = request.META.get("HTTP_USER_AGENT", "")
 
-        with transaction.atomic():
-            rec = BackupRecord.objects.create(
-                executed_by=user, ip=ip, user_agent=ua, engine="", output_file="",
-                size_bytes=0, sha256="", status="success",
-            )
-            try:
-                result = run_full_backup()
-                rec.engine = result["engine"]
-                rec.output_file = result["output_file"]
-                rec.size_bytes = result["size_bytes"]
-                rec.sha256 = result["sha256"]
-                rec.status = "success"
-                rec.save()
+        rec = BackupRecord.objects.create(
+            executed_by=user, ip=ip, user_agent=ua, engine="", output_file="",
+            size_bytes=0, sha256="", status="running",
+        )
 
-                AuditLog.objects.create(
-                    user=user, ip=ip, user_agent=ua, path=request.path,
-                    method="POST", status_code=200, action="create",
-                    model="BackupRecord", object_pk=str(rec.pk),
-                )
-                return Response(BackupRecordSerializer(rec).data, status=status.HTTP_201_CREATED)
+        try:
+            result = run_full_backup()
+        except Exception as e:
+            BackupRecord.objects.filter(pk=rec.pk).update(status="error", error_message=str(e))
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            except Exception as e:
-                rec.status = "error"
-                rec.error_message = str(e)
-                rec.save()
-                return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        BackupRecord.objects.filter(pk=rec.pk).update(
+            engine=result["engine"],
+            output_file=result["output_file"],
+            size_bytes=result["size_bytes"],
+            sha256=result["sha256"],
+            status="success",
+        )
+        rec.refresh_from_db()
+
+        AuditLog.objects.create(
+            user=user, ip=ip, user_agent=ua, path=request.path,
+            method="POST", status_code=200, action="create",
+            model="BackupRecord", object_pk=str(rec.pk),
+        )
+        return Response(BackupRecordSerializer(rec).data, status=status.HTTP_201_CREATED)
 
 
 class BackupListView(views.APIView):
