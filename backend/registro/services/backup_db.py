@@ -255,9 +255,11 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
                 raise RuntimeError(f"Falha ao limpar schema: {proc_reset.stderr.decode()}")
 
             # 4. RESTORE (Aplica o backup antigo)
-            restore_cmd = f"gzip -cd {shlex.quote(str(path))} | {shlex.quote(pg_client)} -h {host} -p {port} -U {user} -d {name}"
-            
-            proc_restore = subprocess.run(restore_cmd, shell=True, env=env, stderr=subprocess.PIPE)
+            with subprocess.Popen(["gzip", "-cd", str(path)], stdout=subprocess.PIPE) as gz_proc:
+                proc_restore = subprocess.run(
+                    [pg_client, "-h", host, "-p", port, "-U", user, "-d", name],
+                    stdin=gz_proc.stdout, env=env, stderr=subprocess.PIPE
+                )
             if proc_restore.returncode != 0:
                 raise RuntimeError(f"Erro no psql: {proc_restore.stderr.decode('utf-8')}")
 
