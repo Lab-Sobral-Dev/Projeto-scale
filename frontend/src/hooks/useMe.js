@@ -48,7 +48,17 @@ export function useMe() {
   }, [API])
 
   const isAdmin = !!me && (me.is_staff || me.papel === 'admin')
-  const isAuthenticated = !!localStorage.getItem('access')
+
+  const _token = localStorage.getItem('access')
+  let isAuthenticated = false
+  if (_token) {
+    try {
+      const exp = JSON.parse(atob(_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))?.exp
+      isAuthenticated = typeof exp === 'number' ? exp * 1000 > Date.now() : true
+    } catch {
+      isAuthenticated = false
+    }
+  }
 
   return { me, isAdmin, isAuthenticated, loadingMe, errorMe }
 }

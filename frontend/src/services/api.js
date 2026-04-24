@@ -440,6 +440,9 @@ class ApiService {
   async getPesagens(params = {}) {
     return this.get("/registro/pesagens/", { params });
   }
+  async getPesadores() {
+    return this.get("/registro/pesagens/pesadores/");
+  }
   async getPesagem(id) {
     return this.request(`${this.baseRegistro}/pesagens/${id}/`);
   }
@@ -471,6 +474,10 @@ class ApiService {
       method: "POST",
       body: JSON.stringify({}),
     });
+  }
+
+  async restoreBackup(id) {
+    return this.post(`/registro/backups/${id}/restore/`, {});
   }
 
   // ===== Etiqueta PDF (/api/registro/etiqueta/<id>/) =====

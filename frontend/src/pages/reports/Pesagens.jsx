@@ -4,31 +4,6 @@ import ReportShell from './components/ReportShell'
 import { REPORTS } from './config'
 import api from '@/services/api'
 
-/**
- * Carrega operadores a partir das pesagens (campo string `pesador`).
- * Estratégia: pagina as primeiras páginas até coletar uma amostra suficiente.
- */
-async function loadOperadoresFromPesagens(limitDistinct = 200, maxPages = 5, pageSize = 200) {
-  const distinct = new Set()
-  let page = 1
-  while (page <= maxPages) {
-    const qs = { page, page_size: pageSize, ordering: 'pesador' }
-    let data
-    try {
-      data = await api.getPesagens(qs)
-    } catch {
-      break
-    }
-    const results = Array.isArray(data) ? data : (data?.results ?? [])
-    results.forEach(r => {
-      const nome = (r?.pesador || '').trim()
-      if (nome) distinct.add(nome)
-    })
-    if (!data?.next || distinct.size >= limitDistinct) break
-    page += 1
-  }
-  return Array.from(distinct).sort()
-}
 
 export default function Pesagens() {
   const baseReport = REPORTS.pesagens
@@ -52,14 +27,14 @@ export default function Pesagens() {
           // balanças
           const b = await api.getBalancas({ ordering: 'nome', page_size: 1000 })
           const bList = Array.isArray(b) ? b : (b?.results ?? [])
-          // operadores (distinct de Pesagens)
-          const opList = await loadOperadoresFromPesagens()
+          const opRaw = await api.getPesadores().catch(() => [])
+          const opList = Array.isArray(opRaw) ? opRaw : []
 
           if (!alive) return
           setProdutos(pList.map(x => ({ value: String(x.id), label: x.nome })))
           setMps(mList.map(x => ({ value: String(x.id), label: `${x.nome} (${x.codigo_interno})` })))
           setBalancas(bList.map(x => ({ value: String(x.id), label: x.nome })))
-          setOperadores(opList.map(n => ({ value: n, label: n })))
+          setOperadores(opList.map(n => ({ value: String(n), label: String(n) })))
         } finally {
           if (alive) setLoadingOpts(false)
         }

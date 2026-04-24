@@ -176,7 +176,7 @@ export default function ReportShell({ report }) {
                     </td>
                   </tr>
                 ) : rows.map((row, idx) => (
-                  <tr key={idx} className="border-t align-top">
+                  <tr key={row?.id ?? idx} className="border-t align-top">
                     {report.columns.map(col => {
                       let val = row[col.key]
                       val = formatMaybeDate(val)

@@ -1,5 +1,6 @@
 // src/components/BackupConsole.jsx
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,10 +34,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import api from '@/services/api'
 
-const API_BASE_URL =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-    process.env.REACT_APP_API_URL ||
-    'https://apiscale.laboratoriosobral.com.br/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 function formatDate(val) {
     if (!val) return ''
@@ -78,10 +76,9 @@ export default function BackupConsole() {
         try {
             const data = await api.getBackups()
             setItems(Array.isArray(data) ? data : [])
-            console.debug('Backups recebidos:', data)
         } catch (e) {
             console.error('Erro ao carregar backups:', e)
-            alert('Erro ao carregar lista de backups.')
+            toast.error('Erro ao carregar lista de backups.')
         } finally {
             setLoading(false)
         }
@@ -93,18 +90,15 @@ export default function BackupConsole() {
 
     // --------- executar backup ---------
     const handleExecuteBackup = async () => {
-        if (!window.confirm('Deseja realmente executar um backup completo agora?')) {
-            return
-        }
         setExecLoading(true)
         try {
             await api.executeBackup()
-            alert('Backup iniciado/concluído com sucesso.')
+            toast.success('Backup iniciado/concluído com sucesso.')
             await load()
         } catch (e) {
             console.error('Erro ao executar backup:', e)
             const msg = e?.payload?.detail || e.message || 'Erro desconhecido'
-            alert('Falha ao executar backup: ' + msg)
+            toast.error('Falha ao executar backup: ' + msg)
         } finally {
             setExecLoading(false)
         }
@@ -112,38 +106,15 @@ export default function BackupConsole() {
 
     // --------- restaurar backup ---------
     const handleRestore = async (id) => {
-        const token = api.access
-        if (!token) {
-            alert('Sessão expirada. Faça login novamente.')
-            return
-        }
-
         setRestoring(true)
         try {
-            const url = `${API_BASE_URL}/registro/backups/${id}/restore/`
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            })
-
-            if (!res.ok) {
-                const text = await res.text()
-                let msg = `Erro HTTP ${res.status}`
-                try {
-                    const json = JSON.parse(text)
-                    if (json.detail) msg = json.detail
-                } catch { /* ignore json parse error */ }
-                throw new Error(msg)
-            }
-
-            alert('Sistema restaurado com sucesso! A página será recarregada para aplicar os dados antigos.')
+            await api.restoreBackup(id)
+            toast.success('Sistema restaurado com sucesso! A página será recarregada para aplicar os dados antigos.')
             window.location.reload()
         } catch (e) {
             console.error('Erro ao restaurar:', e)
-            alert('ERRO CRÍTICO AO RESTAURAR: ' + e.message)
+            const msg = e?.payload?.detail || e.message || 'Erro desconhecido'
+            toast.error('ERRO CRÍTICO AO RESTAURAR: ' + msg)
         } finally {
             setRestoring(false)
         }
@@ -152,13 +123,13 @@ export default function BackupConsole() {
     // --------- download com Authorization (sem redirecionar) ---------
     const handleDownload = async (id, status) => {
         if (status !== 'success') {
-            alert('Somente backups com status OK podem ser baixados.')
+            toast.warning('Somente backups com status OK podem ser baixados.')
             return
         }
 
         const token = api.access
         if (!token) {
-            alert('Sessão expirada. Faça login novamente.')
+            toast.error('Sessão expirada. Faça login novamente.')
             return
         }
 
@@ -198,7 +169,7 @@ export default function BackupConsole() {
             window.URL.revokeObjectURL(blobUrl)
         } catch (e) {
             console.error('Erro ao baixar backup:', e)
-            alert('Erro ao baixar backup.')
+            toast.error('Erro ao baixar backup.')
         }
     }
 
@@ -282,13 +253,29 @@ export default function BackupConsole() {
                             <RefreshCcw className="w-4 h-4 mr-2" />
                             {loading ? 'Carregando…' : 'Recarregar'}
                         </Button>
-                        <Button
-                            onClick={handleExecuteBackup}
-                            disabled={execLoading || loading}
-                        >
-                            <PlayCircle className="w-4 h-4 mr-2" />
-                            {execLoading ? 'Executando…' : 'Backup agora'}
-                        </Button>
+
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button disabled={execLoading || loading}>
+                                    <PlayCircle className="w-4 h-4 mr-2" />
+                                    {execLoading ? 'Executando…' : 'Backup agora'}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Executar backup completo</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Deseja realmente executar um backup completo agora? O processo pode levar alguns instantes.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleExecuteBackup}>
+                                        Confirmar
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                 </CardHeader>
 

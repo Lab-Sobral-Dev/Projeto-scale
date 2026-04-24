@@ -46,7 +46,7 @@ import { canViewReports } from '@/utils/authRoles'
 
 // Wrapper simples para relatórios
 function RequireReportViewer({ children }) {
-  // canViewReports já verifica se é admin ou supervisor
+  if (!localStorage.getItem('access')) return <Navigate to="/login" replace />
   return canViewReports() ? children : <Navigate to="/" replace />
 }
 
