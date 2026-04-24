@@ -5,6 +5,7 @@ from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import F
 from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
@@ -447,9 +448,9 @@ class PesagemViewSet(viewsets.ModelViewSet):
 
         instance = self.get_object()
         before = model_to_dict(instance)
-        response = super().update(request, *args, **kwargs)
 
-        try:
+        with transaction.atomic():
+            response = super().update(request, *args, **kwargs)
             instance.refresh_from_db()
             after = model_to_dict(instance)
             diff = {
@@ -457,7 +458,6 @@ class PesagemViewSet(viewsets.ModelViewSet):
                 for k in after.keys()
                 if before.get(k) != after.get(k)
             }
-
             AuditLog.objects.create(
                 user=request.user if request.user.is_authenticated else None,
                 ip=client_ip(request),
@@ -475,8 +475,6 @@ class PesagemViewSet(viewsets.ModelViewSet):
                     "edit_reason_note": motivo_obs,
                 },
             )
-        except Exception as e:
-            logger.warning("Falha ao registrar auditoria (pesagem update): %s", e, exc_info=True)
         return response
 
     def partial_update(self, request, *args, **kwargs):

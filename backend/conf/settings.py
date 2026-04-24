@@ -235,37 +235,49 @@ BACKUP_DIR = os.environ.get("BACKUP_DIR", "/var/backups/scale")
 # Prefixo interno do Nginx para entrega segura (não público)
 BACKUP_ACCEL_PREFIX = os.environ.get("BACKUP_ACCEL_PREFIX", "/protected/backups")
 
-# (Opcional) LOGGING para HML — rotação de arquivo
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
+
 if AUDIT_ENABLED:
-    LOGGING = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "handlers": {
-            "audit_file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": "/var/log/scale_hml/audit_app.log",
-                "maxBytes": 5_000_000,
-                "backupCount": 5,
-                "encoding": "utf-8",
-            },
-            "console": {"class": "logging.StreamHandler"},
-        },
-        "loggers": {
-            "django.request": {
-                "handlers": ["audit_file", "console"],
-                "level": "INFO",
-                "propagate": True,
-            },
-        },
+    LOGGING["handlers"]["audit_file"] = {
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": "/var/log/scale_hml/audit_app.log",
+        "maxBytes": 5_000_000,
+        "backupCount": 5,
+        "encoding": "utf-8",
     }
+    LOGGING["loggers"]["django.request"]["handlers"] = ["audit_file", "console"]
+    LOGGING["loggers"]["django.request"]["level"] = "INFO"
 
 
 # Broker/Backend (usando Redis)
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 
-CELERY_TIMEZONE = TIME_ZONE  # já deve existir
-CELERY_ENABLE_UTC = False
+CELERY_TIMEZONE = "UTC"
+CELERY_ENABLE_UTC = True
 
 # django-celery-beat usa o scheduler baseado em DB
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
