@@ -173,8 +173,24 @@ class AuditoriaAcoesReportView(APIView):
         qs = audit_base_filters(self._base_qs(), request)
 
         if (request.GET.get("meta") or "").lower() == "filters":
-            users = sorted({(x.user.username, _human_user(x.user)) for x in qs if x.user}, key=lambda y: y[1].lower())
-            modelos = sorted({(x.model or "") for x in qs if x.model})
+            user_rows = (
+                qs.filter(user__isnull=False)
+                .values_list("user__username", "user__first_name", "user__last_name")
+                .distinct()
+            )
+            users = sorted(
+                [
+                    (username, (f"{fn} {ln}".strip() or username))
+                    for username, fn, ln in user_rows
+                ],
+                key=lambda y: y[1].lower(),
+            )
+            modelos = sorted(
+                qs.filter(model__isnull=False)
+                .exclude(model="")
+                .values_list("model", flat=True)
+                .distinct()
+            )
             return Response({
                 "usuario": [{"value": u[0], "label": u[1]} for u in users],
                 "action": [
@@ -269,8 +285,20 @@ class AuditoriaAuthErrosReportView(APIView):
             qs = qs.filter(extra__username__icontains=username_input)
 
         if (request.GET.get("meta") or "").lower() == "filters":
-            users = sorted({(x.user.username, _human_user(x.user)) for x in qs if x.user}, key=lambda y: y[1].lower())
-            informados = sorted({self._username_input(x) for x in qs if self._username_input(x)})
+            user_rows = (
+                qs.filter(user__isnull=False)
+                .values_list("user__username", "user__first_name", "user__last_name")
+                .distinct()
+            )
+            users = sorted(
+                [(u, (f"{fn} {ln}".strip() or u)) for u, fn, ln in user_rows],
+                key=lambda y: y[1].lower(),
+            )
+            informados = sorted(
+                v
+                for v in qs.values_list("extra__username", flat=True).distinct()
+                if v
+            )
             return Response({
                 "usuario": [{"value": u[0], "label": u[1]} for u in users],
                 "usuario_informado": [{"value": u, "label": u} for u in informados],
@@ -334,10 +362,24 @@ class AuditoriaLogsSistemaReportView(APIView):
             qs = qs.filter(Q(status_code__gte=400) | Q(action="error"))
 
         if (request.GET.get("meta") or "").lower() == "filters":
-            users = sorted({(x.user.username, _human_user(x.user)) for x in qs if x.user}, key=lambda y: y[1].lower())
-            actions = sorted({x.action for x in qs if x.action})
-            methods = sorted({x.method for x in qs if x.method})
-            models = sorted({x.model for x in qs if x.model})
+            user_rows = (
+                qs.filter(user__isnull=False)
+                .values_list("user__username", "user__first_name", "user__last_name")
+                .distinct()
+            )
+            users = sorted(
+                [(u, (f"{fn} {ln}".strip() or u)) for u, fn, ln in user_rows],
+                key=lambda y: y[1].lower(),
+            )
+            actions = sorted(
+                v for v in qs.values_list("action", flat=True).distinct() if v
+            )
+            methods = sorted(
+                v for v in qs.values_list("method", flat=True).distinct() if v
+            )
+            models = sorted(
+                v for v in qs.values_list("model", flat=True).distinct() if v
+            )
             return Response({
                 "usuario": [{"value": u[0], "label": u[1]} for u in users],
                 "action": [{"value": a, "label": _human_action(a)} for a in actions],
