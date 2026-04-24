@@ -151,7 +151,7 @@ def _export_audit_log_to_csv(backup_dir: Path):
         csv_path = backup_dir / f"audit_log_snapshot_{timestamp}.csv"
         
         # Pega os últimos 5000 logs para garantir histórico recente
-        logs = AuditLog.objects.all().order_by("-created_at")[:5000]
+        logs = AuditLog.objects.all().order_by("-timestamp")[:5000]
         
         if not logs.exists():
             return None
@@ -163,7 +163,7 @@ def _export_audit_log_to_csv(backup_dir: Path):
             for log in logs:
                 u_name = log.user.username if log.user else "Sistema/Anon"
                 writer.writerow([
-                    log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                     u_name,
                     log.action,
                     log.model,
