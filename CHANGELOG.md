@@ -63,6 +63,8 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 - **[M-17]** Migration `0018`: cria `BackupConfig` com `enabled=True` via `get_or_create`. Após novo deploy, backup automático já fica ativo sem intervenção manual. (`backend/registro/migrations/0018_backupconfig_default_enabled.py`)
 - **[M-20]** Download de backup agora registra `AuditLog` com `action="download"`, `model="BackupRecord"` e metadados (nome do arquivo, tamanho). Antes, não havia rastro de quem baixou o dump completo do banco. (`backend/registro/api/backup_download.py`)
 
+- **[M-9]** URL do Django Admin agora lida da variável de ambiente `DJANGO_ADMIN_URL` (default: `admin/`). Em produção, definir como string aleatória para dificultar enumeração. (`backend/conf/urls.py`)
+- **[M-10]** CORS no bloco `/protected/backups/` do Nginx: `$http_origin` (wildcard) substituído por origem fixa `https://scale.laboratoriosobral.com.br`. (`nginx/nginx.conf`)
 - **[C-6]** `AUDIT_ENABLED` agora tem default `"true"`. Antes, sem `AUDIT_ENABLED=true` no `.env`, todos os signals de auditoria (`pre_save`/`post_save`) retornavam imediatamente sem gravar nada, criando falsa sensação de trilha de auditoria ativa. (`backend/conf/settings.py`)
 - **[B-7]** `NovaPesagem.jsx`: `currentDateTime` envolto em `useMemo(() => ..., [])` — captura o instante do mount e não recalcula em cada re-render. (`frontend/src/components/NovaPesagem.jsx`)
 
