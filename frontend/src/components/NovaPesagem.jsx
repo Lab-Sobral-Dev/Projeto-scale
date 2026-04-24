@@ -465,7 +465,7 @@ const NovaPesagem = () => {
     }
   }
 
-  const currentDateTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' })
+  const currentDateTime = useMemo(() => new Date().toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' }), [])
 
   // Label simplificada do item da OP (somente código interno + matéria-prima)
   const itemLabel = (it) => {

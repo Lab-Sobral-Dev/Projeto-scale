@@ -63,6 +63,9 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 - **[M-17]** Migration `0018`: cria `BackupConfig` com `enabled=True` via `get_or_create`. Após novo deploy, backup automático já fica ativo sem intervenção manual. (`backend/registro/migrations/0018_backupconfig_default_enabled.py`)
 - **[M-20]** Download de backup agora registra `AuditLog` com `action="download"`, `model="BackupRecord"` e metadados (nome do arquivo, tamanho). Antes, não havia rastro de quem baixou o dump completo do banco. (`backend/registro/api/backup_download.py`)
 
+- **[C-6]** `AUDIT_ENABLED` agora tem default `"true"`. Antes, sem `AUDIT_ENABLED=true` no `.env`, todos os signals de auditoria (`pre_save`/`post_save`) retornavam imediatamente sem gravar nada, criando falsa sensação de trilha de auditoria ativa. (`backend/conf/settings.py`)
+- **[B-7]** `NovaPesagem.jsx`: `currentDateTime` envolto em `useMemo(() => ..., [])` — captura o instante do mount e não recalcula em cada re-render. (`frontend/src/components/NovaPesagem.jsx`)
+
 ### Pending (requer ação manual ou infraestrutura)
 
 - **[C-1]** Credenciais reais (`DB_PASSWORD`, `EMAIL_HOST_PASSWORD`, `SECRET_KEY`) gravadas em commits históricos do `.env`. **Ação necessária:** revogar todas as credenciais, gerar nova `SECRET_KEY`, executar `git filter-repo --path .env --invert-paths` + force-push, adicionar `.env` ao `.gitignore`.

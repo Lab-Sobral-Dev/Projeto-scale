@@ -12,7 +12,7 @@ load_dotenv(dotenv_path=ENV_PATH)    # <- carregar .env primeiro
 
 # Agora, sim, ler as flags
 APP_ENV = os.getenv("APP_ENV", "prod")
-AUDIT_ENABLED = os.getenv("AUDIT_ENABLED", "false").strip().lower() == "true"
+AUDIT_ENABLED = os.getenv("AUDIT_ENABLED", "true").strip().lower() == "true"
 
 # =========================
 # Helpers de env
