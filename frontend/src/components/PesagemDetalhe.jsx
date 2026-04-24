@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import api from '@/services/api';
 
 // Ícones
 import { ArrowLeft, Edit3, Printer, Scale, Package2, Layers, Factory, QrCode, User, Clock, Weight, Ticket, Tag } from 'lucide-react';
@@ -27,60 +28,6 @@ const Alert = ({ children, variant = 'default', className }) => {
 };
 const AlertDescription = ({ children, className }) => <p className={`text-sm [&_p]:leading-relaxed ${className}`}>{children}</p>;
 const Separator = ({ className }) => <div className={`shrink-0 bg-border h-[1px] w-full ${className}`} />;
-
-// ================ API (resumo) ================
-const API_BASE_URL = 'https://apiscale.laboratoriosobral.com.br/api';
-const REGISTRO_BASE = `${API_BASE_URL}/registro`;
-const USUARIOS_BASE = `${API_BASE_URL}/usuarios`;
-
-class ApiService {
-    get access() { return localStorage.getItem("access"); }
-    get refresh() { return localStorage.getItem("refresh"); }
-    setTokens({ access, refresh }) { if (access) localStorage.setItem("access", access); if (refresh) localStorage.setItem("refresh", refresh); }
-    clearTokens() { localStorage.removeItem("access"); localStorage.removeItem("refresh"); }
-
-    async request(url, options = {}, { retry = true } = {}) {
-        const token = this.access;
-        const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) };
-        const res = await fetch(url, { ...options, headers });
-
-        if (res.status === 401 && retry && this.refresh) {
-            const refreshed = await this.tryRefresh();
-            if (refreshed) {
-                const res2 = await fetch(url, { ...options, headers: { ...headers, Authorization: `Bearer ${this.access}` } });
-                if (!res2.ok) throw await this._asError(res2);
-                return this._parseBody(res2);
-            }
-        }
-        if (!res.ok) throw await this._asError(res);
-        return this._parseBody(res);
-    }
-    async _asError(res) { let payload = {}; try { payload = await res.json(); } catch { } const err = new Error(payload?.detail || `HTTP ${res.status}`); err.status = res.status; err.payload = payload; err.response = { status: res.status, data: payload }; return err; }
-    async _parseBody(res) { try { return await res.json(); } catch { return null; } }
-
-    async tryRefresh() {
-        try {
-            const res = await fetch(`${USUARIOS_BASE}/auth/refresh/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh: this.refresh }) });
-            if (!res.ok) return false;
-            const data = await res.json();
-            if (data?.access) { this.setTokens({ access: data.access }); return true; }
-            return false;
-        } catch { return false; }
-    }
-
-    async getPesagem(id) { return this.request(`${REGISTRO_BASE}/pesagens/${id}/`); }
-    async gerarEtiquetaPDF(id) {
-        const url = `${REGISTRO_BASE}/etiqueta/${id}/`;
-        const call = async (authToken) => {
-            const res = await fetch(url, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.blob();
-        };
-        try { return await call(this.access); }
-        catch (e) { if (e?.message?.includes("401") && this.refresh && await this.tryRefresh()) return await call(this.access); throw e; }
-    }
-}
-const api = new ApiService();
 
 // ============ Helpers/formatters ============
 const nf3 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
