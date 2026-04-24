@@ -22,14 +22,15 @@ def _clean_old_backups():
         from registro.backup_config import BackupConfig  # Import tardio para evitar ciclo
         config = BackupConfig.objects.first()
         
-        if not config or not config.retention_days:
+        retention_days = config.retention_days if (config and config.retention_days) else 30
+        if not retention_days:
             return
 
         backup_dir = Path(getattr(settings, "BACKUP_DIR", "/var/backups/scale"))
         if not backup_dir.exists():
             return
 
-        days_in_seconds = config.retention_days * 86400
+        days_in_seconds = retention_days * 86400
         now_time = time.time()
         count_deleted = 0
         

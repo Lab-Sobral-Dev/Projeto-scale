@@ -35,6 +35,7 @@ class TokenWithFlagsSerializer(TokenObtainPairSerializer):
 
         token["username"] = user.username
         token["is_staff"] = user.is_staff
+        token["papel"] = perfil.papel if (perfil and hasattr(perfil, "papel")) else "operador"
 
         # Ambiente ativo no momento do login (lido do thread-local já setado pelo middleware)
         token["env"] = get_env()

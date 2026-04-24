@@ -1,5 +1,7 @@
 # === Backend (Django + Gunicorn) ===
-FROM python:3.12-slim
+# Versão pinada para evitar atualizações silenciosas da tag flutuante.
+# Para fixar com SHA256: docker inspect python:3.12.7-slim --format='{{index .RepoDigests 0}}'
+FROM python:3.12.7-slim
 
 # Variáveis de ambiente para otimização do Python e configuração de caminhos
 ENV PYTHONUNBUFFERED=1 \

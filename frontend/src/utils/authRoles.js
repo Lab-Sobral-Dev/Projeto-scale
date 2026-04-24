@@ -1,7 +1,18 @@
 // src/utils/authRoles.js
 
-// Lê o objeto "user" salvo no localStorage e tenta inferir o papel
-export function getUserFromStorage() {
+function _decodeJwtPayload(token) {
+    try {
+        const payload = JSON.parse(
+            atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+        )
+        if (payload.exp && payload.exp * 1000 < Date.now()) return null
+        return payload
+    } catch {
+        return null
+    }
+}
+
+function _getUserFromStorage() {
     try {
         const raw = localStorage.getItem('user')
         if (!raw) return null
@@ -12,41 +23,38 @@ export function getUserFromStorage() {
 }
 
 export function getUserRole() {
-    const data = getUserFromStorage()
+    // Preferencial: papel embutido no JWT — não mutável via DevTools
+    const access = localStorage.getItem('access')
+    if (access) {
+        const payload = _decodeJwtPayload(access)
+        if (payload?.papel) return payload.papel
+    }
+
+    // Fallback para tokens emitidos antes desta correção (sem a claim 'papel')
+    const data = _getUserFromStorage()
     if (!data) return null
-
-    // Preferimos o campo "tipo" vindo do /auth/me
     if (data.tipo) return data.tipo
-
-    // Fallbacks para formatos anteriores
     if (data.perfil?.papel) return data.perfil.papel
     if (data.papel) return data.papel
-
-    // Se não tiver nada, tentamos inferir:
     if (data.is_superuser || data.is_staff) return 'admin'
-
     return null
 }
 
 export function isAdmin() {
-    const role = getUserRole()
-    return role === 'admin'
+    return getUserRole() === 'admin'
 }
 
 export function isSupervisor() {
-    const role = getUserRole()
-    return role === 'supervisor'
+    return getUserRole() === 'supervisor'
 }
 
-// --- NOVO: Função específica para CRIAÇÃO de pesagem ---
-// Permite Operador, Supervisor e Admin
+// Operador, Supervisor e Admin podem criar pesagem
 export function canCreatePesagem() {
     const role = getUserRole()
     return role === 'admin' || role === 'supervisor' || role === 'operador'
 }
 
-// --- EXISTENTE: Edição continua restrita ---
-// Supervisor OU Admin podem editar pesagem
+// Apenas Supervisor e Admin podem editar pesagem
 export function canEditPesagem() {
     const role = getUserRole()
     return role === 'admin' || role === 'supervisor'

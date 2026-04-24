@@ -6,6 +6,7 @@ export const useApi = (apiCall, dependencies = []) => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [_tick, setTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -24,20 +25,10 @@ export const useApi = (apiCall, dependencies = []) => {
     })()
 
     return () => { cancelled = true }
-  }, dependencies)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...dependencies, _tick])
 
-  const refetch = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const result = await apiCall()
-      setData(result)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const refetch = () => setTick(t => t + 1)
 
   return { data, loading, error, refetch }
 }

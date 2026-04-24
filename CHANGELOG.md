@@ -69,6 +69,12 @@ Versionamento: [Semantic Versioning](https://semver.org/lang/pt-BR/)
 - **[C-6]** `AUDIT_ENABLED` agora tem default `"true"`. Antes, sem `AUDIT_ENABLED=true` no `.env`, todos os signals de auditoria (`pre_save`/`post_save`) retornavam imediatamente sem gravar nada, criando falsa sensação de trilha de auditoria ativa. (`backend/conf/settings.py`)
 - **[B-7]** `NovaPesagem.jsx`: `currentDateTime` envolto em `useMemo(() => ..., [])` — captura o instante do mount e não recalcula em cada re-render. (`frontend/src/components/NovaPesagem.jsx`)
 
+- **[M-16]** `authRoles.js`: papel do usuário agora lido do payload JWT (campo `papel`, adicionado ao token em `TokenWithFlagsSerializer.get_token`), que não pode ser editado via DevTools. Mantido fallback para tokens emitidos antes desta correção. (`backend/usuarios/auth.py`, `frontend/src/utils/authRoles.js`)
+- **[M-18]** `_clean_old_backups()`: quando `BackupConfig` não existe no banco, usa retenção padrão de 30 dias em vez de retornar sem fazer nada, evitando acúmulo ilimitado de backups. (`backend/registro/tasks.py`)
+- **[B-1]** `Dockerfile`: imagem base fixada em `python:3.12.7-slim` em vez de `python:3.12-slim` (tag flutuante), com comentário sobre como obter digest SHA para pinagem completa. (`backend/Dockerfile`)
+- **[B-6]** `useApi.js`: `refetch` era duplicata da lógica do `useEffect` sem flag `cancelled`. Substituído por `setTick(t => t + 1)` que re-dispara o `useEffect` existente, eliminando a duplicação. (`frontend/src/hooks/useApi.js`)
+- **[B-8]** `vite.config.js`: `console.*` e `debugger` removidos automaticamente do bundle de produção via `esbuild.drop`. Em desenvolvimento o comportamento é inalterado. (`frontend/vite.config.js`)
+
 ### Pending (requer ação manual ou infraestrutura)
 
 - **[C-1]** Credenciais reais (`DB_PASSWORD`, `EMAIL_HOST_PASSWORD`, `SECRET_KEY`) gravadas em commits históricos do `.env`. **Ação necessária:** revogar todas as credenciais, gerar nova `SECRET_KEY`, executar `git filter-repo --path .env --invert-paths` + force-push, adicionar `.env` ao `.gitignore`.

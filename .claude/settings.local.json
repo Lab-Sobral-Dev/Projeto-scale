@@ -17,7 +17,8 @@
       "Bash(git commit -m 'fix\\(frontend\\): corrigir race condition em useApi.js com flag cancelled *)",
       "Bash(git commit -m 'fix\\(devops\\): corrigir bind mount, healthcheck, Redis auth e usuário não-root *)",
       "Bash(git commit *)",
-      "Bash(python manage.py makemigrations registro --name=\"fix_pesagem_item_op_and_codigo_interno\")"
+      "Bash(python manage.py makemigrations registro --name=\"fix_pesagem_item_op_and_codigo_interno\")",
+      "Skill(commit-commands:commit)"
     ]
   }
 }
