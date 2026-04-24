@@ -46,7 +46,7 @@ export default function Backups() {
     const load = async () => {
         setLoading(true)
         try {
-            const { data } = await api.get('/registro/backups/')
+            const data = await api.get('/registro/backups/')
             setItems(Array.isArray(data) ? data : [])
         } catch (e) {
             console.error(e)
