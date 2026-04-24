@@ -1,16 +1,16 @@
 from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
 from rest_framework.viewsets import ViewSet
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 
 from .models_security import LoginSecurity
+from .permissions import IsAdmin
 
 User = get_user_model()
 
 class UserSecurityView(ViewSet):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def retrieve(self, request, pk=None):
         user = User.objects.get(pk=pk)

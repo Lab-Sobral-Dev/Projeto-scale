@@ -6,10 +6,9 @@ from django.db import transaction
 from pathlib import Path
 
 from registro.backup import BackupRecord
-from registro.services.backup_db import run_full_backup, run_restore  # <--- Import run_restore
+from registro.services.backup_db import run_full_backup, run_restore
 from registro.audit_models import AuditLog
-
-# ... (Mantenha as classes BackupRecordSerializer e IsBackupAdmin igual ao original) ...
+from usuarios.permissions import IsAdmin
 class BackupRecordSerializer(serializers.ModelSerializer):
     # ... código existente ...
     executed_by_name = serializers.SerializerMethodField()
@@ -37,14 +36,8 @@ class BackupRecordSerializer(serializers.ModelSerializer):
         return "manual"
 
 
-class IsBackupAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_staff)
-
-
 class BackupExecuteView(views.APIView):
-    # ... código existente (mantido igual) ...
-    permission_classes = [IsBackupAdmin]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         user = request.user if request.user.is_authenticated else None
@@ -80,7 +73,7 @@ class BackupExecuteView(views.APIView):
 
 
 class BackupListView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         qs = BackupRecord.objects.all().order_by("-created_at")[:100]
@@ -89,7 +82,7 @@ class BackupListView(views.APIView):
 
 # === NOVA VIEW DE RESTORE ===
 class BackupRestoreView(views.APIView):
-    permission_classes = [IsBackupAdmin]  # Somente Admin
+    permission_classes = [IsAdmin]
 
     def post(self, request, pk: int):
         try:
