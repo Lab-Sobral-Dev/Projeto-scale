@@ -49,65 +49,58 @@ def _clean_old_backups():
     except Exception as e:
         print(f"Erro na rotina de limpeza de backups: {e}")
 
-# Adicionamos name='registro.auto_backup' para garantir que o Beat encontre a task
-@shared_task(name="registro.auto_backup")
-def auto_backup():
+@shared_task(
+    name="registro.auto_backup",
+    bind=True,
+    acks_late=True,
+    max_retries=3,
+    default_retry_delay=300,
+)
+def auto_backup(self):
     """
     Task executada periodicamente pelo Celery Beat.
     """
-    # 1. Limpeza prévia
     _clean_old_backups()
 
-    # 2. Registro do início
     rec = BackupRecord.objects.create(
         executed_by=None,
         ip="0.0.0.0",
         user_agent="celery-auto-backup",
-        engine="",
-        output_file="", 
-        size_bytes=0,
-        sha256="",
-        status="success",
+        engine="", output_file="", size_bytes=0, sha256="", status="running",
     )
 
     try:
-        # 3. Execução
         result = run_full_backup()
-        
-        # 4. Sucesso
-        rec.engine = result["engine"]
-        rec.output_file = result["output_file"]
-        rec.size_bytes = result["size_bytes"]
-        rec.sha256 = result["sha256"]
-        rec.status = "success"
-        rec.save()
-
-        # Auditoria (Opcional)
-        try:
-            AuditLog.objects.create(
-                user=None,
-                ip="127.0.0.1",
-                user_agent="Celery Beat",
-                path="auto_backup",
-                method="TASK",
-                status_code=200,
-                action="create",
-                model="BackupRecord",
-                object_pk=str(rec.pk),
-                changes={"file": rec.output_file}
-            )
-        except Exception:
-            pass
-
     except Exception as e:
-        # 5. Falha
-        rec.status = "error"
-        rec.error_message = str(e)
-        rec.save()
-
-        # Notificação
+        BackupRecord.objects.filter(pk=rec.pk).update(status="error", error_message=str(e))
         notify_backup_failure(
             error_message=str(e),
             rec=rec,
             context={"source": "celery_auto_backup"},
         )
+        raise self.retry(exc=e)
+
+    BackupRecord.objects.filter(pk=rec.pk).update(
+        engine=result["engine"],
+        output_file=result["output_file"],
+        size_bytes=result["size_bytes"],
+        sha256=result["sha256"],
+        status="success",
+    )
+    rec.refresh_from_db()
+
+    try:
+        AuditLog.objects.create(
+            user=None,
+            ip="127.0.0.1",
+            user_agent="Celery Beat",
+            path="auto_backup",
+            method="TASK",
+            status_code=200,
+            action="create",
+            model="BackupRecord",
+            object_pk=str(rec.pk),
+            changes={"file": rec.output_file},
+        )
+    except Exception:
+        pass
