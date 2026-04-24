@@ -201,11 +201,8 @@ export default function PesagemEditar() {
           }
 
           try {
-            const res = await fetch(MOTIVOS_URL, { headers: { Authorization: `Bearer ${localStorage.getItem('access') || ''}` } })
-            if (res.ok) {
-              const data = await res.json()
-              setMotivosEditMap(data?.edit || {})
-            }
+            const data = await api.get('/registro/pesagens/motivos/')
+            setMotivosEditMap(data?.edit || {})
           } catch { }
         } catch (e) {
           console.error(e)

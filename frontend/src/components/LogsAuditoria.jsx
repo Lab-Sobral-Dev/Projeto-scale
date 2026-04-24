@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import api from "@/services/api"
 import { listarLogs, exportarCsv } from "@/services/auditoria"
 import { fetchReport, openExport } from "@/services/reports"
 import { Download, FileDown, RefreshCcw, Search, XCircle, User, Terminal, Fingerprint, Info } from "lucide-react"
@@ -92,23 +93,18 @@ export default function LogsAuditoria() {
   useEffect(() => {
     (async () => {
       try {
-        const API_BASE = (import.meta.env?.VITE_API_BASE_URL || "http://localhost:8000/api")
-        const headers = { Authorization: `Bearer ${localStorage.getItem("access") || ""}` }
-
-        const [motivosRes, usersRes, dynRes] = await Promise.all([
-          fetch(`${API_BASE}/registro/pesagens/motivos/`, { headers }),
-          fetch(`${API_BASE}/usuarios/usuarios/`, { headers }),
+        const [motivosJson, uj, dynRes] = await Promise.all([
+          api.get('/registro/pesagens/motivos/').catch(() => null),
+          api.get('/usuarios/usuarios/').catch(() => null),
           fetchReport("/auditoria/logs-sistema/", { meta: "filters" }),
         ])
 
-        if (motivosRes?.ok) {
-          const json = await motivosRes.json()
-          setMotivosEdit(json?.edit || {})
-          setMotivosDelete(json?.delete || {})
+        if (motivosJson) {
+          setMotivosEdit(motivosJson?.edit || {})
+          setMotivosDelete(motivosJson?.delete || {})
         }
 
-        if (usersRes?.ok) {
-          const uj = await usersRes.json()
+        if (uj) {
           const list = Array.isArray(uj) ? uj : (uj?.results ?? [])
           const mp = new Map()
           for (const u of list) {
