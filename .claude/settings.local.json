@@ -1,7 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs ls *)"
+      "Bash(xargs ls *)",
+      "Bash(pnpm update *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix\\(backup\\): substituir shell=True por pipeline Popen no restore *)",
+      "Bash(git commit -m 'fix\\(auditoria\\): proteger purge_audit com mínimo 365 dias e log do purge *)",
+      "Bash(git commit -m 'fix\\(pesagem\\): invocar full_clean\\(\\) em _save_atomic para validar balança *)",
+      "Bash(git commit -m 'fix\\(frontend\\): remover mini-ApiService com URL hardcoded em PesagemDetalhe *)",
+      "Bash(git commit -m 'docs: criar CHANGELOG.md com correções críticas da sessão 2026-04-24 *)",
+      "Bash(git commit -m 'fix\\(seguranca\\): unificar permissões de backup e segurança para IsAdmin por papel *)",
+      "Bash(git commit -m 'fix\\(auditoria\\): corrigir race condition em signals.py com threading.local *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m 'fix\\(frontend\\): corrigir { data } em Backups.jsx e remover BackupCard duplicado *)",
+      "Bash(git commit -m 'fix\\(frontend\\): substituir fetch raw por api.get em LogsAuditoria e PesagemEditar *)",
+      "Bash(git commit -m 'fix\\(frontend\\): corrigir race condition em useApi.js com flag cancelled *)",
+      "Bash(git commit -m 'fix\\(devops\\): corrigir bind mount, healthcheck, Redis auth e usuário não-root *)",
+      "Bash(git commit *)",
+      "Bash(python manage.py makemigrations registro --name=\"fix_pesagem_item_op_and_codigo_interno\")"
     ]
   }
 }
