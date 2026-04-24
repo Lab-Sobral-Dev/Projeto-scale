@@ -10,18 +10,19 @@ services:
     environment:
       BACKUP_DIR: /var/backups/scale
       BACKUP_ACCEL_PREFIX: /protected/backups
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
     volumes:
-      - ./backend:/app
       - static_volume:/app/static
       - media_volume:/app/media
       - backups_volume:/var/backups/scale
     expose:
       - "8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   worker:
     build: ./backend
@@ -32,14 +33,13 @@ services:
     environment:
       BACKUP_DIR: /var/backups/scale
       BACKUP_ACCEL_PREFIX: /protected/backups
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
     command: celery -A conf worker --loglevel=info
     depends_on:
       - backend
       - redis
     volumes:
-      - ./backend:/app
       - backups_volume:/var/backups/scale
 
   beat:
@@ -51,20 +51,22 @@ services:
     environment:
       BACKUP_DIR: /var/backups/scale
       BACKUP_ACCEL_PREFIX: /protected/backups
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
     command: celery -A conf beat --loglevel=info
     depends_on:
       - backend
       - redis
     volumes:
-      - ./backend:/app
       - backups_volume:/var/backups/scale
 
   redis:
     image: redis:alpine
     container_name: scale_redis
     restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis_data:/data
 
   frontend:
     build: ./frontend
@@ -104,9 +106,15 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   db_data:
   static_volume:
   media_volume:
   backups_volume:
+  redis_data:

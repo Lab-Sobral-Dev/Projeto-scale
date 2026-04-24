@@ -27,8 +27,14 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY . .
 
 # Criação de diretórios de logs e backups com permissões adequadas
-RUN mkdir -p /var/log/scale_hml && chmod -R 755 /var/log/scale_hml
-RUN mkdir -p ${BACKUP_DIR} && chmod -R 755 ${BACKUP_DIR}
+RUN mkdir -p /var/log/scale_hml && mkdir -p ${BACKUP_DIR}
+
+# Usuário não-root para reduzir superfície de ataque
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup --no-create-home appuser && \
+    chown -R appuser:appgroup /app /var/log/scale_hml ${BACKUP_DIR}
+
+USER appuser
 
 # Porta interna do container
 EXPOSE 8000
