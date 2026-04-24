@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate, get_user_model
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -42,6 +43,8 @@ class TokenWithFlagsSerializer(TokenObtainPairSerializer):
 
 class TokenWithFlagsView(TokenObtainPairView):
     serializer_class = TokenWithFlagsSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def _audit_login(self, request, user=None, status_code=None, reason="", failure_kind=""):
         AuditLog.objects.create(
