@@ -8,20 +8,22 @@ export const useApi = (apiCall, dependencies = []) => {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    const fetchData = async () => {
+    let cancelled = false
+
+    ;(async () => {
       try {
         setLoading(true)
         setError(null)
         const result = await apiCall()
-        setData(result)
+        if (!cancelled) setData(result)
       } catch (err) {
-        setError(err.message)
+        if (!cancelled) setError(err.message)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
-    }
+    })()
 
-    fetchData()
+    return () => { cancelled = true }
   }, dependencies)
 
   const refetch = async () => {
