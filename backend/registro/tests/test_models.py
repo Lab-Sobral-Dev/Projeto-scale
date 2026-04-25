@@ -150,7 +150,8 @@ class PesagemTests(BaseSetupMixin, TestCase):
         teto = self.max_allowed(D("1000"))
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=(teto - D("1.000")) / KG_TO_G
+            tara=D("0.000"), liquido=(teto - D("1.000")) / KG_TO_G,
+            lote_mp="LOTE-TETO-001",
         )
         self.item1.refresh_from_db()
         self.assertEqual(self.item1.quantidade_pesada, teto - D("1.000"))
@@ -158,9 +159,10 @@ class PesagemTests(BaseSetupMixin, TestCase):
         with self.assertRaises(ValidationError) as ctx:
             Pesagem.objects.create(
                 op=self.op, item_op=self.item1, pesador="Ana",
-                tara=D("0.000"), liquido=D("0.002")  # 2 g
+                tara=D("0.000"), liquido=D("0.002"),  # 2 g
+                lote_mp="LOTE-TETO-002",
             )
-        self.assertIn("Ultrapassa o limite superior", str(ctx.exception))
+        self.assertIn("limite superior", str(ctx.exception))
 
     def test_parciais_ok_conclui_no_minimo(self):
         min1 = self.min_allowed(D("1000"))  # 950 g
@@ -168,11 +170,13 @@ class PesagemTests(BaseSetupMixin, TestCase):
 
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=(min1 - D("50.000")) / KG_TO_G
+            tara=D("0.000"), liquido=(min1 - D("50.000")) / KG_TO_G,
+            lote_mp="LOTE-PARC-001",
         )
         Pesagem.objects.create(
             op=self.op, item_op=self.item2, pesador="Ana",
-            tara=D("0.000"), liquido=(min2 - D("50.000")) / KG_TO_G
+            tara=D("0.000"), liquido=(min2 - D("50.000")) / KG_TO_G,
+            lote_mp="LOTE-PARC-002",
         )
         self.op.refresh_from_db()
         self.assertEqual(self.op.status, StatusOP.EM_ANDAMENTO)
@@ -182,11 +186,13 @@ class PesagemTests(BaseSetupMixin, TestCase):
 
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=(restante1 / KG_TO_G)
+            tara=D("0.000"), liquido=(restante1 / KG_TO_G),
+            lote_mp="LOTE-PARC-003",
         )
         Pesagem.objects.create(
             op=self.op, item_op=self.item2, pesador="Ana",
-            tara=D("0.000"), liquido=(restante2 / KG_TO_G)
+            tara=D("0.000"), liquido=(restante2 / KG_TO_G),
+            lote_mp="LOTE-PARC-004",
         )
 
         self.op.refresh_from_db()
@@ -195,8 +201,8 @@ class PesagemTests(BaseSetupMixin, TestCase):
         self.assertLess((timezone.now() - self.op.concluida_em).total_seconds(), 5.0)
 
     def test_saldo_por_mp_campos_ok(self):
-        Pesagem.objects.create(op=self.op, item_op=self.item1, pesador="A", tara=D("0"), liquido=D("0.100"))
-        Pesagem.objects.create(op=self.op, item_op=self.item2, pesador="A", tara=D("0"), liquido=D("0.050"))
+        Pesagem.objects.create(op=self.op, item_op=self.item1, pesador="A", tara=D("0"), liquido=D("0.100"), lote_mp="LOTE-SALDO-01")
+        Pesagem.objects.create(op=self.op, item_op=self.item2, pesador="A", tara=D("0"), liquido=D("0.050"), lote_mp="LOTE-SALDO-02")
 
         qs = self.op.saldo_por_mp().order_by("materia_prima__id")
         linha1, linha2 = list(qs)

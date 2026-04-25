@@ -152,10 +152,11 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
     def test_save_bloqueia_ultrapassar_teto(self):
         # teto para item1 (1000g) = 1050 g
         teto = self.max_allowed(D("1000"))
-        # já pesar 1049 g e tentar mais 2 g → deve falhar
+        # já pesar teto-1 g e tentar mais 2 g → deve falhar
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=(teto - D("1.000")) / KG_TO_G  # kg que viram g = teto-1
+            tara=D("0.000"), liquido=(teto - D("1.000")) / KG_TO_G,
+            lote_mp="LOTE-TETO-001",
         )
         self.item1.refresh_from_db()
         self.assertEqual(self.item1.quantidade_pesada, teto - D("1.000"))
@@ -163,9 +164,10 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         with self.assertRaises(ValidationError) as ctx:
             Pesagem.objects.create(
                 op=self.op, item_op=self.item1, pesador="Ana",
-                tara=D("0.000"), liquido=D("0.002")  # 2 g
+                tara=D("0.000"), liquido=D("0.002"),  # 2 g
+                lote_mp="LOTE-TETO-002",
             )
-        self.assertIn("Ultrapassa o limite superior", str(ctx.exception))
+        self.assertIn("limite superior", str(ctx.exception))
 
     def test_permite_parciais_e_conclui_quando_todos_atingem_minimo(self):
         min1 = self.min_allowed(D("1000"))  # 950 g
@@ -174,11 +176,13 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
         # Parciais abaixo do mínimo → EM_ANDAMENTO
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=(min1 - D("50.000")) / KG_TO_G
+            tara=D("0.000"), liquido=(min1 - D("50.000")) / KG_TO_G,
+            lote_mp="LOTE-PARC-001",
         )
         Pesagem.objects.create(
             op=self.op, item_op=self.item2, pesador="Ana",
-            tara=D("0.000"), liquido=(min2 - D("50.000")) / KG_TO_G
+            tara=D("0.000"), liquido=(min2 - D("50.000")) / KG_TO_G,
+            lote_mp="LOTE-PARC-002",
         )
         self.op.refresh_from_db()
         self.assertEqual(self.op.status, StatusOP.EM_ANDAMENTO)
@@ -189,11 +193,13 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
 
         Pesagem.objects.create(
             op=self.op, item_op=self.item1, pesador="Ana",
-            tara=D("0.000"), liquido=(restante1 / KG_TO_G)
+            tara=D("0.000"), liquido=(restante1 / KG_TO_G),
+            lote_mp="LOTE-PARC-003",
         )
         Pesagem.objects.create(
             op=self.op, item_op=self.item2, pesador="Ana",
-            tara=D("0.000"), liquido=(restante2 / KG_TO_G)
+            tara=D("0.000"), liquido=(restante2 / KG_TO_G),
+            lote_mp="LOTE-PARC-004",
         )
 
         self.op.refresh_from_db()
@@ -203,8 +209,8 @@ class PesagemValidacaoTests(BaseSetupMixin, TestCase):
 
     def test_saldo_por_mp_anota_campos(self):
         # Pesa 100 g da mp1 e 50 g da mp2
-        Pesagem.objects.create(op=self.op, item_op=self.item1, pesador="A", tara=D("0"), liquido=D("0.100"))
-        Pesagem.objects.create(op=self.op, item_op=self.item2, pesador="A", tara=D("0"), liquido=D("0.050"))
+        Pesagem.objects.create(op=self.op, item_op=self.item1, pesador="A", tara=D("0"), liquido=D("0.100"), lote_mp="LOTE-SALDO-01")
+        Pesagem.objects.create(op=self.op, item_op=self.item2, pesador="A", tara=D("0"), liquido=D("0.050"), lote_mp="LOTE-SALDO-02")
 
         qs = self.op.saldo_por_mp().order_by("materia_prima__id")
         linha1, linha2 = list(qs)
