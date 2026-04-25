@@ -70,9 +70,9 @@ CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 # =========================
 # Segurança HTTPS
 # =========================
-# Definir HTTPS_PROXY=true no .env quando TLS é terminado num proxy externo
+# Definir DJANGO_HTTPS_PROXY=true no .env quando TLS é terminado num proxy externo
 # (Cloudflare, load balancer). Nunca ativar sem proxy confiável na frente.
-_https_proxy = env_bool("HTTPS_PROXY", False)
+_https_proxy = env_bool("DJANGO_HTTPS_PROXY", False)
 if _https_proxy:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True

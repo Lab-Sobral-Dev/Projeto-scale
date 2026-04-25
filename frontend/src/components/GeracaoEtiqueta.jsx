@@ -41,6 +41,10 @@ const formatDateTime = (iso) => {
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('pt-BR', { timeZone: tz })
 }
 
+const appEnv = localStorage.getItem('app_env') ?? 'prod'
+const ENV_LABEL = appEnv === 'hml' ? 'HOMOLOGAÇÃO' : 'PRODUÇÃO'
+const ENV_BG    = appEnv === 'hml' ? '#b45309' : '#1d4ed8'
+
 export default function GeracaoEtiqueta() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -167,6 +171,9 @@ export default function GeracaoEtiqueta() {
                   <div className="text-center border-b-2 border-black pb-2 mb-3">
                     <h2 className="text-lg font-bold">SISTEMA DE PESAGEM</h2>
                     <p className="text-sm">{i===0 ? 'Etiqueta de Identificação' : 'Etiqueta de Identificação (CÓPIA)'}</p>
+                    <div className="mt-1 text-xs font-bold text-white py-0.5 rounded" style={{ backgroundColor: ENV_BG }}>
+                      {ENV_LABEL}
+                    </div>
                   </div>
 
                   {/* Dados Principais */}

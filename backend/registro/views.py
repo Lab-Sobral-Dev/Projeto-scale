@@ -14,6 +14,9 @@ from reportlab.lib.pagesizes import A7
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
+from reportlab.lib import colors
+
+from .db_context import get_env
 
 from rest_framework import viewsets, filters, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
@@ -575,41 +578,32 @@ def gerar_etiqueta_pdf(request, pk):
     if os.path.exists(logo_path):
         logo = ImageReader(logo_path)
 
-        # Dimensões reais do arquivo (1000x419)
         orig_w, orig_h = logo.getSize()
-        aspect = orig_h / orig_w  # ≈ 0.419 (mantém proporção)
+        aspect = orig_h / orig_w
 
-        # ====================
-        # Ajuste aqui o tamanho da logo
-        desired_width = 60  # <<< ALTERE AQUI PARA AUMENTAR/DIMINUIR A LOGO
+        desired_width  = 60
         desired_height = desired_width * aspect
-        # ====================
 
         p.setFont("Helvetica-Bold", 12)
-        text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
-
+        text_width  = p.stringWidth(titulo, "Helvetica-Bold", 12)
         total_width = desired_width + 8 + text_width
-        start_x = (width - total_width) / 2
-        y_pos = height - 18
+        start_x     = (width - total_width) / 2
+        y_pos       = height - 18
 
-        # Desenha a logo com proporção correta
-        p.drawImage(
-            logo,
-            x=start_x,
-            y=y_pos - desired_height + 3,
-            width=desired_width,
-            height=desired_height,
-            mask='auto',
-        )
+        logo_y = y_pos - desired_height + 3
+        p.drawImage(logo, x=start_x, y=logo_y,
+                    width=desired_width, height=desired_height, mask='auto')
 
-        # Texto alinhado verticalmente com a logo
         text_y = y_pos - (desired_height / 2) + 1
         p.drawString(start_x + desired_width + 8, text_y, titulo)
+
+        header_bottom = logo_y  # ponto mais baixo do cabeçalho
 
     else:
         p.setFont("Helvetica-Bold", 12)
         text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
         p.drawString((width - text_width) / 2, height - 20, titulo)
+        header_bottom = height - 20 - 4  # baseline − descida estimada da fonte
 
     # ---- formatação: até 3 casas, removendo zeros à direita ----
     def fmt_g3_ptbr(value):
@@ -659,41 +653,67 @@ def gerar_etiqueta_pdf(request, pk):
     # líquido já está em g no banco
     liquido_g = Decimal(pesagem.liquido or 0)
 
-    # Conteúdo da etiqueta
-    linha = height - 50
-    base_font = "Helvetica"
-    base_size = 9
-    min_size = 6
-    margem_esq = 30
-    margem_dir = 10
-    max_text_width = width - margem_esq - margem_dir
+    # Faixa de ambiente — posicionada dinamicamente abaixo do cabeçalho
+    env_nome    = get_env()
+    env_label   = "HOMOLOGAÇÃO" if env_nome == "hml" else "PRODUÇÃO"
+    env_color   = "#b45309" if env_nome == "hml" else "#1d4ed8"
+    band_height = 14
+    band_top    = header_bottom - 4          # 4pt de gap após o cabeçalho
+    band_bottom = band_top - band_height
+    p.setFillColor(colors.HexColor(env_color))
+    p.rect(0, band_bottom, width, band_height, fill=1, stroke=0)
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 8)
+    label_w = p.stringWidth(env_label, "Helvetica-Bold", 8)
+    p.drawString((width - label_w) / 2, band_bottom + 3, env_label)
+    p.setFillColor(colors.black)
 
-    p.setFont(base_font, base_size)
+    # ── Conteúdo da etiqueta ──────────────────────────────────────────────
+    # Layout em 2 colunas para compactar; linha_h=13 cabe ~11 linhas na área
+    linha_h    = 13
+    linha      = band_bottom - 6 - linha_h   # gap + linha em branco antes do Produto
+    fnt        = "Helvetica"
+    fnt_b      = "Helvetica-Bold"
+    sz         = 8
+    sz_min     = 6
+    ml         = 8                    # margem esquerda
+    mr         = 8                    # margem direita
+    col2       = width / 2 + 4        # início da coluna direita (~148 pt)
+    w_full     = width - ml - mr      # largura total (~272 pt)
+    w_half     = width / 2 - ml - 4   # largura de meia coluna (~124 pt)
 
-    def pular_linha():
+    def nl():
         nonlocal linha
-        linha -= 14
+        linha -= linha_h
 
-    def escrever(txt):
-        nonlocal linha
-        p.setFont(base_font, base_size)
-        p.drawString(margem_esq, linha, txt)
-        pular_linha()
+    def fit(txt, max_w, bold=False):
+        """Reduz fonte até caber; devolve (texto, font_size)."""
+        fs = sz
+        f  = fnt_b if bold else fnt
+        while p.stringWidth(txt, f, fs) > max_w and fs > sz_min:
+            fs -= 0.5
+        return f, fs
 
-    def escrever_ajustado(label, valor):
+    def linha_full(label, valor, bold_val=False):
         nonlocal linha
         txt = f"{label}: {valor}" if valor else f"{label}:"
-        font_size = base_size
-        text_width = p.stringWidth(txt, base_font, font_size)
+        f, fs = fit(txt, w_full, bold=bold_val)
+        p.setFont(f, fs)
+        p.drawString(ml, linha, txt)
+        nl()
 
-        while text_width > max_text_width and font_size > min_size:
-            font_size -= 0.5
-            text_width = p.stringWidth(txt, base_font, font_size)
+    def celula(label, valor, x, max_w, bold_val=False):
+        txt = f"{label}: {valor}" if valor else f"{label}:"
+        f, fs = fit(txt, max_w, bold=bold_val)
+        p.setFont(f, fs)
+        p.drawString(x, linha, txt)
 
-        p.setFont(base_font, font_size)
-        p.drawString(margem_esq, linha, txt)
-        pular_linha()
-        p.setFont(base_font, base_size)
+    def sep():
+        nonlocal linha
+        p.setLineWidth(0.3)
+        p.setStrokeColor(colors.HexColor("#9ca3af"))
+        p.line(ml, linha + linha_h - 4, width - mr, linha + linha_h - 4)
+        p.setStrokeColor(colors.black)
 
     produto_nome = pesagem.op.produto.nome if pesagem.op and pesagem.op.produto else ""
     mp_nome = (
@@ -701,30 +721,54 @@ def gerar_etiqueta_pdf(request, pk):
         if pesagem.item_op and pesagem.item_op.materia_prima
         else ""
     )
-    balanca_txt = pesagem.balanca.nome if pesagem.balanca else ""
-    lote_mp_txt = getattr(pesagem, "lote_mp", "") or ""
+    balanca_txt  = pesagem.balanca.nome if pesagem.balanca else ""
+    lote_mp_txt  = getattr(pesagem, "lote_mp", "") or ""
+    op_num       = pesagem.op.numero if pesagem.op else ""
+    op_lote      = pesagem.op.lote   if pesagem.op else ""
 
-    escrever_ajustado("Produto", produto_nome)
-    escrever_ajustado("Matéria-prima", mp_nome)
+    # ── Linha 1: Produto (largura total) ─────────────────────────────────
+    linha_full("Produto", produto_nome)
 
-    escrever(f"Cód. Interno: {pesagem.codigo_interno}")
-    escrever(
-        f"OP: {pesagem.op.numero if pesagem.op else ''}   "
-        f"Lote: {pesagem.op.lote if pesagem.op else ''}"
-    )
-    if lote_mp_txt:
-        escrever(f"Lote MP: {lote_mp_txt}")
+    # ── Linha 2: Matéria-prima (largura total) ────────────────────────────
+    linha_full("Matéria-prima", mp_nome)
 
-    escrever(f"Peso Bruto: {fmt_g3_ptbr(bruto_g)}")
-    escrever(f"Tara: {fmt_g3_ptbr(tara_g)}")
-    escrever(f"Peso Líquido: {fmt_g3_ptbr(liquido_g)}")
-    escrever(f"Balança: {balanca_txt}")
-    escrever(f"Pesador: {pesagem.pesador}")
-    escrever(f"Data: {dt_local_fmt(pesagem.data_hora)}")
-    p.setFont(base_font, 7)
-    p.drawString(margem_esq, linha, f"Emitido em: {dt_local_fmt(timezone.now())}")
-    pular_linha()
-    p.setFont(base_font, base_size)
+    sep()
+
+    # ── Linha 3: Cód. Interno | OP ────────────────────────────────────────
+    celula("Cód", pesagem.codigo_interno, ml, w_half)
+    celula("OP",  op_num,                 col2, w_half)
+    nl()
+
+    # ── Linha 4: Lote MP | Lote OP ───────────────────────────────────────
+    celula("Lote MP" if lote_mp_txt else "Lote MP", lote_mp_txt or "-", ml, w_half)
+    celula("Lote", op_lote, col2, w_half)
+    nl()
+
+    sep()
+
+    # ── Linha 5: Pesos em 3 colunas ──────────────────────────────────────
+    col3 = width / 3
+    celula("Bruto",  fmt_g3_ptbr(bruto_g),   ml,           col3 - ml - 2)
+    celula("Tara",   fmt_g3_ptbr(tara_g),    col3 + 2,     col3 - 4)
+    celula("Líq.",   fmt_g3_ptbr(liquido_g), col3 * 2 + 2, col3 - mr - 2, bold_val=True)
+    nl()
+
+    sep()
+
+    # ── Linha 6: Balança | Pesador ────────────────────────────────────────
+    celula("Balança",  balanca_txt,      ml,   w_half)
+    celula("Pesador",  pesagem.pesador,  col2, w_half)
+    nl()
+
+    # ── Linha 7: Data ─────────────────────────────────────────────────────
+    linha_full("Data", dt_local_fmt(pesagem.data_hora))
+
+    # ── Rodapé: Emitido em ───────────────────────────────────────────────
+    p.setFont(fnt, 6.5)
+    p.setFillColor(colors.HexColor("#6b7280"))
+    p.drawString(ml, linha, f"Emitido em: {dt_local_fmt(timezone.now())}")
+    p.setFillColor(colors.black)
+    p.setFont(fnt, sz)
 
     p.showPage()
     p.save()
