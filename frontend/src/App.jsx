@@ -236,33 +236,33 @@ function App() {
           <Route
             path="/relatorios/auditoria/acoes"
             element={
-              <RequireReportViewer>
+              <RequireAdmin>
                 <AuditoriaAcoes />
-              </RequireReportViewer>
+              </RequireAdmin>
             }
           />
           <Route
             path="/relatorios/auditoria/auth"
             element={
-              <RequireReportViewer>
+              <RequireAdmin>
                 <AuditoriaAuthErros />
-              </RequireReportViewer>
+              </RequireAdmin>
             }
           />
           <Route
             path="/relatorios/backups"
             element={
-              <RequireReportViewer>
+              <RequireAdmin>
                 <BackupsReport />
-              </RequireReportViewer>
+              </RequireAdmin>
             }
           />
           <Route
             path="/relatorios/restores"
             element={
-              <RequireReportViewer>
+              <RequireAdmin>
                 <Restores />
-              </RequireReportViewer>
+              </RequireAdmin>
             }
           />
         </Route>

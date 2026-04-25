@@ -8,6 +8,7 @@ import {
   RotateCcw, ListChecks
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { isAdmin } from '@/utils/authRoles'
 
 const CATEGORIES = [
   {
@@ -32,6 +33,7 @@ const CATEGORIES = [
   {
     title: 'Administração',
     descr: 'Rastreabilidade de ações e segurança.',
+    adminOnly: true,
     items: [
       { label: 'Administração — Ações', href: '/relatorios/auditoria/acoes', icon: ListChecks, hint: 'Inserções, edições e exclusões com antes/depois' },
       { label: 'Administração — Erros/Login', href: '/relatorios/auditoria/auth', icon: FileWarning, hint: 'Tentativas de login com sucesso/falha e motivo' },
@@ -40,6 +42,7 @@ const CATEGORIES = [
   {
     title: 'Segurança & Continuidade',
     descr: 'Backup, restore e recuperação.',
+    adminOnly: true,
     items: [
       { label: 'Backups', href: '/relatorios/backups', icon: DatabaseBackup, hint: 'Agendamentos e integridade' },
       { label: 'Restaurações', href: '/relatorios/restores', icon: RotateCcw, hint: 'Histórico de restores e origem' },
@@ -80,11 +83,17 @@ function Section({ title, descr, items }) {
 
 export default function ReportsHome() {
   const [q, setQ] = useState('')
+  const admin = isAdmin()
+
+  const visible = useMemo(
+    () => CATEGORIES.filter(cat => !cat.adminOnly || admin),
+    [admin]
+  )
 
   const filtered = useMemo(() => {
-    if (!q.trim()) return CATEGORIES
+    if (!q.trim()) return visible
     const term = q.toLowerCase()
-    return CATEGORIES.map(cat => ({
+    return visible.map(cat => ({
       ...cat,
       items: cat.items.filter(it =>
         it.label.toLowerCase().includes(term) ||
@@ -92,11 +101,11 @@ export default function ReportsHome() {
         cat.title.toLowerCase().includes(term)
       ),
     })).filter(cat => cat.items.length > 0)
-  }, [q])
+  }, [q, visible])
 
   const totalLinks = useMemo(
-    () => CATEGORIES.reduce((acc, c) => acc + c.items.length, 0),
-    []
+    () => visible.reduce((acc, c) => acc + c.items.length, 0),
+    [visible]
   )
 
   return (

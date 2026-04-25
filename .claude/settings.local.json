@@ -18,7 +18,17 @@
       "Bash(git commit -m 'fix\\(devops\\): corrigir bind mount, healthcheck, Redis auth e usuário não-root *)",
       "Bash(git commit *)",
       "Bash(python manage.py makemigrations registro --name=\"fix_pesagem_item_op_and_codigo_interno\")",
-      "Skill(commit-commands:commit)"
+      "Skill(commit-commands:commit)",
+      "Bash(grep -E \"\\(package\\\\.json|index\\\\.\\(ts|js\\)|main\\\\.\\(ts|js|jsx\\)\\)$\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k\\) for k in d.keys\\(\\)]\")",
+      "Bash(docker stop *)",
+      "Bash(docker rm *)",
+      "Bash(docker run *)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "Bash(docker exec *)",
+      "Bash(docker build *)"
     ]
   }
 }
