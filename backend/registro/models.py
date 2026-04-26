@@ -344,7 +344,7 @@ class Pesagem(models.Model):
         if self.lote_mp:
             self.lote_mp = self.lote_mp.strip()
 
-        self.full_clean()
+        self.full_clean(exclude=["bruto"])  # bruto é derivado; calculado abaixo
 
         if not self.item_op_id:
             raise ValidationError("A pesagem deve estar vinculada a um item da OP.")

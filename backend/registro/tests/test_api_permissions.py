@@ -8,6 +8,7 @@ Execução:
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -29,6 +30,7 @@ def _make_user(username, papel):
     return user
 
 
+@override_settings(AUDIT_ENABLED=False)
 class BaseAPISetup(APITestCase):
     """Fixture: usuários com diferentes papéis + dados mínimos de produção."""
 

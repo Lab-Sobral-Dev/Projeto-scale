@@ -35,9 +35,9 @@ class PerfilCriadoAutomaticamenteTests(TestCase):
 class SyncRolesTests(TestCase):
 
     def setUp(self):
-        self.role_operador = Role.objects.create(name=PerfilUsuario.PAPEL_OPERADOR)
-        self.role_supervisor = Role.objects.create(name=PerfilUsuario.PAPEL_SUPERVISOR)
-        self.role_admin = Role.objects.create(name=PerfilUsuario.PAPEL_ADMIN)
+        self.role_operador, _ = Role.objects.get_or_create(name=PerfilUsuario.PAPEL_OPERADOR)
+        self.role_supervisor, _ = Role.objects.get_or_create(name=PerfilUsuario.PAPEL_SUPERVISOR)
+        self.role_admin, _ = Role.objects.get_or_create(name=PerfilUsuario.PAPEL_ADMIN)
 
     def test_novo_usuario_sincroniza_role_operador(self):
         user = User.objects.create_user('sync_novo', password='pass')
@@ -78,33 +78,33 @@ class SyncRolesTests(TestCase):
 class HasScreenTests(TestCase):
 
     def setUp(self):
-        self.screen_cad = Screen.objects.create(code='cadastros', label='Cadastros')
-        self.screen_rel = Screen.objects.create(code='relatorios', label='Relatórios')
-        self.role = Role.objects.create(name='role_teste')
+        self.screen_cad, _ = Screen.objects.get_or_create(code='test-cadastros', defaults={'label': 'Cadastros Teste'})
+        self.screen_rel, _ = Screen.objects.get_or_create(code='test-relatorios', defaults={'label': 'Relatórios Teste'})
+        self.role, _ = Role.objects.get_or_create(name='role_teste_unico')
         self.role.screens.add(self.screen_cad)
 
     def test_has_screen_true_via_role(self):
         user = User.objects.create_user('screen_via_role', password='pass')
         perfil = user.perfil
         perfil.roles.add(self.role)
-        self.assertTrue(perfil.has_screen('cadastros'))
+        self.assertTrue(perfil.has_screen('test-cadastros'))
 
     def test_has_screen_false_sem_role(self):
         user = User.objects.create_user('screen_semrole', password='pass')
         perfil = user.perfil
-        self.assertFalse(perfil.has_screen('cadastros'))
+        self.assertFalse(perfil.has_screen('test-cadastros'))
 
     def test_has_screen_false_tela_inexistente(self):
         user = User.objects.create_user('screen_inexist', password='pass')
         perfil = user.perfil
         perfil.roles.add(self.role)
-        self.assertFalse(perfil.has_screen('tela_que_nao_existe'))
+        self.assertFalse(perfil.has_screen('tela_que_jamais_existira'))
 
     def test_has_screen_true_via_extra_screens(self):
         user = User.objects.create_user('screen_extra', password='pass')
         perfil = user.perfil
         perfil.extra_screens.add(self.screen_rel)
-        self.assertTrue(perfil.has_screen('relatorios'))
+        self.assertTrue(perfil.has_screen('test-relatorios'))
 
     def test_extra_screens_acumulam_com_roles(self):
         user = User.objects.create_user('screen_acum', password='pass')
@@ -112,8 +112,8 @@ class HasScreenTests(TestCase):
         perfil.roles.add(self.role)
         perfil.extra_screens.add(self.screen_rel)
         screens = perfil.get_allowed_screens()
-        self.assertIn('cadastros', screens)
-        self.assertIn('relatorios', screens)
+        self.assertIn('test-cadastros', screens)
+        self.assertIn('test-relatorios', screens)
 
     def test_get_allowed_screens_retorna_lista_ordenada(self):
         user = User.objects.create_user('screen_sort', password='pass')

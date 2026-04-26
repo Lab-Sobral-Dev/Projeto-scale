@@ -1,17 +1,18 @@
-# sua_app/tests/test_models.py
+# registro/tests/test_models.py
 from decimal import Decimal
 from datetime import timedelta
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from registro import (
+from registro.models import (
     Produto, MateriaPrima, UnidadeMedida,
     EstruturaProduto, ItemEstrutura,
     Balanca,
     OrdemProducao, ItemOP, StatusOP,
-    Pesagem, TOLERANCIA_PERCENTUAL, KG_TO_G
+    Pesagem, TOLERANCIA_PERCENTUAL, KG_TO_G,
 )
+from registro.serializers import ProdutoSerializer
 
 D = Decimal  # açucar sintático
 
@@ -53,6 +54,7 @@ class BaseSetupMixin:
         return (q * (D("1") + TOLERANCIA_PERCENTUAL)).quantize(D("0.001"))
 
 
+@override_settings(AUDIT_ENABLED=False)
 class EstruturaOPTests(BaseSetupMixin, TestCase):
     def test_gera_itens_em_g_e_op_aberta(self):
         self.op.gerar_itens_a_partir_da_estrutura()
@@ -84,6 +86,7 @@ class EstruturaOPTests(BaseSetupMixin, TestCase):
         self.assertEqual(it1.quantidade_maxima_permitida, self.max_allowed(D("1000")))
 
 
+@override_settings(AUDIT_ENABLED=False)
 class PesagemTests(BaseSetupMixin, TestCase):
     def setUp(self):
         super().setUp()
@@ -135,7 +138,7 @@ class PesagemTests(BaseSetupMixin, TestCase):
             op=self.op, item_op=self.item1, pesador="Ana",
             tara=D("0.080"), liquido=D("0.120"), balanca=self.bal, lote_mp=" 24A0321 "
         )
-        p.full_clean()
+        p.full_clean(exclude=["bruto"])  # bruto é calculado por _save_atomic
         p.save()
 
         p.refresh_from_db()
@@ -248,3 +251,42 @@ class PesagemTests(BaseSetupMixin, TestCase):
             tara=D("0.000"), liquido=D("0.100"), lote_mp="  24B0001  "
         )
         self.assertEqual(p2.lote_mp, "24B0001")
+
+
+@override_settings(AUDIT_ENABLED=False)
+class ProdutoSerializerTests(TestCase):
+    def test_bloqueia_produto_duplicado_por_nome_case_insensitive(self):
+        Produto.objects.create(nome="Xarope A", codigo_interno="PROD-001")
+
+        serializer = ProdutoSerializer(data={
+            "nome": "  xarope a  ",
+            "codigo_interno": "PROD-002",
+            "ativo": True,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("nome", serializer.errors)
+
+    def test_bloqueia_produto_duplicado_por_codigo_case_insensitive(self):
+        Produto.objects.create(nome="Xarope A", codigo_interno="PROD-001")
+
+        serializer = ProdutoSerializer(data={
+            "nome": "Xarope B",
+            "codigo_interno": " prod-001 ",
+            "ativo": True,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("codigo_interno", serializer.errors)
+
+    def test_normaliza_nome_e_codigo_ao_criar(self):
+        serializer = ProdutoSerializer(data={
+            "nome": "  Xarope C  ",
+            "codigo_interno": "  PROD-003  ",
+            "ativo": True,
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        produto = serializer.save()
+        self.assertEqual(produto.nome, "Xarope C")
+        self.assertEqual(produto.codigo_interno, "PROD-003")
