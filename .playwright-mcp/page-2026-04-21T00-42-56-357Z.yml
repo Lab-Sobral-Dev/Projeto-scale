@@ -1,0 +1,119 @@
+- generic [ref=e35]:
+  - generic [ref=e36]:
+    - button [ref=e38]:
+      - img
+    - generic:
+      - generic: Produção
+    - generic [ref=e40]:
+      - link "admin" [ref=e41] [cursor=pointer]:
+        - /url: /perfil
+        - img [ref=e43]
+        - generic [ref=e46]: admin
+      - button [ref=e47]:
+        - img
+  - main [ref=e48]:
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - img [ref=e54]
+            - generic [ref=e58]: Dashboard de Pesagem
+          - paragraph [ref=e59]: Bem-vindo ao Sistema de Gerenciamento de Pesagem
+          - paragraph [ref=e60]: Atualizado em 20/04/2026, 21:42:55
+        - button "Recarregar" [ref=e61]:
+          - img
+          - text: Recarregar
+      - generic [ref=e62]:
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - paragraph [ref=e67]: Pesagens Hoje
+            - paragraph [ref=e68]: "0"
+          - img [ref=e70]
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - paragraph [ref=e76]: Pesagens esta Semana
+            - paragraph [ref=e77]: "0"
+          - img [ref=e79]
+        - generic [ref=e84]:
+          - generic [ref=e85]:
+            - paragraph [ref=e86]: Produtos Cadastrados
+            - paragraph [ref=e87]: "0"
+          - img [ref=e89]
+        - generic [ref=e95]:
+          - generic [ref=e96]:
+            - paragraph [ref=e97]: Matérias-Primas
+            - paragraph [ref=e98]: "0"
+          - img [ref=e100]
+      - generic [ref=e104]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - paragraph [ref=e109]: OPs Pendentes
+            - paragraph [ref=e110]: "0"
+          - img [ref=e112]
+        - generic [ref=e118]:
+          - generic [ref=e119]:
+            - paragraph [ref=e120]: OPs em Andamento
+            - paragraph [ref=e121]: "0"
+          - img [ref=e123]
+      - generic [ref=e126]:
+        - heading "Ações Rápidas" [level=2] [ref=e127]
+        - generic [ref=e128]:
+          - link "Nova Pesagem Registrar uma nova pesagem" [ref=e129] [cursor=pointer]:
+            - /url: /nova-pesagem
+            - generic [ref=e131]:
+              - img [ref=e133]
+              - heading "Nova Pesagem" [level=3] [ref=e137]
+              - paragraph [ref=e138]: Registrar uma nova pesagem
+          - link "Histórico Consultar pesagens anteriores" [ref=e139] [cursor=pointer]:
+            - /url: /historico
+            - generic [ref=e141]:
+              - img [ref=e143]
+              - heading "Histórico" [level=3] [ref=e147]
+              - paragraph [ref=e148]: Consultar pesagens anteriores
+          - link "Ordens de Produção Status e itens das OPs" [ref=e149] [cursor=pointer]:
+            - /url: /ops
+            - generic [ref=e151]:
+              - img [ref=e153]
+              - heading "Ordens de Produção" [level=3] [ref=e155]
+              - paragraph [ref=e156]: Status e itens das OPs
+          - link "Nova OP Criar OP a partir da estrutura" [ref=e157] [cursor=pointer]:
+            - /url: /ops/nova
+            - generic [ref=e159]:
+              - img [ref=e161]
+              - heading "Nova OP" [level=3] [ref=e164]
+              - paragraph [ref=e165]: Criar OP a partir da estrutura
+      - generic [ref=e166]:
+        - generic [ref=e167]:
+          - heading "OPs Pendentes" [level=2] [ref=e168]
+          - link "Ver OPs" [ref=e169] [cursor=pointer]:
+            - /url: /ops
+            - button "Ver OPs" [ref=e170]
+        - table [ref=e174]:
+          - rowgroup [ref=e175]:
+            - row "OP Produto Lote Progresso Saldo Total Criada em" [ref=e176]:
+              - columnheader "OP" [ref=e177]
+              - columnheader "Produto" [ref=e178]
+              - columnheader "Lote" [ref=e179]
+              - columnheader "Progresso" [ref=e180]
+              - columnheader "Saldo Total" [ref=e181]
+              - columnheader "Criada em" [ref=e182]
+          - rowgroup [ref=e183]:
+            - row "Nenhuma OP pendente." [ref=e184]:
+              - cell "Nenhuma OP pendente." [ref=e185]
+      - generic [ref=e186]:
+        - generic [ref=e187]:
+          - heading "Últimas Pesagens" [level=2] [ref=e188]
+          - link "Ver Todas" [ref=e189] [cursor=pointer]:
+            - /url: /historico
+            - button "Ver Todas" [ref=e190]
+        - table [ref=e194]:
+          - rowgroup [ref=e195]:
+            - row "Produto Matéria-Prima Peso Líquido Data/Hora Pesador" [ref=e196]:
+              - columnheader "Produto" [ref=e197]
+              - columnheader "Matéria-Prima" [ref=e198]
+              - columnheader "Peso Líquido" [ref=e199]
+              - columnheader "Data/Hora" [ref=e200]
+              - columnheader "Pesador" [ref=e201]
+          - rowgroup [ref=e202]:
+            - row "Nenhuma pesagem encontrada." [ref=e203]:
+              - cell "Nenhuma pesagem encontrada." [ref=e204]

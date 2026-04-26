@@ -28,7 +28,25 @@
       "mcp__plugin_playwright_playwright__browser_take_screenshot",
       "mcp__plugin_playwright_playwright__browser_console_messages",
       "Bash(docker exec *)",
-      "Bash(docker build *)"
+      "Bash(docker build *)",
+      "Bash(docker compose up *)",
+      "Bash(python *)",
+      "Bash(docker info *)",
+      "PowerShell([System.Environment]::GetEnvironmentVariable\\(\"HTTPS_PROXY\", \"Machine\"\\); [System.Environment]::GetEnvironmentVariable\\(\"HTTP_PROXY\", \"Machine\"\\); [System.Environment]::GetEnvironmentVariable\\(\"HTTPS_PROXY\", \"User\"\\); [System.Environment]::GetEnvironmentVariable\\(\"HTTP_PROXY\", \"User\"\\))",
+      "Bash(docker pull hello-world *)",
+      "Bash(docker compose *)",
+      "PowerShell(docker run *)",
+      "Bash(docker restart *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8091/)",
+      "Bash(curl *)",
+      "Bash(xargs grep *)",
+      "Bash(iconv -f UTF-16 -t UTF-8 /c/Users/Hian/Documents/Projetos/Projeto-scale/backend/requirements.txt)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Bash(where python *)",
+      "Bash(docker cp *)",
+      "Bash(grep -E \"test_|FAIL|ERROR|OK$|Ran \")",
+      "Bash(grep -E \"test_T|FAIL|ERROR|Ran |OK$\")",
+      "Bash(grep -E \"ERROR:|FAIL:|ok$|\\\\.\\\\.\\\\.\")"
     ]
   }
 }
