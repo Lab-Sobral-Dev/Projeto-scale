@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.password_validation import validate_password
+from .models_security import LoginSecurity
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -30,7 +31,7 @@ def change_password(request):
     user.save(update_fields=["password"])
 
     # marca troca concluída
-    sec = user.security
+    sec, _ = LoginSecurity.objects.get_or_create(user=user)
     sec.mark_password_changed()
 
     return Response({"status": "password_changed"}, status=status.HTTP_200_OK)

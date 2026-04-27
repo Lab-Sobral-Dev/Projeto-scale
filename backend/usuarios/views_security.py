@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
+from django.utils import timezone
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework import status
@@ -35,8 +36,11 @@ def _send_temp_password(user, temp_password, admin_user):
             f"O usuário deverá alterar a senha no próximo acesso.\n"
         )
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None)
-    send_mail(subject=subject, message=body, from_email=from_email,
-              recipient_list=[recipient], fail_silently=True)
+    try:
+        send_mail(subject=subject, message=body, from_email=from_email,
+                  recipient_list=[recipient], fail_silently=False)
+    except Exception:
+        return False
     return True
 
 
@@ -78,14 +82,16 @@ class UserSecurityView(ViewSet):
         user.save(update_fields=["password"])
 
         sec.must_change_password = True
+        sec.last_password_change = timezone.now()
         sec.failed_logins = 0
         sec.is_locked = False
         sec.locked_at = None
-        sec.save(update_fields=["must_change_password", "failed_logins", "is_locked", "locked_at"])
+        sec.save(update_fields=["must_change_password", "last_password_change", "failed_logins", "is_locked", "locked_at"])
 
         email_sent = _send_temp_password(user, temp, request.user)
 
         return Response({
             "status": "forced",
+            "temporary_password": temp,
             "email_sent": email_sent,
         }, status=status.HTTP_200_OK)

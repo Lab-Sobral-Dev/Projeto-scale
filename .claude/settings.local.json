@@ -46,7 +46,32 @@
       "Bash(docker cp *)",
       "Bash(grep -E \"test_|FAIL|ERROR|OK$|Ran \")",
       "Bash(grep -E \"test_T|FAIL|ERROR|Ran |OK$\")",
-      "Bash(grep -E \"ERROR:|FAIL:|ok$|\\\\.\\\\.\\\\.\")"
+      "Bash(grep -E \"ERROR:|FAIL:|ok$|\\\\.\\\\.\\\\.\")",
+      "Bash(python3 -c \"import secrets; print\\(secrets.token_hex\\(32\\)\\)\")",
+      "Bash(py -c \"import secrets; print\\(secrets.token_hex\\(32\\)\\)\")",
+      "Bash(node -e \"const crypto=require\\('crypto'\\);console.log\\(crypto.randomBytes\\(32\\).toString\\('hex'\\)\\)\")",
+      "Bash(py -c \"import paramiko; print\\('paramiko disponível'\\)\")",
+      "Bash(py -m pip install paramiko --quiet)",
+      "Bash(py -c \"import paramiko; print\\('paramiko ok'\\)\")",
+      "Bash(where python3.exe)",
+      "Bash(where python.exe)",
+      "Bash(ls /c/Python*/python.exe)",
+      "Read(//usr/**)",
+      "Bash(/c/Users/hclaudio/AppData/Local/Microsoft/WindowsApps/python3.exe -c \"import paramiko; print\\('ok'\\)\")",
+      "Bash(backend/venv/Scripts/python.exe -c \"import paramiko; print\\('ok'\\)\")",
+      "Bash(backend/venv/Scripts/python.exe -m pip install paramiko --quiet)",
+      "Bash(backend/venv/Scripts/python.exe -c \"import paramiko; print\\('paramiko instalado com sucesso'\\)\")",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('node-ssh'\\); console.log\\('ok'\\)\")",
+      "Bash(SSH_PASS='@cesso06597' node *)",
+      "Bash(cygpath *)",
+      "Bash(git push *)",
+      "Bash(SSH_PASS='@Acesso06597' node *)",
+      "Bash(SSH_PASS='@cesso06597' NEW_PASS='@cesso06597' node *)",
+      "Bash(SSH_PASS='@cesso06597' NEW_USER='admin' NEW_PASS='@cesso06597' node *)",
+      "Bash(SSH_PASS='@cesso06597' NEW_PASS='Scale2026' node *)",
+      "Bash(node -e ' *)"
     ]
   }
 }
