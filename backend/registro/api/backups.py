@@ -1,15 +1,16 @@
 # apps/registro/api/backups.py
 from rest_framework import serializers, permissions, status, views
 from rest_framework.response import Response
-from django.utils.timezone import now
+from django.conf import settings as django_settings
 from pathlib import Path
 
 from registro.backup import BackupRecord
 from registro.services.backup_db import run_full_backup, run_restore
 from registro.audit_models import AuditLog
 from usuarios.permissions import IsAdmin
+
+
 class BackupRecordSerializer(serializers.ModelSerializer):
-    # ... código existente ...
     executed_by_name = serializers.SerializerMethodField()
     trigger_type = serializers.SerializerMethodField()
 
@@ -18,7 +19,7 @@ class BackupRecordSerializer(serializers.ModelSerializer):
         fields = [
             "id", "created_at", "executed_by", "executed_by_name", "ip",
             "user_agent", "engine", "output_file", "size_bytes",
-            "sha256", "status", "error_message", "trigger_type",
+            "sha256", "status", "error_message", "trigger_type", "db_alias",
         ]
         read_only_fields = fields
 
@@ -43,32 +44,40 @@ class BackupExecuteView(views.APIView):
         ip = request.META.get("REMOTE_ADDR")
         ua = request.META.get("HTTP_USER_AGENT", "")
 
-        rec = BackupRecord.objects.create(
-            executed_by=user, ip=ip, user_agent=ua, engine="", output_file="",
-            size_bytes=0, sha256="", status="running",
-        )
+        aliases = [a for a in ["default", "hml"] if a in django_settings.DATABASES]
+        created = []
 
-        try:
-            result = run_full_backup()
-        except Exception as e:
-            BackupRecord.objects.filter(pk=rec.pk).update(status="error", error_message=str(e))
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        for alias in aliases:
+            rec = BackupRecord.objects.create(
+                executed_by=user, ip=ip, user_agent=ua,
+                engine="", output_file="", size_bytes=0, sha256="",
+                status="running", db_alias=alias,
+            )
+            try:
+                result = run_full_backup(alias=alias)
+            except Exception as e:
+                BackupRecord.objects.filter(pk=rec.pk).update(status="error", error_message=str(e))
+                rec.refresh_from_db()
+                created.append(BackupRecordSerializer(rec).data)
+                continue
 
-        BackupRecord.objects.filter(pk=rec.pk).update(
-            engine=result["engine"],
-            output_file=result["output_file"],
-            size_bytes=result["size_bytes"],
-            sha256=result["sha256"],
-            status="success",
-        )
-        rec.refresh_from_db()
+            BackupRecord.objects.filter(pk=rec.pk).update(
+                engine=result["engine"],
+                output_file=result["output_file"],
+                size_bytes=result["size_bytes"],
+                sha256=result["sha256"],
+                status="success",
+            )
+            rec.refresh_from_db()
+            AuditLog.objects.create(
+                user=user, ip=ip, user_agent=ua, path=request.path,
+                method="POST", status_code=200, action="create",
+                model="BackupRecord", object_pk=str(rec.pk),
+                changes={"alias": alias},
+            )
+            created.append(BackupRecordSerializer(rec).data)
 
-        AuditLog.objects.create(
-            user=user, ip=ip, user_agent=ua, path=request.path,
-            method="POST", status_code=200, action="create",
-            model="BackupRecord", object_pk=str(rec.pk),
-        )
-        return Response(BackupRecordSerializer(rec).data, status=status.HTTP_201_CREATED)
+        return Response(created, status=status.HTTP_201_CREATED)
 
 
 class BackupListView(views.APIView):
@@ -98,8 +107,7 @@ class BackupRestoreView(views.APIView):
         user_info = f"{user.username} (ID: {user.pk}) - IP: {ip}"
 
         try:
-            # Chama a função blindada com backup de segurança
-            run_restore(rec.output_file, user_info=user_info)
+            run_restore(rec.output_file, user_info=user_info, alias=rec.db_alias or "default")
 
             AuditLog.objects.create(
                 user=user,

@@ -372,9 +372,9 @@ export default function BackupConsole() {
                             <thead>
                                 <tr className="bg-muted">
                                     <th className="text-left px-3 py-2 font-medium">Data/Hora</th>
+                                    <th className="text-left px-3 py-2 font-medium">Banco</th>
                                     <th className="text-left px-3 py-2 font-medium">Usuário</th>
                                     <th className="text-left px-3 py-2 font-medium">Tipo</th>
-                                    <th className="text-left px-3 py-2 font-medium">Engine</th>
                                     <th className="text-left px-3 py-2 font-medium">Tamanho</th>
                                     <th className="text-left px-3 py-2 font-medium">Status</th>
                                     <th className="text-left px-3 py-2 font-medium">Ações</th>
@@ -385,7 +385,7 @@ export default function BackupConsole() {
                                     <tr>
                                         <td
                                             className="px-3 py-3 text-muted-foreground"
-                                            colSpan={7}
+                                            colSpan={8}
                                         >
                                             Nenhum backup corresponde aos filtros.
                                         </td>
@@ -407,10 +407,19 @@ export default function BackupConsole() {
                                         b.executed_by_name ||
                                         (trig === 'automatic' ? 'Backup automático' : '—')
 
+                                    const dbAlias = b.db_alias || 'default'
+                                    const dbLabel = dbAlias === 'hml' ? 'Homologação' : 'Produção'
+                                    const dbColor = dbAlias === 'hml' ? 'bg-purple-600' : 'bg-teal-700'
+
                                     return (
                                         <tr key={b.id} className="border-t">
                                             <td className="px-3 py-2 whitespace-nowrap">
                                                 {formatDate(b.created_at)}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white ${dbColor}`}>
+                                                    {dbLabel}
+                                                </span>
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap">{userName}</td>
                                             <td className="px-3 py-2 whitespace-nowrap">
@@ -419,9 +428,6 @@ export default function BackupConsole() {
                                                 >
                                                     {typeLabel}
                                                 </span>
-                                            </td>
-                                            <td className="px-3 py-2 whitespace-nowrap">
-                                                {b.engine || ''}
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap">
                                                 {formatSize(b.size_bytes)}

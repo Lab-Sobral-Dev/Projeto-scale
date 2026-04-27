@@ -33,13 +33,14 @@ def _find_pg_dump() -> str:
         "(ex.: postgresql-client) ou defina PG_DUMP_BIN com o caminho completo."
     )
 
-def run_full_backup() -> dict:
-    alias = "default"
+def run_full_backup(alias: str = "default") -> dict:
     db = settings.DATABASES[alias]
     engine = db["ENGINE"].split(".")[-1]
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_dir = Path(getattr(settings, "BACKUP_DIR", "/var/backups/scale"))
     _ensure_dir(out_dir)
+
+    prefix = "db" if alias == "default" else f"db-{alias}"
 
     if engine == "postgresql":
         pg_dump = _find_pg_dump()
@@ -50,7 +51,7 @@ def run_full_backup() -> dict:
         user = db.get("USER") or ""
         password = db.get("PASSWORD") or ""
 
-        raw_path = out_dir / f"db-{stamp}.sql"
+        raw_path = out_dir / f"{prefix}-{stamp}.sql"
         gz_path = Path(str(raw_path) + ".gz")
 
         env = os.environ.copy()
@@ -102,7 +103,7 @@ def run_full_backup() -> dict:
         if not db_path.exists():
             raise RuntimeError(f"Arquivo SQLite não encontrado: {db_path}")
 
-        out_path = Path(str(out_dir / f"db-{stamp}.sqlite") + ".gz")
+        out_path = Path(str(out_dir / f"{prefix}-{stamp}.sqlite") + ".gz")
         with open(db_path, "rb") as fin, gzip.open(out_path, "wb") as fout:
             for chunk in iter(lambda: fin.read(1024 * 1024), b""):
                 fout.write(chunk)
@@ -195,14 +196,14 @@ def _cleanup_safety_backups(backup_dir: Path, keep_last: int = 5) -> None:
             _log_restore_event(f"Aviso: não foi possível remover {old.name}: {e}")
 
 
-def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
+def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: str = "default") -> bool:
     """
     Restaura o banco com 3 camadas de segurança:
     1. Exporta Logs de Auditoria para CSV (Rastreabilidade do intervalo perdido)
     2. Cria Backup Full do estado atual (Recuperação em caso de erro/arrependimento)
     3. Loga o evento em arquivo de texto (Histórico persistente)
     """
-    _log_restore_event(f"SOLICITAÇÃO DE RESTORE por {user_info}. Alvo: {backup_file_path}")
+    _log_restore_event(f"SOLICITAÇÃO DE RESTORE ({alias}) por {user_info}. Alvo: {backup_file_path}")
     backup_dir = Path(getattr(settings, "BACKUP_DIR", "/var/backups/scale"))
 
     # 1. EXPORTA AUDITORIA
@@ -213,12 +214,11 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
     # 2. SAFETY SNAPSHOT (Backup Preventivo)
     try:
         print("Criando backup de segurança...")
-        safety_backup = run_full_backup()
-        # Renomeia para identificar fácil visualmente
+        safety_backup = run_full_backup(alias=alias)
         safety_path = Path(safety_backup["output_file"])
         new_name = safety_path.parent / f"safety_before_restore_{safety_path.name}"
         safety_path.rename(new_name)
-        
+
         _log_restore_event(f"Backup de segurança criado: {new_name}")
     except Exception as e:
         msg = f"ABORTADO: Falha no backup de segurança: {e}"
@@ -226,7 +226,6 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido") -> bool:
         raise RuntimeError("Restore cancelado para evitar perda de dados (falha no backup preventivo).")
 
     # Configurações do Banco para Restore
-    alias = "default"
     db_conf = settings.DATABASES[alias]
     engine = db_conf["ENGINE"].split(".")[-1]
     

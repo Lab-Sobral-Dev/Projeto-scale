@@ -19,6 +19,7 @@ class BackupRecord(models.Model):
     sha256 = models.CharField(max_length=64, blank=True, default="")
     status = models.CharField(max_length=16, choices=STATUS, default="success")
     error_message = models.TextField(blank=True, default="")
+    db_alias = models.CharField(max_length=20, default="default")  # "default" (prod) ou "hml"
 
     class Meta:
         ordering = ["-created_at"]
