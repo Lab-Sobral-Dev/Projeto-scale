@@ -66,7 +66,7 @@ export default function RequireAuth({ children }) {
 
   if (accessExpired && !refreshOk) {
     clearSession()
-    sessionStorage.setItem('session_expired', '1')
+    if (refresh) sessionStorage.setItem('session_expired', '1')
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 

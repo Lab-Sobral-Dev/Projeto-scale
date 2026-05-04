@@ -16,13 +16,11 @@ RUN npm run build
 # Obs.: no seu compose você pode usar este container
 #       OU apenas montar /app/dist no Nginx do projeto.
 FROM nginx:stable-alpine
-# (Opcional) Remover configs padrão de exemplo
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copia a pasta gerada pelo build
 COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Porta interna (o Nginx do projeto ouvirá essa porta)
 EXPOSE 80
 
 # Nginx já inicia como PID 1 por padrão na imagem oficial
