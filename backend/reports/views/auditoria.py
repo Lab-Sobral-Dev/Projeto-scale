@@ -174,7 +174,8 @@ class AuditoriaAcoesReportView(APIView):
 
         if (request.GET.get("meta") or "").lower() == "filters":
             user_rows = (
-                qs.filter(user__isnull=False)
+                qs.order_by()
+                .filter(user__isnull=False)
                 .values_list("user__username", "user__first_name", "user__last_name")
                 .distinct()
             )
@@ -186,7 +187,8 @@ class AuditoriaAcoesReportView(APIView):
                 key=lambda y: y[1].lower(),
             )
             modelos = sorted(
-                qs.filter(model__isnull=False)
+                qs.order_by()
+                .filter(model__isnull=False)
                 .exclude(model="")
                 .values_list("model", flat=True)
                 .distinct()
@@ -286,7 +288,8 @@ class AuditoriaAuthErrosReportView(APIView):
 
         if (request.GET.get("meta") or "").lower() == "filters":
             user_rows = (
-                qs.filter(user__isnull=False)
+                qs.order_by()
+                .filter(user__isnull=False)
                 .values_list("user__username", "user__first_name", "user__last_name")
                 .distinct()
             )
@@ -296,7 +299,7 @@ class AuditoriaAuthErrosReportView(APIView):
             )
             informados = sorted(
                 v
-                for v in qs.values_list("extra__username", flat=True).distinct()
+                for v in qs.order_by().values_list("extra__username", flat=True).distinct()
                 if v
             )
             return Response({
@@ -363,7 +366,8 @@ class AuditoriaLogsSistemaReportView(APIView):
 
         if (request.GET.get("meta") or "").lower() == "filters":
             user_rows = (
-                qs.filter(user__isnull=False)
+                qs.order_by()
+                .filter(user__isnull=False)
                 .values_list("user__username", "user__first_name", "user__last_name")
                 .distinct()
             )
@@ -372,13 +376,13 @@ class AuditoriaLogsSistemaReportView(APIView):
                 key=lambda y: y[1].lower(),
             )
             actions = sorted(
-                v for v in qs.values_list("action", flat=True).distinct() if v
+                v for v in qs.order_by().values_list("action", flat=True).distinct() if v
             )
             methods = sorted(
-                v for v in qs.values_list("method", flat=True).distinct() if v
+                v for v in qs.order_by().values_list("method", flat=True).distinct() if v
             )
             models = sorted(
-                v for v in qs.values_list("model", flat=True).distinct() if v
+                v for v in qs.order_by().values_list("model", flat=True).distinct() if v
             )
             return Response({
                 "usuario": [{"value": u[0], "label": u[1]} for u in users],
