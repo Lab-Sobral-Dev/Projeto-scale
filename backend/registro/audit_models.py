@@ -2,11 +2,17 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
-from django.core.serializers.json import DjangoJSONEncoder  # <<< adicionamos isso
+from django.core.serializers.json import DjangoJSONEncoder
 
 User = get_user_model()
 
+ACOES_BAIXA_CRITICIDADE = frozenset({'request', 'token_refresh', 'error'})
+
+
 class AuditLog(models.Model):
+    ALTA = 'alta'
+    BAIXA = 'baixa'
+
     timestamp = models.DateTimeField(default=now, db_index=True)
     user = models.ForeignKey(
         User,
@@ -27,7 +33,14 @@ class AuditLog(models.Model):
     model = models.CharField(max_length=128, blank=True, default="", db_index=True, verbose_name="Modelo afetado")
     object_pk = models.CharField(max_length=64, blank=True, default="", db_index=True, verbose_name="PK do objeto")
 
-    # Aqui está o ponto principal: usar DjangoJSONEncoder para suportar Decimal, datetime, UUID etc.
+    criticidade = models.CharField(
+        max_length=5,
+        choices=[(ALTA, 'Alta'), (BAIXA, 'Baixa')],
+        default=ALTA,
+        db_index=True,
+        verbose_name='Criticidade',
+    )
+
     changes = models.JSONField(
         null=True,
         blank=True,
@@ -54,10 +67,15 @@ class AuditLog(models.Model):
             models.Index(fields=["object_pk"]),
             models.Index(fields=["ip"]),
             models.Index(fields=["model", "object_pk"]),
+            models.Index(fields=["criticidade", "-timestamp"], name="auditlog_critica_ts_idx"),
         ]
         ordering = ["-timestamp"]
         verbose_name = "Log de Auditoria"
         verbose_name_plural = "Logs de Auditoria"
+
+    def save(self, *args, **kwargs):
+        self.criticidade = self.BAIXA if self.action in ACOES_BAIXA_CRITICIDADE else self.ALTA
+        super().save(*args, **kwargs)
 
     def __str__(self):
         user_display = self.user.username if self.user else "anônimo"
