@@ -121,6 +121,32 @@ def _as_paragraphs(
 # ------------------------------------------------------------
 # API principal
 # ------------------------------------------------------------
+_TABLE_STYLE = [
+    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F0F0F0")),
+    ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ("TOPPADDING", (0, 0), (-1, -1), 2),
+    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+    ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+    ("BACKGROUND", (0, 2), (-1, -1), colors.Color(1, 1, 1, alpha=0)),
+]
+
+_CHUNK_SIZE = 100  # linhas por Table — evita layout O(n²) do ReportLab
+
+
+def _make_chunk_table(p_header, p_chunk, col_widths, font_size):
+    data = [p_header] + p_chunk
+    t = Table(data, repeatRows=1, colWidths=col_widths)
+    style = list(_TABLE_STYLE)
+    style.append(("FONTSIZE", (0, 0), (-1, -1), int(font_size) if font_size else 9))
+    t.setStyle(TableStyle(style))
+    return t
+
+
 def table_to_pdf(
     title: str,
     header: Sequence[str],
@@ -129,33 +155,15 @@ def table_to_pdf(
     paper: str = "A4",
     orientation: str = "landscape",
     font_size: int = 9,
-    margins: Tuple[float, float, float, float] = (15 * mm, 15 * mm, 14 * mm, 12 * mm),  # L,R,T,B
+    margins: Tuple[float, float, float, float] = (15 * mm, 15 * mm, 14 * mm, 12 * mm),
 ) -> bytes:
-    """
-    Gera PDF com:
-      • Tamanho de papel configurável (default A4)
-      • Orientação 'landscape' por padrão
-      • Fonte base configurável (default 9 pt)
-      • Cabeçalho repetido em todas as páginas
-      • Larguras das colunas autoajustadas para caber na página
-      • Quebra de linha nas células (Paragraph + wordWrap)
-
-    Parâmetros podem vir da query string do endpoint (paper, orientation, font_size).
-    """
     page_w, page_h = _page_size(paper, orientation)
     left, right, top, bottom = margins
     usable_w = page_w - left - right
 
-    # Estilos
     title_style, cell_style = _mk_styles(int(font_size) if font_size else 9)
-
-    # Converte conteúdo para Paragraph (quebra de linha)
-    p_header, p_rows = _as_paragraphs(header, rows, cell_style)
-
-    # Estima larguras para caber na página
     col_widths = _estimate_col_widths(header, rows, usable_w, cell_style)
 
-    # Monta documento
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -167,42 +175,16 @@ def table_to_pdf(
         title=title,
     )
 
-    story = [
-        Paragraph(_stringify(title), title_style),
-        Spacer(1, 4),
-    ]
+    story = [Paragraph(_stringify(title), title_style), Spacer(1, 4)]
 
-    data = [p_header] + p_rows
-    table = Table(data, repeatRows=1, colWidths=col_widths)
+    # Converte header uma vez; processa rows em chunks para evitar layout O(n²)
+    p_header, _ = _as_paragraphs(header, [], cell_style)
+    for i in range(0, max(len(rows), 1), _CHUNK_SIZE):
+        chunk = rows[i:i + _CHUNK_SIZE]
+        _, p_chunk = _as_paragraphs(header, chunk, cell_style)
+        story.append(_make_chunk_table(p_header, p_chunk, col_widths, font_size))
 
-    # Estilo visual da tabela
-    table.setStyle(TableStyle([
-        # Cabeçalho
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F0F0F0")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-
-        # Corpo
-        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), int(font_size) if font_size else 9),
-        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-
-        # Espaçamentos
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-
-        # Grade
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-
-        # Zebra (opcional, melhora leitura em paisagem)
-        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
-        ("BACKGROUND", (0, 2), (-1, -1), colors.Color(1, 1, 1, alpha=0)),  # limpa baseline
-    ]))
-
-    story.append(table)
     doc.build(story)
-
     pdf = buf.getvalue()
     buf.close()
     return pdf

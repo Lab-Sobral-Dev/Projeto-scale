@@ -225,7 +225,7 @@ class AuditoriaAcoesReportView(APIView):
         if export == "csv":
             return export_csv("auditoria_acoes", header, [row(a) for a in qs.iterator()])
         if export == "pdf":
-            return export_pdf("auditoria_administracao", "Relatório de Administração — Alterações de Dados", header, [row(a) for a in qs[:5000].iterator()])
+            return export_pdf("auditoria_administracao", "Relatório de Administração — Alterações de Dados", header, [row(a) for a in qs[:2000].iterator()])
 
         def to_payload(a: AuditLog):
             before, after = _before_after(a)
@@ -328,7 +328,7 @@ class AuditoriaAuthErrosReportView(APIView):
         if export == "csv":
             return export_csv("auditoria_erros_login", header, [row(a) for a in qs.iterator()])
         if export == "pdf":
-            return export_pdf("auditoria_erros_login", "Relatório de Administração — Erros e Login", header, [row(a) for a in qs[:5000].iterator()])
+            return export_pdf("auditoria_erros_login", "Relatório de Administração — Erros e Login", header, [row(a) for a in qs[:2000].iterator()])
 
         def to_payload(a: AuditLog):
             falha_usuario, falha_senha = self._failure_flags(a)
@@ -416,7 +416,7 @@ class AuditoriaLogsSistemaReportView(APIView):
         if export == "csv":
             return export_csv("auditoria_logs_sistema", header, [row(a) for a in qs.iterator()])
         if export == "pdf":
-            return export_pdf("auditoria_logs_sistema", "Relatório de Auditoria — Logs do Sistema", header, [row(a) for a in qs[:5000].iterator()])
+            return export_pdf("auditoria_logs_sistema", "Relatório de Auditoria — Logs do Sistema", header, [row(a) for a in qs[:2000].iterator()])
 
         def to_payload(a: AuditLog):
             return {
