@@ -47,6 +47,7 @@ from .models import (
     EstruturaProduto, ItemEstrutura,
     OrdemProducao, ItemOP, Pesagem, StatusOP
 )
+from .signals import suppress_next_audit
 from .serializers import (
     ProdutoSerializer, MateriaPrimaSerializer, BalancaSerializer,
     EstruturaProdutoSerializer, ItemEstruturaSerializer,
@@ -109,6 +110,7 @@ class RequireDeleteReasonAuditMixin:
 
         instance = self.get_object()
         snapshot = model_to_dict(instance)
+        suppress_next_audit(self.queryset.model, instance.pk)
 
         try:
             response = super().destroy(request, *args, **kwargs)
@@ -465,6 +467,7 @@ class PesagemViewSet(viewsets.ModelViewSet):
 
         instance = self.get_object()
         before = model_to_dict(instance)
+        suppress_next_audit(Pesagem, instance.pk)
 
         with transaction.atomic():
             response = super().update(request, *args, **kwargs)
@@ -518,6 +521,7 @@ class PesagemViewSet(viewsets.ModelViewSet):
 
         instance = self.get_object()
         snapshot = model_to_dict(instance)
+        suppress_next_audit(Pesagem, instance.pk)
         response = super().destroy(request, *args, **kwargs)
 
         try:

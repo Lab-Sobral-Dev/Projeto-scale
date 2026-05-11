@@ -75,6 +75,23 @@ def _before():
         _state.before = {}
     return _state.before
 
+def suppress_next_audit(model_class, pk):
+    """
+    Marca o próximo post_save/post_delete de (model_class, pk) para ser ignorado
+    pelo signal. Use quando o viewset já vai criar o AuditLog manualmente.
+    """
+    if not hasattr(_state, "suppress"):
+        _state.suppress = set()
+    _state.suppress.add((model_class, str(pk)))
+
+def _pop_suppress(model_class, pk):
+    s = getattr(_state, "suppress", set())
+    key = (model_class, str(pk))
+    if key in s:
+        s.discard(key)
+        return True
+    return False
+
 # -------------------------
 # Sinais
 # -------------------------
@@ -99,6 +116,8 @@ def after_save(sender, instance, created, **kwargs):
     if created:
         _log_change(instance, "create", snapshot(instance))
     else:
+        if _pop_suppress(sender, instance.pk):
+            return
         old = _before().pop((sender, instance.pk), {})
         new = snapshot(instance)
         changes = diff_dict(old, new)
@@ -110,5 +129,7 @@ def after_delete(sender, instance, **kwargs):
     if not getattr(settings, "AUDIT_ENABLED", False):
         return
     if sender not in _tracked:
+        return
+    if _pop_suppress(sender, instance.pk):
         return
     _log_change(instance, "delete", snapshot(instance))
