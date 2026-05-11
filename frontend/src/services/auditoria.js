@@ -51,7 +51,9 @@ export function exportarCsv(rows = []) {
     "user_agent",
     "reason_key",
     "reason_label",
-    "reason_note"
+    "reason_note",
+    "antes",
+    "depois"
   ]
 
   const escape = (val) => {
@@ -75,6 +77,23 @@ export function exportarCsv(rows = []) {
     const reason_note  = ch.reason_note || ch.motivo_obs || ch.motivo_observacao ||
                          ex.reason_note || ex.motivo_obs || ex.motivo_observacao || ex.edit_reason_note || ex.delete_reason_note || ""
 
+    const antes = {}
+    const depois = {}
+    for (const [field, value] of Object.entries(ch)) {
+      if (field.includes('motivo') || field.includes('reason')) continue
+      if (Array.isArray(value) && value.length === 2) {
+        antes[field] = value[0]
+        depois[field] = value[1]
+      } else if (value !== null && typeof value === 'object' && ('old' in value || 'new' in value)) {
+        antes[field] = value.old ?? null
+        depois[field] = value.new ?? null
+      } else if (r.action === 'create') {
+        depois[field] = value
+      } else if (r.action === 'delete') {
+        antes[field] = value
+      }
+    }
+
     const row = [
       r.timestamp,
       usuario,
@@ -88,7 +107,9 @@ export function exportarCsv(rows = []) {
       r.user_agent ?? "",
       reason ?? "",
       reason_label ?? "",
-      reason_note ?? ""
+      reason_note ?? "",
+      Object.keys(antes).length ? JSON.stringify(antes) : "",
+      Object.keys(depois).length ? JSON.stringify(depois) : ""
     ]
     lines.push(row.map(escape).join(","))
   }

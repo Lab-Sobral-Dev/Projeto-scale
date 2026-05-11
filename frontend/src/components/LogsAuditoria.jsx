@@ -194,6 +194,37 @@ export default function LogsAuditoria() {
   const reasonLabel = (reason) =>
     motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "—")
 
+  const formatChanges = (r) => {
+    const changes = r.changes || {}
+    const entries = Object.entries(changes).filter(([f]) => !f.includes('motivo') && !f.includes('reason'))
+    if (!entries.length || !['create', 'update', 'delete'].includes(r.action)) return <span className="text-slate-400 text-xs">—</span>
+
+    const fmt = (v) => v == null ? '∅' : (typeof v === 'object' ? JSON.stringify(v) : String(v))
+
+    return (
+      <div className="flex flex-col gap-0.5">
+        {entries.map(([field, value]) => {
+          if (r.action === 'update' && Array.isArray(value) && value.length === 2) {
+            return (
+              <span key={field} className="font-mono text-[10px] leading-tight">
+                <span className="text-blue-600 font-bold">{field}:</span>{' '}
+                <span className="text-red-600">{fmt(value[0])}</span>
+                <span className="text-slate-400"> → </span>
+                <span className="text-emerald-600">{fmt(value[1])}</span>
+              </span>
+            )
+          }
+          return (
+            <span key={field} className="font-mono text-[10px] leading-tight">
+              <span className="text-blue-600 font-bold">{field}:</span>{' '}
+              <span className="text-slate-600">{fmt(value)}</span>
+            </span>
+          )
+        })}
+      </div>
+    )
+  }
+
   const humanDetails = (r) => {
     const extra = r.extra || {}
     const model = r.model || "registro"
@@ -359,6 +390,7 @@ export default function LogsAuditoria() {
                 <th className="px-2 py-2">Nome</th>
                 <th className="px-2 py-2">Perfil</th>
                 <th className="px-2 py-2 text-left">Ação e Detalhes</th>
+                <th className="px-2 py-2 text-left">Alterações</th>
                 <th className="px-2 py-2">Status</th>
                 <th className="px-2 py-2">Mais</th>
               </tr>
@@ -380,6 +412,9 @@ export default function LogsAuditoria() {
                         <span className="text-slate-600 leading-snug">{humanDetails(r)}</span>
                       </div>
                     </td>
+                    <td className="px-2 py-2 max-w-[260px]">
+                      {formatChanges(r)}
+                    </td>
                     <td className="px-2 py-2 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full font-mono text-xs border ${statusClass(r.status_code)}`}>
                         {r.status_code ?? "-"}
@@ -392,7 +427,7 @@ export default function LogsAuditoria() {
                 )
               })}
               {!loading && (data?.results || []).length === 0 && (
-                <tr><td className="px-2 py-6 text-center" colSpan={7}>Sem registros</td></tr>
+                <tr><td className="px-2 py-6 text-center" colSpan={8}>Sem registros</td></tr>
               )}
             </tbody>
           </table>

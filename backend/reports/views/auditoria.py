@@ -399,9 +399,12 @@ class AuditoriaLogsSistemaReportView(APIView):
             "IP de origem da ação",
             "Ação realizada",
             "Detalhes",
+            "Antes",
+            "Depois",
         ]
 
         def row(a: AuditLog):
+            before, after = _before_after(a)
             return [
                 str(a.pk).zfill(5),
                 _fmt_dt(a.timestamp),
@@ -410,6 +413,8 @@ class AuditoriaLogsSistemaReportView(APIView):
                 a.ip or "—",
                 _human_action(a.action),
                 _details_for_non_technical(a),
+                _to_text(before),
+                _to_text(after),
             ]
 
         export = (request.GET.get("export") or "").lower()
