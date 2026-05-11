@@ -194,30 +194,66 @@ export default function LogsAuditoria() {
   const reasonLabel = (reason) =>
     motivosEdit?.[reason] || motivosDelete?.[reason] || (reason ? String(reason) : "—")
 
+  const FIELD_LABELS = {
+    bruto: 'Bruto (kg)', tara: 'Tara (kg)', liquido: 'Líquido (g)',
+    pesador: 'Pesador', codigo_interno: 'Cód. interno', lote_mp: 'Lote da MP',
+    balanca: 'Balança', op: 'OP', item_op: 'Item da OP',
+    nome: 'Nome', ativo: 'Ativo',
+    identificador: 'Identificador', tipo_conexao: 'Tipo de conexão',
+    endereco_ip: 'Endereço IP', porta: 'Porta', porta_serial: 'Porta serial',
+    localizacao: 'Localização', capacidade_maxima: 'Cap. máxima',
+    divisao: 'Divisão', protocolo: 'Protocolo',
+    ultima_calibracao: 'Última calibração', frequencia_calibracao_dias: 'Frequência de calibração (dias)',
+    calibracao_realizada: 'Calibração realizada',
+    numero: 'Número', produto: 'Produto', estrutura: 'Estrutura',
+    lote: 'Lote', status: 'Status', observacoes: 'Observações',
+    criada_em: 'Criada em', concluida_em: 'Concluída em',
+    materia_prima: 'Matéria-prima', quantidade_necessaria: 'Qtd. necessária (g)',
+    quantidade_pesada: 'Qtd. pesada (g)', unidade: 'Unidade',
+  }
+
+  const fmtVal = (v) => {
+    if (v == null || v === '') return 'vazio'
+    if (typeof v === 'boolean') return v ? 'Sim' : 'Não'
+    if (typeof v === 'number' || (!isNaN(Number(v)) && String(v).trim() !== '')) {
+      const n = Number(v)
+      if (Number.isInteger(n)) return n.toLocaleString('pt-BR')
+      return n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
+    }
+    if (typeof v === 'object') return JSON.stringify(v)
+    return String(v)
+  }
+
+  const fieldLabel = (f) => FIELD_LABELS[f] || f.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
   const formatChanges = (r) => {
     const changes = r.changes || {}
     const entries = Object.entries(changes).filter(([f]) => !f.includes('motivo') && !f.includes('reason'))
     if (!entries.length || !['create', 'update', 'delete'].includes(r.action)) return <span className="text-slate-400 text-xs">—</span>
 
-    const fmt = (v) => v == null ? '∅' : (typeof v === 'object' ? JSON.stringify(v) : String(v))
-
     return (
       <div className="flex flex-col gap-0.5">
         {entries.map(([field, value]) => {
-          if (r.action === 'update' && Array.isArray(value) && value.length === 2) {
+          const label = fieldLabel(field)
+
+          if (r.action === 'update') {
+            let before = null, after = null
+            if (Array.isArray(value) && value.length === 2) { before = value[0]; after = value[1] }
+            else if (value !== null && typeof value === 'object' && ('old' in value || 'new' in value)) { before = value.old ?? null; after = value.new ?? null }
+            else { after = value }
             return (
-              <span key={field} className="font-mono text-[10px] leading-tight">
-                <span className="text-blue-600 font-bold">{field}:</span>{' '}
-                <span className="text-red-600">{fmt(value[0])}</span>
+              <span key={field} className="text-[10px] leading-tight">
+                <span className="text-slate-500 font-semibold">{label}:</span>{' '}
+                <span className="text-red-600">{fmtVal(before)}</span>
                 <span className="text-slate-400"> → </span>
-                <span className="text-emerald-600">{fmt(value[1])}</span>
+                <span className="text-emerald-600">{fmtVal(after)}</span>
               </span>
             )
           }
           return (
-            <span key={field} className="font-mono text-[10px] leading-tight">
-              <span className="text-blue-600 font-bold">{field}:</span>{' '}
-              <span className="text-slate-600">{fmt(value)}</span>
+            <span key={field} className="text-[10px] leading-tight">
+              <span className="text-slate-500 font-semibold">{label}:</span>{' '}
+              <span className="text-slate-600">{fmtVal(value)}</span>
             </span>
           )
         })}
