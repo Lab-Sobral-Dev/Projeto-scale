@@ -526,20 +526,41 @@ export default function LogsAuditoria() {
                         <thead className="bg-slate-100 border-b">
                           <tr>
                             <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-600 uppercase">Campo Modificado</th>
-                            <th className="px-4 py-2.5 text-left text-[10px] font-bold text-slate-600 uppercase">Novo Valor / Estado Atual</th>
+                            <th className="px-4 py-2.5 text-left text-[10px] font-bold text-red-500 uppercase">Valor Anterior</th>
+                            <th className="px-4 py-2.5 text-left text-[10px] font-bold text-emerald-600 uppercase">Valor Novo</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {Object.entries(selected.changes).map(([field, value]) => {
-                            // Ignora campos de motivo que já mostramos acima
                             if (field.includes('motivo') || field.includes('reason')) return null;
+
+                            let before = null
+                            let after = null
+
+                            if (Array.isArray(value) && value.length === 2) {
+                              before = value[0]
+                              after = value[1]
+                            } else if (value !== null && typeof value === 'object' && ('old' in value || 'new' in value)) {
+                              before = value.old ?? null
+                              after = value.new ?? null
+                            } else if (selected.action === 'create') {
+                              after = value
+                            } else if (selected.action === 'delete') {
+                              before = value
+                            } else {
+                              after = value
+                            }
+
+                            const fmt = (v) => v == null ? '—' : (typeof v === 'object' ? JSON.stringify(v) : String(v))
+
                             return (
                               <tr key={field} className="hover:bg-slate-50/80 transition-colors">
-                                <td className="px-4 py-2.5 font-mono text-[11px] text-blue-700 bg-blue-50/20 w-1/3 border-r font-bold">{field}</td>
-                                <td className="px-4 py-2.5">
-                                  <span className="text-slate-700 font-mono text-xs break-all">
-                                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                  </span>
+                                <td className="px-4 py-2.5 font-mono text-[11px] text-blue-700 bg-blue-50/20 w-1/4 border-r font-bold">{field}</td>
+                                <td className="px-4 py-2.5 border-r bg-red-50/30">
+                                  <span className="text-red-700 font-mono text-xs break-all">{fmt(before)}</span>
+                                </td>
+                                <td className="px-4 py-2.5 bg-emerald-50/30">
+                                  <span className="text-emerald-700 font-mono text-xs break-all">{fmt(after)}</span>
                                 </td>
                               </tr>
                             )
