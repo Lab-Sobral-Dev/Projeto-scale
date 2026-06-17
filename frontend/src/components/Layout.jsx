@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, Outlet } from 'react-router-dom'
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import useIdleLogout from '@/hooks/useIdleLogout'
 import {
   Home,
   Scale,
@@ -57,6 +58,20 @@ const Layout = ({ user, onLogout }) => {
   const [me, setMe] = useState(null)
   const [loadingMe, setLoadingMe] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+
+  // Logout automático após 10 min de inatividade
+  useIdleLogout({
+    onIdle: () => {
+      try {
+        sessionStorage.setItem('inactivity_logout', '1')
+      } catch {
+        // sem acesso ao sessionStorage
+      }
+      onLogout?.()
+      navigate('/login', { replace: true })
+    },
+  })
 
   // --- hidrata /auth/me se necessário ---
   useEffect(() => {

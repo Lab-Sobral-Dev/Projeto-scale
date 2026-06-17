@@ -30,9 +30,15 @@ const Login = ({ onLogin }) => {
 
 
   useEffect(() => {
+    const inactivity = sessionStorage.getItem('inactivity_logout')
+    if (inactivity === '1') {
+      setError('Você foi desconectado por inatividade. Faça login novamente.')
+      sessionStorage.removeItem('inactivity_logout')
+      return
+    }
     const expired = sessionStorage.getItem('session_expired')
     if (expired === '1') {
-      setError('Seção expirada. Faça login novamente.')
+      setError('Sessão expirada. Faça login novamente.')
       sessionStorage.removeItem('session_expired')
     }
   }, [])
