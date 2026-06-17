@@ -4,6 +4,7 @@ from datetime import timedelta
 from decimal import Decimal
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import F, Sum, Q
 from django.utils import timezone
 from registro.db_context import get_db
@@ -110,6 +111,11 @@ class Balanca(models.Model):
     localizacao = models.CharField(max_length=100, blank=True, default='')
     capacidade_maxima = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)  # kg
     divisao = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    casas_decimais = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(0), MaxValueValidator(6)],
+        help_text="Número de casas decimais (em kg) que a balança consegue medir. Define a precisão exibida e aceita na pesagem.",
+    )
     protocolo = models.CharField(max_length=50, blank=True, default='')
     ultima_calibracao = models.DateField(null=True, blank=True)
     frequencia_calibracao_dias = models.PositiveIntegerField(default=365)
@@ -275,12 +281,12 @@ class Pesagem(models.Model):
     # Entradas e cálculos de massa
     bruto = models.DecimalField(
         max_digits=14,
-        decimal_places=3,
+        decimal_places=6,
         help_text="Calculado automaticamente no backend (kg): tara_kg + liquido_kg."
     )
     tara = models.DecimalField(
         max_digits=14,
-        decimal_places=3,
+        decimal_places=6,
         help_text="Entrada do operador em kg."
     )
     liquido = models.DecimalField(

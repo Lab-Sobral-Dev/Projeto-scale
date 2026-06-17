@@ -66,6 +66,7 @@ const CadastroBalanca = () => {
     localizacao: '',
     capacidadeMaxima: '',
     divisao: '',
+    casasDecimais: '3',
     protocolo: '',
     ultimaCalibracao: '',
     frequenciaCalibracaoDias: '365',
@@ -90,6 +91,7 @@ const CadastroBalanca = () => {
     localizacao: b.localizacao ?? '',
     capacidadeMaxima: b.capacidade_maxima != null ? String(b.capacidade_maxima) : '',
     divisao: b.divisao != null ? String(b.divisao) : '',
+    casasDecimais: b.casas_decimais != null ? String(b.casas_decimais) : '3',
     protocolo: b.protocolo ?? '',
     ultimaCalibracao: b.ultima_calibracao ?? '',
     frequenciaCalibracaoDias: b.frequencia_calibracao_dias != null ? String(b.frequencia_calibracao_dias) : '365',
@@ -107,6 +109,7 @@ const CadastroBalanca = () => {
     localizacao: b.localizacao || '',
     capacidade_maxima: b.capacidadeMaxima !== '' ? b.capacidadeMaxima : null,
     divisao: b.divisao !== '' ? b.divisao : null,
+    casas_decimais: b.casasDecimais !== '' && b.casasDecimais != null ? Number(b.casasDecimais) : 3,
     protocolo: b.protocolo || '',
     ultima_calibracao: b.calibracaoRealizada ? (b.ultimaCalibracao || null) : null,
     frequencia_calibracao_dias: b.frequenciaCalibracaoDias !== '' ? Number(b.frequenciaCalibracaoDias) : 365,
@@ -157,6 +160,10 @@ const CadastroBalanca = () => {
     }
     if (formData.calibracaoRealizada && !formData.ultimaCalibracao) {
       return 'Informe a data da última calibração quando a calibração foi realizada.'
+    }
+    const casas = Number(formData.casasDecimais)
+    if (!Number.isInteger(casas) || casas < 0 || casas > 6) {
+      return 'As casas decimais devem ser um número inteiro entre 0 e 6.'
     }
     return ''
   }
@@ -219,6 +226,7 @@ const CadastroBalanca = () => {
       localizacao: '',
       capacidadeMaxima: '',
       divisao: '',
+      casasDecimais: '3',
       protocolo: '',
       ultimaCalibracao: '',
       frequenciaCalibracaoDias: '365',
@@ -302,6 +310,7 @@ const CadastroBalanca = () => {
       localizacao: balanca.localizacao,
       capacidadeMaxima: balanca.capacidadeMaxima,
       divisao: balanca.divisao,
+      casasDecimais: balanca.casasDecimais ?? '3',
       protocolo: balanca.protocolo,
       ultimaCalibracao: balanca.ultimaCalibracao || '',
       frequenciaCalibracaoDias: balanca.frequenciaCalibracaoDias || '365',
@@ -467,6 +476,25 @@ const CadastroBalanca = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="casasDecimais">Casas decimais (precisão)</Label>
+                  <Input
+                    id="casasDecimais"
+                    type="number"
+                    min="0"
+                    max="6"
+                    step="1"
+                    inputMode="numeric"
+                    value={formData.casasDecimais}
+                    onChange={(e) => handleChange('casasDecimais', e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Número de casas decimais (em kg) que a balança mede. Usado na pesagem para líquido, tara e bruto. Entre 0 e 6.
+                  </p>
+                </div>
+              </div>
+
               {!editingId && (
                 <>
                   <div className="space-y-2">
@@ -628,6 +656,9 @@ const CadastroBalanca = () => {
                                 <span className="font-medium">Protocolo:</span> {b.protocolo}
                               </p>
                             )}
+                            <p className="text-sm text-gray-500 break-words">
+                              <span className="font-medium">Casas decimais:</span> {b.casasDecimais ?? '3'}
+                            </p>
                             <p className="text-sm text-gray-500 break-words">
                               <span className="font-medium">Frequência calibração:</span> {b.frequenciaCalibracaoDias || 365} dias
                             </p>

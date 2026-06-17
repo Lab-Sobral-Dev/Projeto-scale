@@ -61,18 +61,27 @@ class PesagensReportView(APIView, PageNumberPagination):
         qs = self.get_queryset(request)
         export = request.GET.get('export')
 
+        def _fmt(value, casas):
+            return f"{value:.{casas}f}" if value is not None else ""
+
         header = ["Data/Hora","OP","Produto","Matéria-Prima","Pesador","Bruto (kg)","Tara (kg)","Líquido (g)","Lote MP","Balança","Código Interno"]
-        rows = [
-            [
+        rows = []
+        for p in qs:
+            # Casas decimais da balança usada (em kg). Sem balança vinculada -> 3 (padrão).
+            casas_kg = p.balanca.casas_decimais if p.balanca else 3
+            # O líquido é armazenado em gramas; em g a resolução equivale a (casas_kg - 3).
+            casas_g = max(casas_kg - 3, 0)
+            rows.append([
                 fmt_gmt3_with_zone(p.data_hora),
                 p.op.numero,
                 p.op.produto.nome,
                 p.item_op.materia_prima.nome if p.item_op else "",
-                p.pesador, f"{p.bruto:.3f}", f"{p.tara:.3f}", f"{p.liquido:.3f}",
+                p.pesador,
+                _fmt(p.bruto, casas_kg),
+                _fmt(p.tara, casas_kg),
+                _fmt(p.liquido, casas_g),
                 p.lote_mp, (p.balanca.nome if p.balanca else ""), p.codigo_interno
-            ]
-            for p in qs
-        ]
+            ])
 
         if export == 'csv':
             return export_csv("relatorio_pesagens", header, rows)
