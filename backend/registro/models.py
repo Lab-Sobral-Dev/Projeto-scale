@@ -291,9 +291,10 @@ class Pesagem(models.Model):
     )
     liquido = models.DecimalField(
         max_digits=14,
-        decimal_places=3,
+        decimal_places=6,
         default=0.0,
-        help_text="Armazenado em g (entrada do operador é em kg; o backend converte)."
+        help_text="Armazenado em g (entrada do operador é em kg; o backend converte). "
+                  "decimal_places=6 para aceitar a entrada em kg com até 6 casas (precisão da balança)."
     )
 
     # Metadados adicionais
