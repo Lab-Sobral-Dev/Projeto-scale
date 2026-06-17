@@ -26,8 +26,11 @@ const kgToG = (kg) => Math.round((Number(kg) || 0) * KG_IN_G)
 const gToKg = (g) => (Number(g) || 0) / KG_IN_G
 
 const fmtG = (v) => {
-  const n = Math.round(Number(v) || 0)
-  return n.toLocaleString('pt-BR') + ' g'
+  const n = Number(v)
+  if (!Number.isFinite(n)) return '0 g'
+  // preserva até 3 casas decimais (gramas); arredonda só para eliminar ruído de ponto flutuante
+  const rounded = Number(n.toFixed(3))
+  return rounded.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) + ' g'
 }
 
 const toNumber = (v) => {
