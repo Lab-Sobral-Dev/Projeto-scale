@@ -44,7 +44,10 @@ class BackupExecuteView(views.APIView):
         ip = request.META.get("REMOTE_ADDR")
         ua = request.META.get("HTTP_USER_AGENT", "")
 
-        aliases = [a for a in ["default", "hml"] if a in django_settings.DATABASES]
+        aliases = [
+            a for a in ["default", "hml"]
+            if a in django_settings.DATABASES and django_settings.DATABASES[a].get("NAME")
+        ]
         created = []
 
         for alias in aliases:

@@ -1,6 +1,12 @@
 # backend/registro/db_router.py
 from .db_context import get_db
 
+# Modelos de infraestrutura global: sempre usam o banco default,
+# independente do contexto de ambiente do usuário (JWT env claim).
+# Isso garante que o Celery (que escreve em default) e o frontend HML
+# leiam/escrevam nos mesmos registros.
+_GLOBAL_MODELS = {"backuprecord", "backupconfig"}
+
 
 class EnvRouter:
     """
@@ -9,9 +15,13 @@ class EnvRouter:
     """
 
     def db_for_read(self, model, **hints):
+        if model._meta.model_name in _GLOBAL_MODELS:
+            return "default"
         return get_db()
 
     def db_for_write(self, model, **hints):
+        if model._meta.model_name in _GLOBAL_MODELS:
+            return "default"
         return get_db()
 
     def allow_relation(self, obj1, obj2, **hints):
