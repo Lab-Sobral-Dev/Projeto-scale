@@ -182,9 +182,10 @@ def _export_audit_log_to_csv(backup_dir: Path):
         print(f"Aviso: Falha ao exportar CSV de auditoria: {e}")
         return None
 
-def _cleanup_safety_backups(backup_dir: Path, keep_last: int = 5) -> None:
+def _cleanup_safety_backups(backup_dir: Path, alias: str = "default", keep_last: int = 5) -> None:
+    prefix = "db" if alias == "default" else f"db-{alias}"
     safety_files = sorted(
-        backup_dir.glob("safety_before_restore_*"),
+        backup_dir.glob(f"safety_before_restore_{prefix}-*.gz"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -235,8 +236,8 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: s
 
     if engine == "postgresql":
         pg_client = _find_pg_dump().replace("pg_dump", "psql")
-        if not Path(pg_client).exists() or "pg_dump" in pg_client:
-             pg_client = shutil.which("psql") or "/usr/bin/psql"
+        if not Path(pg_client).exists():
+            pg_client = shutil.which("psql") or "/usr/bin/psql"
 
         host = db_conf.get("HOST") or "localhost"
         port = str(db_conf.get("PORT") or "5432")
@@ -250,14 +251,14 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: s
 
         # 3. KILL CONNECTIONS & DROP SCHEMA
         kill_sql = f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{name}' AND pid <> pg_backend_pid();"
-        
+
         try:
             # Mata conexões
             subprocess.run(
                 [pg_client, "-h", host, "-p", port, "-U", user, "-d", name, "-c", kill_sql],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env
             )
-            
+
             # Limpa Schema Public (Reset do banco)
             reset_cmd = [
                 pg_client, "-h", host, "-p", port, "-U", user, "-d", name,
@@ -267,17 +268,20 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: s
             if proc_reset.returncode != 0:
                 raise RuntimeError(f"Falha ao limpar schema: {proc_reset.stderr.decode()}")
 
-            # 4. RESTORE (Aplica o backup antigo)
-            with subprocess.Popen(["gzip", "-cd", str(path)], stdout=subprocess.PIPE) as gz_proc:
+            # 4. RESTORE — descomprime via Python gzip (sem dependência do binário gzip)
+            with tempfile.TemporaryFile() as tmp:
+                with gzip.open(path, "rb") as f_in:
+                    shutil.copyfileobj(f_in, tmp)
+                tmp.seek(0)
                 proc_restore = subprocess.run(
                     [pg_client, "-h", host, "-p", port, "-U", user, "-d", name],
-                    stdin=gz_proc.stdout, env=env, stderr=subprocess.PIPE
+                    stdin=tmp, env=env, stderr=subprocess.PIPE
                 )
             if proc_restore.returncode != 0:
                 raise RuntimeError(f"Erro no psql: {proc_restore.stderr.decode('utf-8')}")
 
             _log_restore_event(f"SUCESSO: Banco restaurado para versão {path.name}.")
-            _cleanup_safety_backups(backup_dir)
+            _cleanup_safety_backups(backup_dir, alias=alias)
             return True
 
         except Exception as e:
