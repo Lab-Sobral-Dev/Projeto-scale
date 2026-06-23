@@ -105,7 +105,8 @@
       "Bash(timeout 25 \"/c/Program Files/PuTTY/plink\" -ssh -pw '@cesso06597' suporte@191.101.18.82 \"echo CONNECTED; hostname; whoami\")",
       "Bash(echo \"EXIT=$?\")",
       "Bash(timeout 25 \"/c/Program Files/PuTTY/plink\" -ssh -batch -pw '@cesso06597' suporte@191.101.18.82 \"echo CONNECTED\")",
-      "Bash(timeout 25 \"/c/Program Files/PuTTY/plink\" -ssh -batch -hostkey 'SHA256:gwPW2Ml+zQDRC48KKMIGjj/5NqQv7wYCahE/FHbo5H8' -pw '@cesso06597' suporte@191.101.18.82 \"echo CONNECTED; hostname; whoami; pwd\")"
+      "Bash(timeout 25 \"/c/Program Files/PuTTY/plink\" -ssh -batch -hostkey 'SHA256:gwPW2Ml+zQDRC48KKMIGjj/5NqQv7wYCahE/FHbo5H8' -pw '@cesso06597' suporte@191.101.18.82 \"echo CONNECTED; hostname; whoami; pwd\")",
+      "Bash(grep -E \"\\\\.py$|backup\")"
     ]
   }
 }

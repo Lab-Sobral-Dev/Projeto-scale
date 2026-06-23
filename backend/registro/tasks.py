@@ -66,7 +66,10 @@ def auto_backup(self):
 
     _clean_old_backups()
 
-    aliases = [a for a in ["default", "hml"] if a in django_settings.DATABASES]
+    aliases = [
+        a for a in ["default", "hml"]
+        if a in django_settings.DATABASES and django_settings.DATABASES[a].get("NAME")
+    ]
     first_error = None
 
     for alias in aliases:

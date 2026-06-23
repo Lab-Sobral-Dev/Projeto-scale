@@ -295,7 +295,7 @@ if AUDIT_ENABLED:
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 
-CELERY_TIMEZONE = "UTC"
+CELERY_TIMEZONE = TIME_ZONE
 CELERY_ENABLE_UTC = True
 
 # django-celery-beat usa o scheduler baseado em DB
