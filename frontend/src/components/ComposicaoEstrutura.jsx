@@ -378,12 +378,17 @@ const ComposicaoEstrutura = () => {
                                     </SelectTrigger>
                                     <SelectContent className="max-h-64">
                                         {materiasPrimas.map(mp => (
-                                            <SelectItem key={mp.id} value={String(mp.id)}>
+                                            <SelectItem key={mp.id} value={String(mp.id)} disabled={mp.ativo === false}>
                                                 <span className="inline-flex gap-2 items-baseline max-w-full">
                                                     <span className="truncate max-w-[200px]">{mp.nome}</span>
                                                     <span className="text-xs text-gray-500 shrink-0">
                                                         ({mp.codigo_interno})
                                                     </span>
+                                                    {mp.ativo === false && (
+                                                        <span className="text-xs text-red-500 shrink-0">
+                                                            inativa
+                                                        </span>
+                                                    )}
                                                 </span>
                                             </SelectItem>
                                         ))}

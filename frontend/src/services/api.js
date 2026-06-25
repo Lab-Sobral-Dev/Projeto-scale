@@ -273,9 +273,33 @@ class ApiService {
     });
   }
 
+  // ===== Helper: busca TODAS as páginas de um endpoint paginado (DRF) =====
+  // Evita que itens recém-cadastrados fiquem fora da 1ª página (PAGE_SIZE=50).
+  async getAllPages(path, params = {}) {
+    const out = [];
+    let page = 1;
+    // page_size grande para reduzir round-trips (limitado por max_page_size no backend)
+    const pageParams = { page_size: 500, ...params };
+    // hard stop de segurança contra loop infinito
+    for (let guard = 0; guard < 1000; guard++) {
+      const data = await this.get(path, { params: { ...pageParams, page } });
+      if (Array.isArray(data)) {
+        out.push(...data);
+        break;
+      }
+      out.push(...(data?.results ?? []));
+      if (!data?.next) break;
+      page += 1;
+    }
+    return out;
+  }
+
   // ===== Produtos (/api/registro/produtos/) =====
   async getProdutos(params = {}) {
     return this.get("/registro/produtos/", { params });
+  }
+  async getAllProdutos(params = {}) {
+    return this.getAllPages("/registro/produtos/", params);
   }
   async getProduto(id) {
     return this.request(`${this.baseRegistro}/produtos/${id}/`);
@@ -352,6 +376,9 @@ class ApiService {
   async getEstruturas(params = {}) {
     return this.get("/registro/estruturas/", { params });
   }
+  async getAllEstruturas(params = {}) {
+    return this.getAllPages("/registro/estruturas/", params);
+  }
   async getEstrutura(id) {
     return this.request(`${this.baseRegistro}/estruturas/${id}/`);
   }
@@ -379,6 +406,9 @@ class ApiService {
   // ===== OPs (/api/registro/ops/) =====
   async getOPs(params = {}) {
     return this.get("/registro/ops/", { params });
+  }
+  async getAllOPs(params = {}) {
+    return this.getAllPages("/registro/ops/", params);
   }
   async getOP(id) {
     return this.request(`${this.baseRegistro}/ops/${id}/`);

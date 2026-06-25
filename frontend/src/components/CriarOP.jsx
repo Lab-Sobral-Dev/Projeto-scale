@@ -8,6 +8,20 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Save, Factory, ListChecks } from 'lucide-react'
 import api from '@/services/api'
 
+// Extrai uma mensagem legível dos erros do DRF (detail, erros de campo ou non_field_errors).
+const extrairMensagemErro = (err, fallback) => {
+  const data = err?.response?.data ?? err?.payload
+  if (!data) return err?.message || fallback
+  if (typeof data === 'string') return data
+  if (data.detail) return String(data.detail)
+  const partes = []
+  for (const valor of Object.values(data)) {
+    if (Array.isArray(valor)) partes.push(valor.join(' '))
+    else if (valor) partes.push(String(valor))
+  }
+  return partes.length ? partes.join(' ') : fallback
+}
+
 const CriarOP = () => {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
@@ -36,8 +50,8 @@ const CriarOP = () => {
       setLoading(true)
       try {
         const [prodRes, estRes] = await Promise.all([
-          api.getProdutos(),
-          api.getEstruturas()
+          api.getAllProdutos({ ordering: 'nome' }),
+          api.getAllEstruturas({ ordering: 'produto__nome' })
         ])
         if (abort) return
         const normalize = data => Array.isArray(data) ? data : (data?.results ?? [])
@@ -79,8 +93,7 @@ const CriarOP = () => {
       setSuccess(`OP ${created.numero} criada e itens gerados com sucesso!`)
     } catch (err) {
       console.error(err)
-      const msg = err?.response?.data?.detail || 'Erro ao criar OP.'
-      setError(String(msg))
+      setError(extrairMensagemErro(err, 'Erro ao criar OP.'))
     } finally {
       setLoading(false)
     }
@@ -154,8 +167,11 @@ const CriarOP = () => {
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {produtos.map(p => (
-                    <SelectItem key={p.id} value={String(p.id)}>
+                    <SelectItem key={p.id} value={String(p.id)} disabled={p.ativo === false}>
                       {p.nome}
+                      {p.ativo === false && (
+                        <span className="ml-2 text-xs text-red-500">(inativo)</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -174,8 +190,11 @@ const CriarOP = () => {
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {estruturasFiltradas.map(e => (
-                    <SelectItem key={e.id} value={String(e.id)}>
+                    <SelectItem key={e.id} value={String(e.id)} disabled={e.ativo === false}>
                       {(e.descricao || 'Estrutura') + ' — ' + (e?.produto?.nome || '')}
+                      {e.ativo === false && (
+                        <span className="ml-2 text-xs text-red-500">(inativa)</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
