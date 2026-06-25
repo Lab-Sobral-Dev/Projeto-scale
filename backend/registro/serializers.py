@@ -1,6 +1,7 @@
 # serializers.py
 
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from .models import (
     Produto, MateriaPrima, Balanca,
     EstruturaProduto, ItemEstrutura,
@@ -77,6 +78,14 @@ class ItemEstruturaSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def validate(self, attrs):
+        mp = attrs.get("materia_prima") or getattr(self.instance, "materia_prima", None)
+        if mp is not None and not mp.ativo:
+            raise serializers.ValidationError({
+                "materia_prima_id": "Não é possível usar uma matéria-prima inativa na estrutura."
+            })
+        return attrs
+
 class EstruturaProdutoSerializer(serializers.ModelSerializer):
     produto = ProdutoSerializer(read_only=True)
     produto_id = serializers.PrimaryKeyRelatedField(
@@ -129,6 +138,22 @@ class OrdemProducaoSerializer(serializers.ModelSerializer):
     estrutura_id = serializers.PrimaryKeyRelatedField(
         queryset=EstruturaProduto.objects.all(), write_only=True, source="estrutura"
     )
+    # Mensagens claras de duplicidade (substituem o texto genérico do UniqueValidator).
+    # Em update, o UniqueValidator ignora automaticamente a própria instância.
+    numero = serializers.CharField(
+        max_length=50,
+        validators=[UniqueValidator(
+            queryset=OrdemProducao.objects.all(),
+            message="Já existe uma OP com este número.",
+        )],
+    )
+    lote = serializers.CharField(
+        max_length=50,
+        validators=[UniqueValidator(
+            queryset=OrdemProducao.objects.all(),
+            message="Já existe uma OP com este lote.",
+        )],
+    )
 
     class Meta:
         model = OrdemProducao
@@ -144,6 +169,25 @@ class OrdemProducaoSerializer(serializers.ModelSerializer):
             "concluida_em",
         ]
         read_only_fields = ["id", "status", "criada_em", "concluida_em"]
+
+    def validate(self, attrs):
+        produto = attrs.get("produto") or getattr(self.instance, "produto", None)
+        estrutura = attrs.get("estrutura") or getattr(self.instance, "estrutura", None)
+
+        errors = {}
+        if produto is not None and not produto.ativo:
+            errors["produto_id"] = "Não é possível criar uma OP para um produto inativo."
+        if estrutura is not None and not estrutura.ativo:
+            errors["estrutura_id"] = "Não é possível criar uma OP a partir de uma estrutura inativa."
+        if (
+            produto is not None and estrutura is not None
+            and estrutura.produto_id != produto.id
+        ):
+            errors["estrutura_id"] = "A estrutura selecionada não pertence ao produto informado."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
 
 # ============== Pesagem ==============
