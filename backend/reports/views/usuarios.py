@@ -1,6 +1,7 @@
 # apps/reports/views/usuarios.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 from usuarios.models import PerfilUsuario, Role, Screen
 from registro.audit_models import AuditLog
@@ -61,10 +62,18 @@ class PermissoesTelasReportView(APIView):
             concedido_por = '—'
             perfil_obj = getattr(u, 'perfil', None)
             if perfil_obj:
+                # A concessão de acesso pode ocorrer via edição do usuário ou do
+                # perfil, pela API ou pelo Django admin. Casa qualquer uma dessas
+                # rotas (por id do usuário ou do perfil) e pega a mais recente que
+                # tenha autor identificado.
+                rotas = (
+                    Q(path__icontains=f'/usuarios/usuarios/{u.id}/')
+                    | Q(path__icontains=f'/usuarios/perfis/{perfil_obj.id}/')
+                    | Q(path__icontains=f'/usuarios/perfilusuario/{perfil_obj.id}/')
+                )
                 auditoria = AuditLog.objects.filter(
-                    action='request',
+                    rotas,
                     method__in=['PUT', 'PATCH', 'POST'],
-                    path__icontains=f'/usuarios/perfis/{perfil_obj.id}/',
                     status_code__lt=400,
                     user__isnull=False,
                 ).select_related('user').order_by('-timestamp').first()
