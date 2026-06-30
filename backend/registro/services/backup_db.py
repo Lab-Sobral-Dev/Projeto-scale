@@ -1,5 +1,5 @@
 # apps/registro/services/backup_db.py
-import gzip, hashlib, os, shlex, subprocess, sys, tempfile, shutil, csv
+import gzip, hashlib, json, os, shlex, subprocess, sys, tempfile, shutil, csv
 from datetime import datetime
 from django.conf import settings
 from pathlib import Path
@@ -140,6 +140,29 @@ def _log_restore_event(msg: str):
     except Exception as e:
         print(f"Erro ao gravar log de restore: {e}")
 
+def _record_restore(alias: str, user_info: str, source, result: str, obs: str = ""):
+    """Grava UMA linha JSON estruturada do desfecho de uma restauração em
+    restore_history.jsonl (no volume de backup, fora de qualquer banco e imune a
+    restores). É a fonte going-forward do relatório de Restaurações.
+
+    Nunca lança: registrar o histórico jamais pode abortar uma restauração.
+    """
+    try:
+        from registro.db_context import ALIAS_TO_ENV
+        backup_dir = Path(getattr(settings, "BACKUP_DIR", "/var/backups/scale"))
+        record = {
+            "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "usuario": user_info or "Desconhecido",
+            "env": ALIAS_TO_ENV.get(alias, "prod"),
+            "arquivo": Path(str(source)).name if source else "",
+            "resultado": result,
+            "obs": obs or "",
+        }
+        with open(backup_dir / "restore_history.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"Erro ao gravar restore_history.jsonl: {e}")
+
 def _export_audit_log_to_csv(backup_dir: Path):
     """
     Exporta a tabela de auditoria atual para CSV antes que ela seja apagada.
@@ -196,7 +219,7 @@ def _cleanup_safety_backups(backup_dir: Path, keep_last: int = 5) -> None:
             _log_restore_event(f"Aviso: não foi possível remover {old.name}: {e}")
 
 
-def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: str = "default") -> bool:
+def _run_restore_impl(backup_file_path: str, user_info: str = "Desconhecido", alias: str = "default") -> bool:
     """
     Restaura o banco com 3 camadas de segurança:
     1. Exporta Logs de Auditoria para CSV (Rastreabilidade do intervalo perdido)
@@ -277,6 +300,8 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: s
                 raise RuntimeError(f"Erro no psql: {proc_restore.stderr.decode('utf-8')}")
 
             _log_restore_event(f"SUCESSO: Banco restaurado para versão {path.name}.")
+            _record_restore(alias, user_info, backup_file_path, "sucesso",
+                            obs=f"Backup de segurança: {new_name.name}")
             _cleanup_safety_backups(backup_dir)
             return True
 
@@ -291,6 +316,7 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: s
             with gzip.open(path, "rb") as f_in, open(db_path, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
             _log_restore_event("SUCESSO: SQLite restaurado.")
+            _record_restore(alias, user_info, backup_file_path, "sucesso", obs="SQLite restaurado")
             _cleanup_safety_backups(backup_dir)
             return True
         except Exception as e:
@@ -298,3 +324,19 @@ def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: s
             raise e
     else:
         raise RuntimeError("Engine não suportada.")
+
+
+def run_restore(backup_file_path: str, user_info: str = "Desconhecido", alias: str = "default") -> bool:
+    """Wrapper público de restauração.
+
+    Delega a `_run_restore_impl` (que registra o desfecho de SUCESSO no
+    histórico durável) e garante que qualquer FALHA — arquivo ausente, falha no
+    backup de segurança, erro no reset/psql — seja registrada como 'erro' em
+    restore_history.jsonl antes de relançar. Mantém a assinatura original usada
+    por api/backups.py e admin.py.
+    """
+    try:
+        return _run_restore_impl(backup_file_path, user_info=user_info, alias=alias)
+    except Exception as e:
+        _record_restore(alias, user_info, backup_file_path, "erro", obs=str(e)[:500])
+        raise
