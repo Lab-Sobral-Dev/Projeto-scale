@@ -9,6 +9,7 @@ from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import apply_date_filter, text
 from ..datetime_utils import fmt_gmt3_with_zone
+from ..services.formatters import casas_gramas, fmt_massa_g
 
 class PesagensReportView(APIView, PageNumberPagination):
     permission_classes = [IsReportViewer]
@@ -61,25 +62,20 @@ class PesagensReportView(APIView, PageNumberPagination):
         qs = self.get_queryset(request)
         export = request.GET.get('export')
 
-        def _fmt(value, casas):
-            return f"{value:.{casas}f}" if value is not None else ""
-
-        header = ["Data/Hora","OP","Produto","Matéria-Prima","Pesador","Bruto (kg)","Tara (kg)","Líquido (g)","Lote MP","Balança","Código Interno"]
+        header = ["Data/Hora","OP","Produto","Matéria-Prima","Pesador","Bruto (g)","Tara (g)","Líquido (g)","Lote MP","Balança","Código Interno"]
         rows = []
         for p in qs:
-            # Casas decimais da balança usada (em kg). Sem balança vinculada -> 3 (padrão).
-            casas_kg = p.balanca.casas_decimais if p.balanca else 3
-            # O líquido é armazenado em gramas; em g a resolução equivale a (casas_kg - 3).
-            casas_g = max(casas_kg - 3, 0)
+            # Precisão em gramas conforme a balança (kg). Sem balança -> padrão.
+            casas = casas_gramas(p.balanca.casas_decimais if p.balanca else None)
             rows.append([
                 fmt_gmt3_with_zone(p.data_hora),
                 p.op.numero,
                 p.op.produto.nome,
                 p.item_op.materia_prima.nome if p.item_op else "",
                 p.pesador,
-                _fmt(p.bruto, casas_kg),
-                _fmt(p.tara, casas_kg),
-                _fmt(p.liquido, casas_g),
+                fmt_massa_g(p.bruto, casas, origem="kg"),   # bruto em kg -> g
+                fmt_massa_g(p.tara, casas, origem="kg"),    # tara em kg -> g
+                fmt_massa_g(p.liquido, casas, origem="g"),  # líquido já em g
                 p.lote_mp, (p.balanca.nome if p.balanca else ""), p.codigo_interno
             ])
 

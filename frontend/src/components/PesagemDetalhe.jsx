@@ -30,12 +30,23 @@ const AlertDescription = ({ children, className }) => <p className={`text-sm [&_
 const Separator = ({ className }) => <div className={`shrink-0 bg-border h-[1px] w-full ${className}`} />;
 
 // ============ Helpers/formatters ============
-const nf3 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
 const tz = 'America/Fortaleza';
 const fmtDT = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: tz }) : '-');
 const KG_IN_G = 1000;
 const toNum = (x) => (x == null ? null : Number(x));
 const kgToG = (kg) => (kg == null ? null : kg * KG_IN_G);
+
+// Precisão em gramas equivalente às casas da balança (em kg). 3 casas kg = 1 g.
+// Mesma regra usada no módulo de relatórios (reports/services/formatters.py).
+const casasGramas = (casasKg) => Math.max((casasKg == null ? 3 : Number(casasKg)) - 3, 0);
+// Massa em gramas no padrão pt-BR com casas decimais fixas.
+const fmtMassaG = (valorG, casas) => {
+    if (valorG == null || isNaN(valorG)) return '-';
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: casas,
+        maximumFractionDigits: casas,
+    }).format(Number(valorG));
+};
 
 export default function PesagemDetalhe() {
     const { id } = useParams();
@@ -97,7 +108,10 @@ export default function PesagemDetalhe() {
         const codigo = p?.codigo_interno || '-';
         const isOPLinked = !!p?.op || !!p?.item_op;
 
-        return { produto, materia, opNumero, loteOP, loteMP, balanca, pesador, data, brutoG, taraG, liquidoG, codigo, isOPLinked };
+        // Casas decimais (em g) conforme a balança usada na pesagem.
+        const casasG = casasGramas(p?.balanca?.casas_decimais);
+
+        return { produto, materia, opNumero, loteOP, loteMP, balanca, pesador, data, brutoG, taraG, liquidoG, casasG, codigo, isOPLinked };
     }, [p]);
 
     const onEtiqueta = async () => {
@@ -167,10 +181,10 @@ export default function PesagemDetalhe() {
                     <InfoRow icon={Ticket} label="Lote (OP)" value={resolved?.loteOP || (loading ? '—' : '-')} />
                     <InfoRow icon={Tag} label="Lote MP" value={resolved?.loteMP || '—'} />
 
-                    {/* Pesos sempre em gramas na UI */}
-                    <InfoRow icon={Weight} label="Peso Bruto" value={resolved?.brutoG != null ? `${nf3.format(Number(resolved.brutoG))} g` : '-'} />
-                    <InfoRow icon={Weight} label="Tara" value={resolved?.taraG != null ? `${nf3.format(Number(resolved.taraG))} g` : '-'} />
-                    <InfoRow icon={Weight} label="Peso Líquido" value={resolved?.liquidoG != null ? `${nf3.format(Number(resolved.liquidoG))} g` : '-'} />
+                    {/* Pesos sempre em gramas na UI, na precisão da balança */}
+                    <InfoRow icon={Weight} label="Peso Bruto" value={resolved?.brutoG != null ? `${fmtMassaG(resolved.brutoG, resolved.casasG)} g` : '-'} />
+                    <InfoRow icon={Weight} label="Tara" value={resolved?.taraG != null ? `${fmtMassaG(resolved.taraG, resolved.casasG)} g` : '-'} />
+                    <InfoRow icon={Weight} label="Peso Líquido" value={resolved?.liquidoG != null ? `${fmtMassaG(resolved.liquidoG, resolved.casasG)} g` : '-'} />
 
                     <InfoRow icon={QrCode} label="Código Interno" value={resolved?.codigo || '-'} />
                     <InfoRow icon={Scale} label="Balança" value={resolved?.balanca || '-'} />

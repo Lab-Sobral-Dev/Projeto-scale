@@ -4,6 +4,7 @@ from registro.models import Pesagem, OrdemProducao, ItemOP, Balanca, Produto, Ma
 from registro.audit_models import AuditLog
 from django.contrib.auth import get_user_model
 from .datetime_utils import fmt_gmt3_with_zone
+from .services.formatters import casas_gramas, fmt_massa_g
 User = get_user_model()
 
 class PesagemSerializer(serializers.ModelSerializer):
@@ -12,9 +13,29 @@ class PesagemSerializer(serializers.ModelSerializer):
     materia_prima = serializers.CharField(source='item_op.materia_prima.nome', read_only=True)
     op_numero = serializers.CharField(source='op.numero', read_only=True)
     balanca_nome = serializers.CharField(source='balanca.nome', read_only=True)
+    # Pesos exibidos em gramas, pt-BR, na precisão da balança (mesma regra do
+    # export e da tela de detalhe da pesagem).
+    bruto = serializers.SerializerMethodField()
+    tara = serializers.SerializerMethodField()
+    liquido = serializers.SerializerMethodField()
 
     def get_data_hora(self, obj):
         return fmt_gmt3_with_zone(obj.data_hora)
+
+    def _casas(self, obj):
+        return casas_gramas(obj.balanca.casas_decimais if obj.balanca else None)
+
+    def get_bruto(self, obj):
+        # bruto é armazenado em kg.
+        return fmt_massa_g(obj.bruto, self._casas(obj), origem="kg")
+
+    def get_tara(self, obj):
+        # tara é armazenada em kg.
+        return fmt_massa_g(obj.tara, self._casas(obj), origem="kg")
+
+    def get_liquido(self, obj):
+        # líquido é armazenado em g.
+        return fmt_massa_g(obj.liquido, self._casas(obj), origem="g")
 
     class Meta:
         model = Pesagem

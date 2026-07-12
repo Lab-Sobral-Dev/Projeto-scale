@@ -8,6 +8,11 @@ from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import apply_date_filter, text
 from ..datetime_utils import fmt_gmt3_with_zone
+from ..services.formatters import fmt_massa_g
+
+# Total pesado é a soma (em g) de pesagens de balanças possivelmente distintas;
+# usamos a precisão de armazenamento do líquido.
+CASAS_TOTAL_PESADO = 3
 
 class LotesReportView(APIView, PageNumberPagination):
     permission_classes = [IsReportViewer]
@@ -43,7 +48,7 @@ class LotesReportView(APIView, PageNumberPagination):
             rows.append([
                 fmt_gmt3_with_zone(op.criada_em),
                 op.numero, op.produto.nome, op.lote, op.status,
-                f"{total:.3f}", itens
+                fmt_massa_g(total, CASAS_TOTAL_PESADO, origem="g"), itens
             ])
 
         if export == 'csv':
@@ -59,7 +64,10 @@ class LotesReportView(APIView, PageNumberPagination):
             "produto": op.produto.nome,
             "lote": op.lote,
             "status": op.status,
-            "total_pesado_g": float(Pesagem.objects.filter(op=op).aggregate(s=Sum('liquido'))['s'] or 0),
+            "total_pesado_g": fmt_massa_g(
+                Pesagem.objects.filter(op=op).aggregate(s=Sum('liquido'))['s'] or 0,
+                CASAS_TOTAL_PESADO, origem="g",
+            ),
             "itens": op.itemop_set.count(),
         } for op in qs]
 
