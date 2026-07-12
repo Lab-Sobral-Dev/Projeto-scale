@@ -136,7 +136,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "conf.pagination.DefaultPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_FILTER_BACKENDS": (  # <- habilita filtros/search/order
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -162,6 +162,11 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
+
+    # Atualiza User.last_login a cada login bem-sucedido. Sem isto o JWT
+    # nunca preenche o campo e a coluna "Último login" do relatório de
+    # Usuários fica sempre vazia.
+    "UPDATE_LAST_LOGIN": True,
 }
 
 ROOT_URLCONF = "conf.urls"

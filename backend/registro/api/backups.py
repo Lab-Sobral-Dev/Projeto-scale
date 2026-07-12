@@ -5,6 +5,7 @@ from django.conf import settings as django_settings
 from pathlib import Path
 
 from registro.backup import BackupRecord
+from registro.db_context import get_db
 from registro.services.backup_db import run_full_backup, run_restore
 from registro.audit_models import AuditLog
 from usuarios.permissions import IsAdmin
@@ -87,7 +88,14 @@ class BackupListView(views.APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        qs = BackupRecord.objects.all().order_by("-created_at")[:100]
+        # Cada ambiente vê apenas os próprios backups: homologação ("hml")
+        # ou produção ("default"). O alias ativo vem do contexto do JWT.
+        current_alias = get_db()
+        qs = (
+            BackupRecord.objects
+            .filter(db_alias=current_alias)
+            .order_by("-created_at")[:100]
+        )
         return Response(BackupRecordSerializer(qs, many=True).data)
 
 

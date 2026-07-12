@@ -151,7 +151,9 @@ const NovaPesagem = () => {
       setLoading(true)
       try {
         const [opsRes, balRes, userRes] = await Promise.all([
-          api.getOPs({ ordering: '-criada_em' }),
+          // carrega TODAS as OPs (todas as páginas) para não perder OPs abertas
+          // antigas que ficariam fora das 50 mais recentes
+          api.getAllOPs({ ordering: '-criada_em' }),
           api.getBalancas(),
           api.me().catch(() => null)
         ])
