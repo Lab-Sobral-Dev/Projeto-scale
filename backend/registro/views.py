@@ -10,9 +10,8 @@ from django.db.models import F
 from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
 
-from reportlab.lib.pagesizes import A7
 from reportlab.pdfgen import canvas
-from reportlab.lib.units import inch
+from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors
 
@@ -554,6 +553,13 @@ class PesagemViewSet(viewsets.ModelViewSet):
 from django.utils import timezone
 
 
+# Dimensoes fisicas da etiqueta de pesagem (mm).
+# Alterar aqui reflete no PDF; a previa em tela usa os mesmos valores
+# em frontend/src/components/GeracaoEtiqueta.jsx.
+ETIQUETA_LARGURA_MM = 80
+ETIQUETA_ALTURA_MM = 65
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def gerar_etiqueta_pdf(request, pk):
@@ -569,7 +575,7 @@ def gerar_etiqueta_pdf(request, pk):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename=etiqueta_{pesagem.id}.pdf'
 
-    etiqueta_size = (4 * inch, 3 * inch)  # 4x3 polegadas
+    etiqueta_size = (ETIQUETA_LARGURA_MM * mm, ETIQUETA_ALTURA_MM * mm)
     p = canvas.Canvas(response, pagesize=etiqueta_size)
     width, height = etiqueta_size
 
@@ -585,29 +591,29 @@ def gerar_etiqueta_pdf(request, pk):
         orig_w, orig_h = logo.getSize()
         aspect = orig_h / orig_w
 
-        desired_width  = 60
+        desired_width  = 52
         desired_height = desired_width * aspect
 
-        p.setFont("Helvetica-Bold", 12)
-        text_width  = p.stringWidth(titulo, "Helvetica-Bold", 12)
-        total_width = desired_width + 8 + text_width
+        p.setFont("Helvetica-Bold", 10)
+        text_width  = p.stringWidth(titulo, "Helvetica-Bold", 10)
+        total_width = desired_width + 6 + text_width
         start_x     = (width - total_width) / 2
-        y_pos       = height - 18
+        y_pos       = height - 14
 
         logo_y = y_pos - desired_height + 3
         p.drawImage(logo, x=start_x, y=logo_y,
                     width=desired_width, height=desired_height, mask='auto')
 
         text_y = y_pos - (desired_height / 2) + 1
-        p.drawString(start_x + desired_width + 8, text_y, titulo)
+        p.drawString(start_x + desired_width + 6, text_y, titulo)
 
         header_bottom = logo_y  # ponto mais baixo do cabeçalho
 
     else:
-        p.setFont("Helvetica-Bold", 12)
-        text_width = p.stringWidth(titulo, "Helvetica-Bold", 12)
-        p.drawString((width - text_width) / 2, height - 20, titulo)
-        header_bottom = height - 20 - 4  # baseline − descida estimada da fonte
+        p.setFont("Helvetica-Bold", 10)
+        text_width = p.stringWidth(titulo, "Helvetica-Bold", 10)
+        p.drawString((width - text_width) / 2, height - 16, titulo)
+        header_bottom = height - 16 - 4  # baseline − descida estimada da fonte
 
     # ---- formatação: até 3 casas, removendo zeros à direita ----
     def fmt_g3_ptbr(value):
@@ -661,30 +667,30 @@ def gerar_etiqueta_pdf(request, pk):
     env_nome    = get_env()
     env_label   = "HOMOLOGAÇÃO" if env_nome == "hml" else "PRODUÇÃO"
     env_color   = "#b45309" if env_nome == "hml" else "#1d4ed8"
-    band_height = 14
-    band_top    = header_bottom - 4          # 4pt de gap após o cabeçalho
+    band_height = 12
+    band_top    = header_bottom - 3          # 3pt de gap após o cabeçalho
     band_bottom = band_top - band_height
     p.setFillColor(colors.HexColor(env_color))
     p.rect(0, band_bottom, width, band_height, fill=1, stroke=0)
     p.setFillColor(colors.white)
-    p.setFont("Helvetica-Bold", 8)
-    label_w = p.stringWidth(env_label, "Helvetica-Bold", 8)
+    p.setFont("Helvetica-Bold", 7)
+    label_w = p.stringWidth(env_label, "Helvetica-Bold", 7)
     p.drawString((width - label_w) / 2, band_bottom + 3, env_label)
     p.setFillColor(colors.black)
 
     # ── Conteúdo da etiqueta ──────────────────────────────────────────────
-    # Layout em 2 colunas para compactar; linha_h=13 cabe ~11 linhas na área
-    linha_h    = 13
-    linha      = band_bottom - 6 - linha_h   # gap + linha em branco antes do Produto
+    # Layout em 2 colunas para compactar; linha_h=14 cabe as 7 linhas na área
+    linha_h    = 14
+    linha      = band_bottom - 5 - linha_h   # gap + linha em branco antes do Produto
     fnt        = "Helvetica"
     fnt_b      = "Helvetica-Bold"
     sz         = 8
-    sz_min     = 6
-    ml         = 8                    # margem esquerda
-    mr         = 8                    # margem direita
-    col2       = width / 2 + 4        # início da coluna direita (~148 pt)
-    w_full     = width - ml - mr      # largura total (~272 pt)
-    w_half     = width / 2 - ml - 4   # largura de meia coluna (~124 pt)
+    sz_min     = 5.5
+    ml         = 6                    # margem esquerda
+    mr         = 6                    # margem direita
+    col2       = width / 2 + 3        # início da coluna direita (~116 pt)
+    w_full     = width - ml - mr      # largura total (~215 pt)
+    w_half     = width / 2 - ml - 3   # largura de meia coluna (~104 pt)
 
     def nl():
         nonlocal linha

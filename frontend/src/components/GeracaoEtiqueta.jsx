@@ -41,6 +41,11 @@ const formatDateTime = (iso) => {
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('pt-BR', { timeZone: tz })
 }
 
+// Dimensoes fisicas da etiqueta — espelham ETIQUETA_LARGURA_MM / ETIQUETA_ALTURA_MM
+// em backend/registro/views.py. Alterar nos dois lugares.
+const ETIQUETA_LARGURA = '80mm'
+const ETIQUETA_ALTURA  = '65mm'
+
 const appEnv = localStorage.getItem('app_env') ?? 'prod'
 const ENV_LABEL = appEnv === 'hml' ? 'HOMOLOGAÇÃO' : 'PRODUÇÃO'
 const ENV_BG    = appEnv === 'hml' ? '#b45309' : '#1d4ed8'
@@ -154,71 +159,86 @@ export default function GeracaoEtiqueta() {
         </div>
       </div>
 
-      {/* Prévia da Etiqueta (2 por página) */}
+      {/* Regras de impressao: define o papel no tamanho fisico da etiqueta,
+          uma etiqueta por pagina. Sem isto o navegador imprime em A4. */}
+      <style>{`
+        @media print {
+          @page { size: ${ETIQUETA_LARGURA} ${ETIQUETA_ALTURA}; margin: 0; }
+          .etiqueta-print {
+            margin: 0 !important;
+            border: none !important;
+            break-after: page;
+            page-break-after: always;
+          }
+          .etiqueta-print:last-child { break-after: auto; page-break-after: auto; }
+        }
+      `}</style>
+
+      {/* Prévia da Etiqueta (uma por página) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" /> Prévia da Etiqueta
           </CardTitle>
-          <CardDescription>Visualização da etiqueta que será impressa (2 blocos por página)</CardDescription>
+          <CardDescription>Visualização da etiqueta que será impressa (80 × 65 mm, uma por página)</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="bg-white border-2 border-dashed border-gray-300 p-8 rounded-lg print:border-0">
+          <div className="bg-white border-2 border-dashed border-gray-300 p-8 rounded-lg print:border-0 print:p-0">
             {[0,1].map((i) => (
-              <div key={i} className={`border-2 border-black p-4 ${i===0 ? 'mb-6' : ''} bg-white`} style={{ width: '400px', height: '300px' }}>
-                <div className="h-full flex flex-col">
+              <div key={i} className={`etiqueta-print border-2 border-black p-[2mm] ${i===0 ? 'mb-6' : ''} bg-white overflow-hidden`} style={{ width: ETIQUETA_LARGURA, height: ETIQUETA_ALTURA }}>
+                <div className="h-full flex flex-col leading-tight">
                   {/* Cabeçalho */}
-                  <div className="text-center border-b-2 border-black pb-2 mb-3">
-                    <h2 className="text-lg font-bold">SISTEMA DE PESAGEM</h2>
-                    <p className="text-sm">{i===0 ? 'Etiqueta de Identificação' : 'Etiqueta de Identificação (CÓPIA)'}</p>
-                    <div className="mt-1 text-xs font-bold text-white py-0.5 rounded" style={{ backgroundColor: ENV_BG }}>
+                  <div className="text-center border-b border-black pb-1 mb-1">
+                    <h2 className="text-[9px] font-bold leading-none">SISTEMA DE PESAGEM</h2>
+                    <p className="text-[6px] leading-tight">{i===0 ? 'Etiqueta de Identificação' : 'Etiqueta de Identificação (CÓPIA)'}</p>
+                    <div className="mt-0.5 text-[6px] font-bold text-white rounded leading-tight" style={{ backgroundColor: ENV_BG }}>
                       {ENV_LABEL}
                     </div>
                   </div>
 
                   {/* Dados Principais */}
-                  <div className="flex-1 space-y-2 text-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
+                  <div className="flex-1 space-y-1 text-[7px] min-h-0">
+                    <div className="grid grid-cols-2 gap-1">
+                      <div className="min-w-0">
                         <span className="font-semibold">Produto:</span>
-                        <div className="text-xs">{pesagem.produto}</div>
+                        <div className="truncate">{pesagem.produto}</div>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="font-semibold">MP:</span>
-                        <div className="text-xs">{pesagem.materiaPrima}</div>
+                        <div className="truncate">{pesagem.materiaPrima}</div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
+                    <div className="grid grid-cols-2 gap-1">
+                      <div className="min-w-0">
                         <span className="font-semibold">OP:</span>
-                        <div className="text-xs">{pesagem.op}</div>
+                        <div className="truncate">{pesagem.op}</div>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="font-semibold">Lote:</span>
-                        <div className="text-xs">{pesagem.lote}</div>
+                        <div className="truncate">{pesagem.lote}</div>
                       </div>
                     </div>
 
-                    <div className="border-t border-gray-300 pt-2">
-                      <div className="grid grid-cols-3 gap-1 text-xs">
-                        <div><span className="font-semibold">Bruto:</span><div>{fmtG(pesagem.brutoG)}</div></div>
-                        <div><span className="font-semibold">Tara:</span><div>{fmtG(pesagem.taraG)}</div></div>
-                        <div><span className="font-semibold text-green-600">Líquido:</span><div className="font-bold text-green-600">{fmtG(pesagem.liquidoG)}</div></div>
+                    <div className="border-t border-gray-300 pt-1">
+                      <div className="grid grid-cols-3 gap-1">
+                        <div className="min-w-0"><span className="font-semibold">Bruto:</span><div className="truncate">{fmtG(pesagem.brutoG)}</div></div>
+                        <div className="min-w-0"><span className="font-semibold">Tara:</span><div className="truncate">{fmtG(pesagem.taraG)}</div></div>
+                        <div className="min-w-0"><span className="font-semibold text-green-600">Líquido:</span><div className="font-bold text-green-600 truncate">{fmtG(pesagem.liquidoG)}</div></div>
                       </div>
                     </div>
 
-                    <div className="border-t border-gray-300 pt-2">
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div><span className="font-semibold">Data/Hora:</span><div>{formatDateTime(pesagem.dataHora)}</div></div>
-                        <div><span className="font-semibold">Pesador:</span><div>{pesagem.pesador}</div></div>
+                    <div className="border-t border-gray-300 pt-1">
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="min-w-0"><span className="font-semibold">Data/Hora:</span><div className="truncate">{formatDateTime(pesagem.dataHora)}</div></div>
+                        <div className="min-w-0"><span className="font-semibold">Pesador:</span><div className="truncate">{pesagem.pesador}</div></div>
                       </div>
                     </div>
                   </div>
 
                   {/* Rodapé simples com ID */}
-                  <div className="border-t-2 border-black pt-2 text-center">
-                    <div className="bg-black text-white text-xs px-2 py-1 inline-block font-mono tracking-widest">
+                  <div className="border-t border-black pt-0.5 text-center shrink-0">
+                    <div className="bg-black text-white text-[6px] px-1 inline-block font-mono tracking-widest">
                       ID {pesagem.id}
                     </div>
                   </div>
