@@ -1,0 +1,15 @@
+# Skills do agnostic-core espelhadas em .claude/skills/.
+# Um padrão por linha. '!' exclui. '*' casa dentro de uma categoria.
+# Gerado por install.sh a partir do stack detectado — edite à vontade.
+# O acervo completo continua disponível em .agnostic-core/skills/;
+# esta lista controla só o que é pré-carregado em toda sessão.
+
+# --- núcleo (independe de stack) ---
+behavioral/*
+workflow/*
+git/*
+audit/code-review
+audit/systematic-debugging
+audit/pre-implementation
+audit/senior-verification-protocol
+documentation/technical-docs
