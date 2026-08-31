@@ -1,0 +1,45 @@
+---
+name: agnostic-core-obrigatorio
+description: "Submódulo agnostic-core Obrigatório — Regra dura: nunca escrever código de implementação num repo sem antes confirmar que"
+---
+
+<!-- agnostic-core:generated — não editar; a fonte é .agnostic-core/skills/ -->
+
+# Submódulo agnostic-core Obrigatório
+
+Regra dura: nunca escrever código de implementação num repo sem antes confirmar que `.agnostic-core` existe ali como submódulo.
+
+Origem da regra: num conjunto de repositórios que compartilham o mesmo acervo, cada sessão enxerga só o repo em que foi aberta. Sem o submódulo presente, a sessão resolve do zero um padrão que já foi resolvido em outro repo — e resolve diferente. A regra existe para que o acervo esteja em contexto antes da primeira linha de código, não depois.
+
+---
+
+## A regra
+
+Antes do primeiro commit de código de qualquer tarefa:
+
+```bash
+cat .gitmodules 2>/dev/null | grep agnostic-core || ls -la .agnostic-core 2>/dev/null
+```
+
+- **Se existir:** prosseguir normalmente. Consultar `.agnostic-core/skills/<categoria>` antes de implementar algo que "parece problema já resolvido".
+- **Se não existir:** parar. Antes de adicionar, confirmar que este repo **não é** o próprio `agnostic-core` (ver "Quando não se aplica"). Se for outro repo, adicionar o submódulo primeiro:
+
+```bash
+git submodule add https://github.com/<org>/agnostic-core.git .agnostic-core
+git submodule update --init --recursive
+```
+
+Só então prosseguir com a implementação.
+
+## Por quê
+
+Sessão dedicada a um corpo (planeta/estrela), por design, não enxerga padrão já resolvido em outro corpo — a biblioteca compartilhada é o mecanismo que resolve isso sem precisar de uma entidade vigiando tudo continuamente.
+
+## Ao encerrar a sessão
+
+Se algo produzido é um padrão de código genuinamente reutilizável entre corpos (não lógica de negócio específica deste repo), promover para `.agnostic-core` antes de sair — ver `workflow/fecharsessao.md`, passo "Promoção pro agnostic-core".
+
+## Quando não se aplica
+
+- **O próprio `agnostic-core`.** Este repo É a biblioteca — adicioná-lo como submódulo de si mesmo cria uma auto-referência recursiva (o clone `--recursive` passa a clonar o repo dentro dele mesmo). Ao trabalhar dentro do agnostic-core, nunca rode `git submodule add ...agnostic-core.git .agnostic-core`.
+- Repos que são só conhecimento/documentação (ex.: fichas de domínio, specs avulsas) sem código de implementação.
