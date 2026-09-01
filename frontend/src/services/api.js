@@ -407,6 +407,11 @@ class ApiService {
   async getOPs(params = {}) {
     return this.get("/registro/ops/", { params });
   }
+  // Contagens por status + OPs pendentes agregadas, calculadas no banco.
+  // Nao sofre truncamento por paginacao (ao contrario de contar getOPs()).
+  async getOPStats() {
+    return this.get("/registro/ops/stats/");
+  }
   async getAllOPs(params = {}) {
     return this.getAllPages("/registro/ops/", params);
   }
@@ -469,6 +474,11 @@ class ApiService {
   // ===== Pesagens (/api/registro/pesagens/) =====
   async getPesagens(params = {}) {
     return this.get("/registro/pesagens/", { params });
+  }
+  // Contagens de pesagens calculadas no banco (hoje / ultimos 7 dias) + ultimas 10.
+  // Nao sofre truncamento por paginacao (ao contrario de contar getPesagens()).
+  async getPesagemStats() {
+    return this.get("/registro/pesagens/stats/");
   }
   async getPesadores() {
     return this.get("/registro/pesagens/pesadores/");
@@ -536,19 +546,29 @@ class ApiService {
   }
 
   // ===== Dashboard helper =====
+  // Todas as contagens vem do banco (endpoints /stats/ ou o "count" do envelope
+  // paginado). Nunca derive contador de .length de uma lista paginada: o valor
+  // fica preso no PAGE_SIZE do backend (50).
   async getDashboardStats() {
-    const [stats, produtos, materias] = await Promise.all([
-      this.get("/registro/pesagens/stats/"),
-      this.getProdutos(),
-      this.getMateriasPrimas(),
+    const [pesagemStats, opStats, produtos, materias] = await Promise.all([
+      this.getPesagemStats(),
+      this.getOPStats(),
+      this.getProdutos({ page_size: 1 }),
+      this.getMateriasPrimas({ page_size: 1 }),
     ]);
 
+    const total = (resp) => (Array.isArray(resp) ? resp.length : (resp?.count ?? 0));
+
     return {
-      pesagensHoje: stats?.pesagens_hoje ?? 0,
-      pesagensSemana: stats?.pesagens_semana ?? 0,
-      produtosCadastrados: Array.isArray(produtos) ? produtos.length : (produtos?.count ?? 0),
-      materiasPrimas: Array.isArray(materias) ? materias.length : (materias?.count ?? 0),
-      ultimasPesagens: stats?.ultimas ?? [],
+      pesagensHoje: pesagemStats?.pesagens_hoje ?? 0,
+      pesagensSemana: pesagemStats?.pesagens_semana ?? 0,
+      produtosCadastrados: total(produtos),
+      materiasPrimas: total(materias),
+      opsPendentes: opStats?.ops_pendentes ?? 0,
+      opsAbertas: opStats?.ops_abertas ?? 0,
+      opsAndamento: opStats?.ops_em_andamento ?? 0,
+      ultimasPesagens: pesagemStats?.ultimas ?? [],
+      opsPendentesDetalhe: opStats?.pendentes ?? [],
     };
   }
 }

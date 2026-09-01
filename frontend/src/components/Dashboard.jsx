@@ -26,20 +26,6 @@ function formatDateTimeISOToBR(iso) {
   const d = new Date(iso)
   return d.toLocaleString('pt-BR', { timeZone: tz })
 }
-function isSameDayFortaleza(iso, ref = new Date()) {
-  if (!iso) return false
-  const d = new Date(iso)
-  const fmt = { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }
-  return new Intl.DateTimeFormat('pt-BR', fmt).format(d) === new Intl.DateTimeFormat('pt-BR', fmt).format(ref)
-}
-function isWithinLastDaysFortaleza(iso, days = 7) {
-  if (!iso) return false
-  const now = new Date()
-  const d = new Date(iso)
-  const diff = now.getTime() - d.getTime()
-  return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000
-}
-const normalize = (data) => Array.isArray(data) ? data : (data?.results ?? [])
 
 /* =========================
     Componente
@@ -105,102 +91,46 @@ const Dashboard = () => {
     return actions.filter(a => a.visible)
   }, [isAdminOrSupervisor])
 
+  // Todos os indicadores vem prontos do backend (endpoints /stats/ e o "count" do
+  // envelope paginado). Nao conte itens de lista aqui: as listas da API sao
+  // paginadas em 50 registros e qualquer contador derivado de .length trava nesse teto.
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [produtos, materias, pesagens, ops] = await Promise.all([
-        api.getProdutos(),
-        api.getMateriasPrimas(),
-        api.getPesagens(),
-        api.getOPs({ ordering: '-criada_em' }),
-      ])
-
-      const produtosList = normalize(produtos)
-      const materiasList = normalize(materias)
-      const pesList = normalize(pesagens)
-      const opsList = normalize(ops)
-
-      const prodById = new Map(produtosList.map(p => [p.id, p.nome]))
-      const mpById = new Map(materiasList.map(m => [m.id, m.nome]))
-
-      const hoje = pesList.filter(p => isSameDayFortaleza(p.data_hora))
-      const semana = pesList.filter(p => isWithinLastDaysFortaleza(p.data_hora, 7))
-
-      const ab = opsList.filter(o => o.status === 'aberta').length
-      const em = opsList.filter(o => o.status === 'em_andamento').length
-      const pend = ab + em
+      const d = await api.getDashboardStats()
 
       setStats({
-        pesagensHoje: hoje.length,
-        pesagensSemana: semana.length,
-        produtosCadastrados: Array.isArray(produtos) ? produtos.length : (produtos?.count ?? produtosList.length),
-        materiasPrimas: Array.isArray(materias) ? materias.length : (materias?.count ?? materiasList.length),
-        opsPendentes: pend,
-        opsAndamento: em,
+        pesagensHoje: d.pesagensHoje,
+        pesagensSemana: d.pesagensSemana,
+        produtosCadastrados: d.produtosCadastrados,
+        materiasPrimas: d.materiasPrimas,
+        opsPendentes: d.opsPendentes,
+        opsAbertas: d.opsAbertas,
+        opsAndamento: d.opsAndamento,
       })
 
-      // Últimas 10 pesagens
-      const sorted = [...pesList].sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
-      const top10 = sorted.slice(0, 10).map(p => {
-        const produtoNome =
-          p.produto_nome ||
-          (p.produto && typeof p.produto === 'object' && p.produto.nome) ||
-          (typeof p.produto === 'number' && prodById.get(p.produto)) || '-'
+      setUltimasPesagens(d.ultimasPesagens.map(p => ({
+        id: p.id,
+        produto: p.produto_nome || '-',
+        materiaPrima: p.materia_prima_nome || '-',
+        pesoLiquido: p.liquido ?? null,
+        data: formatDateTimeISOToBR(p.data_hora),
+        pesador: p.pesador || '-',
+      })))
 
-        const mpNome =
-          p.materia_prima_nome ||
-          (p.materia_prima && typeof p.materia_prima === 'object' && p.materia_prima.nome) ||
-          (typeof p.materia_prima === 'number' && mpById.get(p.materia_prima)) || '-'
-
-        const liquido =
-          p.liquido ?? p.peso_liquido ??
-          ((p.bruto != null && p.tara != null) ? (Number(p.bruto) - Number(p.tara)) : null)
-
-        return {
-          id: p.id,
-          produto: produtoNome,
-          materiaPrima: mpNome,
-          pesoLiquido: liquido,
-          data: formatDateTimeISOToBR(p.data_hora),
-          pesador: p.pesador ?? '-',
-        }
-      })
-      setUltimasPesagens(top10)
-
-      // OPs pendentes (top 5)
-      const pendentes = opsList
-        .filter(o => ['aberta', 'em_andamento'].includes(o.status))
-        .slice(0, 5)
-
-      const itensByOp = await Promise.all(
-        pendentes.map(o => api.getOPItems(o.id).then(normalize).catch(() => []))
-      )
-      const pendDetails = pendentes.map((o, idx) => {
-        const itens = itensByOp[idx]
-        const totals = itens.reduce((acc, it) => {
-          const nec = Number(it.quantidade_necessaria || 0)
-          const pes = Number(it.quantidade_pesada || 0)
-          acc.necessario += nec
-          acc.pesado += pes
-          return acc
-        }, { necessario: 0, pesado: 0 })
-        const restante = Math.max(totals.necessario - totals.pesado, 0)
-        const progresso = totals.necessario > 0 ? Math.min((totals.pesado / totals.necessario) * 100, 100) : 0
-        return {
-          id: o.id,
-          numero: o.numero,
-          lote: o.lote,
-          produto: o?.produto?.nome || '-',
-          status: o.status,
-          criada_em: o.criada_em,
-          necessario: totals.necessario,
-          pesado: totals.pesado,
-          restante,
-          progresso,
-        }
-      })
-      setPendingOps(pendDetails)
+      setPendingOps(d.opsPendentesDetalhe.map(o => ({
+        id: o.id,
+        numero: o.numero,
+        lote: o.lote,
+        produto: o.produto || '-',
+        status: o.status,
+        criada_em: o.criada_em,
+        necessario: o.necessario,
+        pesado: o.pesado,
+        restante: o.restante,
+        progresso: o.progresso,
+      })))
 
       setLastUpdated(new Date())
     } catch (e) {

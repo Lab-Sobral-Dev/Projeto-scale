@@ -6,8 +6,9 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import F
+from django.db.models import Count, F, Sum
 from django.db.models.deletion import ProtectedError
+from django.utils import timezone
 from django.http import HttpResponse
 
 from reportlab.pdfgen import canvas
@@ -277,6 +278,68 @@ class OrdemProducaoViewSet(viewsets.ModelViewSet):
     search_fields = ['numero', 'lote', 'produto__nome', 'produto__codigo_interno']
     ordering_fields = ['criada_em', 'numero', 'lote', 'status']
 
+    # Status considerados "pendentes" nos indicadores da Home.
+    STATUS_PENDENTES = (StatusOP.ABERTA, StatusOP.EM_ANDAMENTO)
+    # Quantidade de OPs pendentes detalhadas em "pendentes" (a Home exibe 5).
+    STATS_PENDENTES_LIMITE = 5
+
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request):
+        """
+        Contagens de OPs por status calculadas no banco — evita truncamento por paginação.
+
+        Inclui as OPs pendentes mais recentes já com os totais dos itens agregados,
+        dispensando uma requisição de itens por OP para montar o painel da Home.
+
+        GET /api/registro/ops/stats/
+        """
+        qs = self.get_queryset()
+
+        # order_by() limpa o Meta.ordering: sem isso o campo de ordenação entraria
+        # no GROUP BY e a contagem por status viria fragmentada.
+        por_status = {
+            row["status"]: row["total"]
+            for row in qs.order_by().values("status").annotate(total=Count("id"))
+        }
+        abertas = por_status.get(StatusOP.ABERTA, 0)
+        em_andamento = por_status.get(StatusOP.EM_ANDAMENTO, 0)
+
+        pendentes = (
+            qs.filter(status__in=self.STATUS_PENDENTES)
+            .annotate(
+                total_necessario=Sum("itemop__quantidade_necessaria"),
+                total_pesado=Sum("itemop__quantidade_pesada"),
+            )
+            .order_by("-criada_em")[: self.STATS_PENDENTES_LIMITE]
+        )
+
+        return Response({
+            "ops_abertas": abertas,
+            "ops_em_andamento": em_andamento,
+            "ops_pendentes": abertas + em_andamento,
+            "pendentes": [self._detalhe_pendente(op) for op in pendentes],
+        })
+
+    @staticmethod
+    def _detalhe_pendente(op):
+        """Monta o resumo de progresso de uma OP anotada por stats()."""
+        necessario = float(op.total_necessario or 0)
+        pesado = float(op.total_pesado or 0)
+        restante = max(necessario - pesado, 0.0)
+        progresso = min(pesado / necessario * 100, 100.0) if necessario > 0 else 0.0
+        return {
+            "id": op.id,
+            "numero": op.numero,
+            "lote": op.lote,
+            "produto": op.produto.nome if op.produto_id else "",
+            "status": op.status,
+            "criada_em": op.criada_em,
+            "necessario": necessario,
+            "pesado": pesado,
+            "restante": restante,
+            "progresso": progresso,
+        }
+
     @action(detail=True, methods=["post"], url_path="gerar-itens")
     def gerar_itens(self, request, pk=None):
         op = self.get_object()
@@ -343,6 +406,9 @@ class PesagemViewSet(viewsets.ModelViewSet):
     filterset_class = PesagemFilter
     search_fields = ['op__numero', 'item_op__materia_prima__nome', 'codigo_interno']
     ordering_fields = ['data_hora', 'op__numero']
+
+    # Quantidade de pesagens recentes devolvidas em "ultimas" por stats() (a Home exibe 10).
+    STATS_ULTIMAS_LIMITE = 10
 
     # ===== Motivos padrões =====
     EDIT_MOTIVOS = {
@@ -436,22 +502,26 @@ class PesagemViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         """
         Contagens de pesagens calculadas no banco — evita truncamento por paginação.
+
+        Janelas (fuso de settings.TIME_ZONE):
+          - pesagens_hoje:   data_hora no dia local corrente
+          - pesagens_semana: últimas 168h (janela móvel de 7 dias, sem contar futuro)
+
         GET /api/registro/pesagens/stats/
         """
-        from django.utils import timezone as tz
-        today = tz.localdate()
-        days_since_sunday = today.isoweekday() % 7
-        week_start = today - timedelta(days=days_since_sunday)
+        agora = timezone.now()
+        hoje = timezone.localdate(agora)
+        inicio_semana = agora - timedelta(days=7)
 
-        qs = Pesagem.objects.all()
-        ultimas = (
-            self.get_queryset()[:5]
-        )
-        from .serializers import PesagemSerializer as _PS
+        qs = self.get_queryset()
+        ultimas = qs[: self.STATS_ULTIMAS_LIMITE]
+
         return Response({
-            "pesagens_hoje": qs.filter(data_hora__date=today).count(),
-            "pesagens_semana": qs.filter(data_hora__date__gte=week_start).count(),
-            "ultimas": _PS(ultimas, many=True).data,
+            "pesagens_hoje": qs.filter(data_hora__date=hoje).count(),
+            "pesagens_semana": qs.filter(
+                data_hora__gte=inicio_semana, data_hora__lte=agora
+            ).count(),
+            "ultimas": PesagemSerializer(ultimas, many=True).data,
         })
 
     # ====== Edição (supervisor/admin, com motivo) ======
