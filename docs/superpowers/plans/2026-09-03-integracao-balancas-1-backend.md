@@ -1654,7 +1654,7 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from registro.models import Balanca, Pesagem
+from registro.models import Balanca, ItemOP, Pesagem
 from registro.serializers import PesagemSerializer
 from registro.services import leituras as store
 from registro.tests.test_models import BaseSetupMixin
@@ -1669,11 +1669,17 @@ CACHE_LOCMEM = {
 }
 
 
-@override_settings(CACHES=CACHE_LOCMEM)
+# AUDIT_ENABLED=False segue o padrão de todo teste do projeto que grava
+# (test_models.py:57, test_serializers.py:15) — sem isso os signals de
+# auditoria disparam fora de um ciclo de request.
+@override_settings(AUDIT_ENABLED=False, CACHES=CACHE_LOCMEM)
 class OrigemPesoTests(BaseSetupMixin, TestCase):
     def setUp(self):
         super().setUp()
         cache.clear()
+        # BaseSetupMixin cria só a OP; os ItemOP nascem da estrutura.
+        self.op.gerar_itens_a_partir_da_estrutura()
+        self.item_op = ItemOP.objects.get(op=self.op, materia_prima=self.mp1)
         self.balanca = Balanca.objects.create(
             nome="Toledo 100kg", identificador="BAL-701012", casas_decimais=2,
             calibracao_realizada=True, ultima_calibracao=timezone.localdate(),
@@ -1682,10 +1688,12 @@ class OrigemPesoTests(BaseSetupMixin, TestCase):
     def _dados(self, tara="0.50", liquido="0.10"):
         return {
             "op_id": self.op.id,
-            "item_op_id": self.item_op1.id,
+            "item_op_id": self.item_op.id,
             "balanca_id": self.balanca.id,
             "tara": D(tara),
             "liquido": D(liquido),
+            # lote_mp é OBRIGATÓRIO em Pesagem.clean() (models.py:337-339).
+            "lote_mp": "24A0321",
         }
 
     def _criar(self, **kwargs):
@@ -1712,12 +1720,9 @@ class OrigemPesoTests(BaseSetupMixin, TestCase):
         self.assertEqual(pesagem.origem_peso, Pesagem.ORIGEM_AUTOMATICA_AJUSTADA)
 
     def test_pesagem_sem_balanca_e_manual_sem_estourar(self):
-        ser = PesagemSerializer(data={
-            "op_id": self.op.id,
-            "item_op_id": self.item_op1.id,
-            "tara": D("0.50"),
-            "liquido": D("0.10"),
-        })
+        dados = self._dados()
+        del dados["balanca_id"]
+        ser = PesagemSerializer(data=dados)
         ser.is_valid(raise_exception=True)
         pesagem = ser.save(pesador="operador-teste")
         self.assertEqual(pesagem.origem_peso, Pesagem.ORIGEM_MANUAL)
