@@ -156,7 +156,14 @@ def table_to_pdf(
     orientation: str = "landscape",
     font_size: int = 9,
     margins: Tuple[float, float, float, float] = (15 * mm, 15 * mm, 14 * mm, 12 * mm),
+    footer: str | None = None,
 ) -> bytes:
+    """Monta o PDF tabular.
+
+    `footer`, quando informado, imprime uma linha ao final do documento. Serve
+    para o relatório declarar a própria completude (ex.: a contagem de
+    registros), de modo que um documento incompleto nunca passe por completo.
+    """
     page_w, page_h = _page_size(paper, orientation)
     left, right, top, bottom = margins
     usable_w = page_w - left - right
@@ -183,6 +190,16 @@ def table_to_pdf(
         chunk = rows[i:i + _CHUNK_SIZE]
         _, p_chunk = _as_paragraphs(header, chunk, cell_style)
         story.append(_make_chunk_table(p_header, p_chunk, col_widths, font_size))
+
+    if footer:
+        footer_style = ParagraphStyle(
+            name="Footer",
+            parent=cell_style,
+            fontName="Helvetica-Oblique",
+            textColor=colors.HexColor("#444444"),
+        )
+        story.append(Spacer(1, 6))
+        story.append(Paragraph(_stringify(footer), footer_style))
 
     doc.build(story)
     pdf = buf.getvalue()
