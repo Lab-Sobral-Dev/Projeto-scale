@@ -1,5 +1,6 @@
 # apps/reports/views/auditoria.py
 from django.db.models import Q
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -9,6 +10,20 @@ from ..permissions import IsReportViewer
 from ..services.exporters import export_csv, export_pdf
 from ..filters import audit_base_filters, text
 from ..datetime_utils import fmt_gmt3_with_zone
+
+
+# Teto de registros para geração síncrona de PDF.
+#
+# Medido na VPS em 2026-09-04 (container descartável, 2 execuções por degrau):
+# 2.000 linhas -> 4,8s | 5.000 -> 13,4s | 11.714 -> 30,5s. São ~2,6 ms por
+# linha, com RSS de 201 MB — memória não é restrição. O limite apertado da
+# cadeia é o nginx, que não define `proxy_read_timeout` e portanto corta em
+# 60s (o gunicorn corta em 120s). 15.000 linhas gastam ~40s e mantêm margem.
+#
+# Acima do teto a requisição é RECUSADA, nunca truncada: truncar em silêncio
+# foi o bug de 2026-09-04, em que `qs[:2000]` descartava 83% do período pedido
+# sem nenhuma marca no documento.
+PDF_MAX_ROWS = 15_000
 
 
 def _fmt_dt(dt):
@@ -144,6 +159,42 @@ def _details_for_non_technical(a: AuditLog):
     return "Evento registrado no log do sistema."
 
 
+def _responder_pdf(filename, title, header, qs, row_fn):
+    """Gera o PDF com o período inteiro, ou recusa quando não couber.
+
+    Compartilhado pelos três relatórios de auditoria porque os três tinham a
+    mesma fatia `qs[:2000]` — corrigir em um só lugar evita que o corte volte
+    por descuido em um deles.
+
+    O rodapé com a contagem é a única salvaguarda que não depende da tela:
+    `LogsAuditoria.jsx` não trata erro no export, então a recusa abaixo fica
+    muda na interface. Já um PDF que declara quantos registros contém deixa a
+    completude verificável por quem assina o documento.
+    """
+    total = qs.count()
+    if total > PDF_MAX_ROWS:
+        return Response(
+            {
+                "detail": (
+                    f"O período selecionado tem {total} registros e excede o limite "
+                    f"de {PDF_MAX_ROWS} para geração de PDF. Reduza o intervalo de "
+                    f"datas ou use a exportação em CSV, que não tem limite."
+                ),
+                "total": total,
+                "limite": PDF_MAX_ROWS,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    rows = [row_fn(a) for a in qs.iterator(chunk_size=2000)]
+    return export_pdf(
+        filename, title, header, rows,
+        # len(rows) e não `total`: o rodapé precisa descrever o que está no
+        # documento, não o que a contagem previu.
+        footer=f"Total de registros no período: {len(rows)}.",
+    )
+
+
 def _paginate(request, queryset, serializer_fn):
     paginator = PageNumberPagination()
     try:
@@ -225,7 +276,11 @@ class AuditoriaAcoesReportView(APIView):
         if export == "csv":
             return export_csv("auditoria_acoes", header, [row(a) for a in qs.iterator()])
         if export == "pdf":
-            return export_pdf("auditoria_administracao", "Relatório de Administração — Alterações de Dados", header, [row(a) for a in qs[:2000].iterator()])
+            return _responder_pdf(
+                "auditoria_administracao",
+                "Relatório de Administração — Alterações de Dados",
+                header, qs, row,
+            )
 
         def to_payload(a: AuditLog):
             before, after = _before_after(a)
@@ -328,7 +383,11 @@ class AuditoriaAuthErrosReportView(APIView):
         if export == "csv":
             return export_csv("auditoria_erros_login", header, [row(a) for a in qs.iterator()])
         if export == "pdf":
-            return export_pdf("auditoria_erros_login", "Relatório de Administração — Erros e Login", header, [row(a) for a in qs[:2000].iterator()])
+            return _responder_pdf(
+                "auditoria_erros_login",
+                "Relatório de Administração — Erros e Login",
+                header, qs, row,
+            )
 
         def to_payload(a: AuditLog):
             falha_usuario, falha_senha = self._failure_flags(a)
@@ -421,7 +480,11 @@ class AuditoriaLogsSistemaReportView(APIView):
         if export == "csv":
             return export_csv("auditoria_logs_sistema", header, [row(a) for a in qs.iterator()])
         if export == "pdf":
-            return export_pdf("auditoria_logs_sistema", "Relatório de Auditoria — Logs do Sistema", header, [row(a) for a in qs[:2000].iterator()])
+            return _responder_pdf(
+                "auditoria_logs_sistema",
+                "Relatório de Auditoria — Logs do Sistema",
+                header, qs, row,
+            )
 
         def to_payload(a: AuditLog):
             return {
