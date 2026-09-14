@@ -68,7 +68,12 @@ class ItemEstrutura(models.Model):
     """
     estrutura = models.ForeignKey(EstruturaProduto, on_delete=models.CASCADE, related_name="itens")
     materia_prima = models.ForeignKey(MateriaPrima, on_delete=models.PROTECT, related_name="itens_estrutura")
-    quantidade_por_lote = models.DecimalField(max_digits=14, decimal_places=3)  # sempre em g
+    quantidade_por_lote = models.DecimalField(
+        max_digits=14,
+        decimal_places=6,
+        help_text="Sempre em g. decimal_places=6 (resolucao de 1 ug) porque micro-ingredientes "
+                  "como vitaminas entram na formula em dezenas de microgramas.",
+    )
     unidade = models.CharField(
         max_length=10,
         choices=UnidadeMedida.choices,
@@ -223,7 +228,12 @@ class ItemOP(models.Model):
     """
     op = models.ForeignKey(OrdemProducao, on_delete=models.CASCADE)
     materia_prima = models.ForeignKey(MateriaPrima, on_delete=models.PROTECT)
-    quantidade_necessaria = models.DecimalField(max_digits=14, decimal_places=3)  # g
+    quantidade_necessaria = models.DecimalField(
+        max_digits=14,
+        decimal_places=6,
+        help_text="Em g. Copiada de ItemEstrutura.quantidade_por_lote; acompanha a mesma "
+                  "precisao para a formula nao chegar truncada na OP.",
+    )
     quantidade_pesada = models.DecimalField(max_digits=14, decimal_places=3, default=0)  # g
     unidade = models.CharField(
         max_length=10,

@@ -105,3 +105,42 @@ class ItemEstruturaSerializerTests(TestCase):
         s = ItemEstruturaSerializer(data=self._data(self.mp_inativa))
         self.assertFalse(s.is_valid())
         self.assertIn("inativ", str(s.errors).lower())
+
+
+@override_settings(AUDIT_ENABLED=False)
+class ItemEstruturaPrecisaoTests(TestCase):
+    """
+    Micro-ingredientes (vitaminas, corantes, aromas) entram na fórmula em
+    dezenas de microgramas. Com 3 casas em g a resolução era 1 mg: cadastrar
+    0,01548 g de cianocobalamina era rejeitado, e arredondar para 0,015 g
+    desvia 3,1% do especificado.
+    """
+
+    def setUp(self):
+        self.prod = Produto.objects.create(nome="Inglesa-Quina 430 mL", codigo_interno="PROD-430", ativo=True)
+        self.estr = EstruturaProduto.objects.create(produto=self.prod, descricao="v1", ativo=True)
+        self.mp = MateriaPrima.objects.create(nome="Vitamina B12 100%", codigo_interno="MP-B12", ativo=True)
+
+    def _data(self, quantidade):
+        return {
+            "estrutura_id": self.estr.id,
+            "materia_prima_id": self.mp.id,
+            "quantidade_por_lote": quantidade,
+            "unidade": "g",
+        }
+
+    def test_aceita_seis_casas_decimais_em_gramas(self):
+        s = ItemEstruturaSerializer(data=self._data("0.015480"))
+        self.assertTrue(s.is_valid(), s.errors)
+
+    def test_persiste_seis_casas_sem_arredondar(self):
+        s = ItemEstruturaSerializer(data=self._data("0.015480"))
+        self.assertTrue(s.is_valid(), s.errors)
+        item = s.save()
+        item.refresh_from_db()
+        self.assertEqual(item.quantidade_por_lote, D("0.015480"))
+
+    def test_rejeita_setima_casa_decimal(self):
+        s = ItemEstruturaSerializer(data=self._data("0.0154801"))
+        self.assertFalse(s.is_valid())
+        self.assertIn("quantidade_por_lote", s.errors)

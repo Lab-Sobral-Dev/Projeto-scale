@@ -28,9 +28,10 @@ const gToKg = (g) => (Number(g) || 0) / KG_IN_G
 const fmtG = (v) => {
   const n = Number(v)
   if (!Number.isFinite(n)) return '0 g'
-  // preserva até 3 casas decimais (gramas); arredonda só para eliminar ruído de ponto flutuante
-  const rounded = Number(n.toFixed(3))
-  return rounded.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) + ' g'
+  // preserva até 6 casas decimais (gramas): a formula chega com resolucao de 1 ug.
+  // Arredonda so para eliminar ruido de ponto flutuante.
+  const rounded = Number(n.toFixed(6))
+  return rounded.toLocaleString('pt-BR', { maximumFractionDigits: 6 }) + ' g'
 }
 
 const toNumber = (v) => {

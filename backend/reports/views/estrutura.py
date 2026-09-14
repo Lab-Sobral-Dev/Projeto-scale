@@ -7,9 +7,9 @@ from ..services.exporters import export_csv, export_pdf
 from ..services.formatters import fmt_massa_g
 from ..filters import text
 
-# quantidade_por_lote é armazenada em g (DecimalField decimal_places=3). Não há
+# quantidade_por_lote é armazenada em g (DecimalField decimal_places=6). Não há
 # balança vinculada, então usamos a própria precisão do campo.
-CASAS_QTD_LOTE = 3
+CASAS_QTD_LOTE = 6
 
 
 class EstruturaProdutoReportView(APIView):

@@ -114,7 +114,7 @@ class ItemOPSerializer(serializers.ModelSerializer):
     materia_prima_id = serializers.PrimaryKeyRelatedField(
         queryset=MateriaPrima.objects.all(), write_only=True, source="materia_prima"
     )
-    quantidade_restante = serializers.DecimalField(max_digits=14, decimal_places=3, read_only=True)
+    quantidade_restante = serializers.DecimalField(max_digits=14, decimal_places=6, read_only=True)
 
     class Meta:
         model = ItemOP
