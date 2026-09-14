@@ -38,7 +38,7 @@ const normalizeList = (data) => {
 
 /**
  * Formatação de quantidade em g (mesmo padrão da tela de pesagem)
- * - Arredonda para 3 casas decimais
+ * - Arredonda para 6 casas decimais (resolucao de 1 ug da formula)
  * - Formata em pt-BR
  * - Evita lixo de ponto flutuante
  */
@@ -46,8 +46,8 @@ const formatG = (value) => {
     if (value == null || value === '') return '0'
     const num = Number(value)
     if (!Number.isFinite(num)) return '0'
-    const rounded = Number(num.toFixed(3))
-    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(rounded)
+    const rounded = Number(num.toFixed(6))
+    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 6 }).format(rounded)
 }
 
 const ComposicaoEstrutura = () => {

@@ -290,3 +290,36 @@ class ProdutoSerializerTests(TestCase):
         produto = serializer.save()
         self.assertEqual(produto.nome, "Xarope C")
         self.assertEqual(produto.codigo_interno, "PROD-003")
+
+@override_settings(AUDIT_ENABLED=False)
+class PrecisaoMicroIngredienteTests(TestCase):
+    """
+    A quantidade da estrutura é copiada para o item da OP em
+    `gerar_itens_a_partir_da_estrutura`. Se o campo da OP tiver menos casas que
+    o da estrutura, a fórmula chega truncada na ordem de produção — o operador
+    pesaria contra um alvo diferente do especificado.
+    """
+
+    def setUp(self):
+        self.prod = Produto.objects.create(nome="Inglesa-Quina 430 mL", codigo_interno="PROD-430")
+        self.mp = MateriaPrima.objects.create(nome="Vitamina B12 100%", codigo_interno="MP-B12")
+        self.estr = EstruturaProduto.objects.create(produto=self.prod, descricao="v1")
+        ItemEstrutura.objects.create(
+            estrutura=self.estr, materia_prima=self.mp,
+            quantidade_por_lote=D("0.015480"),  # 15,48 mg
+            unidade=UnidadeMedida.G,
+        )
+        self.op = OrdemProducao.objects.create(
+            numero="OP-B12", produto=self.prod, estrutura=self.estr,
+            lote="L-B12", status=StatusOP.ABERTA,
+        )
+
+    def test_item_op_preserva_seis_casas_da_estrutura(self):
+        self.op.gerar_itens_a_partir_da_estrutura()
+        item = ItemOP.objects.get(op=self.op, materia_prima=self.mp)
+        self.assertEqual(item.quantidade_necessaria, D("0.015480"))
+
+    def test_restante_parte_do_valor_integral(self):
+        self.op.gerar_itens_a_partir_da_estrutura()
+        item = ItemOP.objects.get(op=self.op, materia_prima=self.mp)
+        self.assertEqual(item.quantidade_restante, D("0.015480"))

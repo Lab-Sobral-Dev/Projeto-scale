@@ -38,15 +38,15 @@ const MANY_ITEMS_THRESHOLD = 10 // a partir daqui, limitar a 2 colunas
 const normalize = (data) => Array.isArray(data) ? data : (data?.results ?? [])
 
 /**
- * Formata quantidade em pt-BR, até 3 casas decimais,
+ * Formata quantidade em pt-BR, até 6 casas decimais,
  * removendo zeros desnecessários (mesmo padrão das outras telas).
  */
 const formatG = (value) => {
   if (value == null || value === '') return '0'
   const num = Number(value)
   if (!Number.isFinite(num)) return '0'
-  const rounded = Number(num.toFixed(3))
-  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(rounded)
+  const rounded = Number(num.toFixed(6))
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 6 }).format(rounded)
 }
 
 const useIsMobile = () => {
