@@ -252,6 +252,46 @@ class PesagemTests(BaseSetupMixin, TestCase):
         )
         self.assertEqual(p2.lote_mp, "24B0001")
 
+    def test_bloqueia_pesagem_duplicada_curto_intervalo(self):
+        # Reproduz o caso reportado: mesma balança, mesmo item, mesma tara/líquido,
+        # registrados em sequência (leitura da balança não foi reiniciada).
+        Pesagem.objects.create(
+            op=self.op, item_op=self.item1, pesador="Jose Emerson",
+            tara=D("0.019"), liquido=D("0.456"), balanca=self.bal, lote_mp="30600",
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            Pesagem.objects.create(
+                op=self.op, item_op=self.item1, pesador="Jose Emerson",
+                tara=D("0.019"), liquido=D("0.456"), balanca=self.bal, lote_mp="30600",
+            )
+        self.assertIn("duplicada", str(ctx.exception).lower())
+
+    def test_permite_pesagem_repetida_apos_janela_de_duplicidade(self):
+        p1 = Pesagem.objects.create(
+            op=self.op, item_op=self.item1, pesador="Jose Emerson",
+            tara=D("0.019"), liquido=D("0.456"), balanca=self.bal, lote_mp="30600",
+        )
+        # Empurra o registro anterior pra fora da janela de duplicidade.
+        Pesagem.objects.filter(pk=p1.pk).update(
+            data_hora=timezone.now() - timedelta(minutes=10)
+        )
+        p2 = Pesagem.objects.create(
+            op=self.op, item_op=self.item1, pesador="Jose Emerson",
+            tara=D("0.019"), liquido=D("0.456"), balanca=self.bal, lote_mp="30600",
+        )
+        self.assertIsNotNone(p2.pk)
+
+    def test_permite_pesagens_com_valores_diferentes_no_mesmo_item(self):
+        Pesagem.objects.create(
+            op=self.op, item_op=self.item1, pesador="Jose Emerson",
+            tara=D("0.019"), liquido=D("0.456"), balanca=self.bal, lote_mp="30600",
+        )
+        p2 = Pesagem.objects.create(
+            op=self.op, item_op=self.item1, pesador="Jose Emerson",
+            tara=D("0.015"), liquido=D("0.462"), balanca=self.bal, lote_mp="30600",
+        )
+        self.assertIsNotNone(p2.pk)
+
 
 @override_settings(AUDIT_ENABLED=False)
 class ProdutoSerializerTests(TestCase):
