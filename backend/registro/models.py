@@ -15,7 +15,7 @@ KG_TO_G = Decimal('1000')
 TOLERANCIA_PERCENTUAL = Decimal('0.05')  # 5%
 
 # >>> Janela de detecção de pesagem duplicada (mesmo item/balança/tara/líquido em sequência)
-JANELA_DUPLICIDADE_PESAGEM = timedelta(minutes=5)
+JANELA_DUPLICIDADE_PESAGEM = timedelta(minutes=2)
 
 # =========================
 # Catálogos básicos
@@ -416,7 +416,7 @@ class Pesagem(models.Model):
         ):
             minutos = int(JANELA_DUPLICIDADE_PESAGEM.total_seconds() // 60)
             raise ValidationError(
-                f"Pesagem duplicada: tara ({tara_kg} kg) e líquido ({liquido_kg_informado} kg) "
+                f"Pesagem duplicada: tara ({tara_kg} kg) e líquido ({liquido_g:.3f} g) "
                 f"idênticos ao último registro de {item.materia_prima} há menos de {minutos} min. "
                 "Confirme se a balança foi reiniciada antes de registrar novamente."
             )
