@@ -122,6 +122,12 @@ const NovaPesagem = () => {
   // refs opcionais para focar de volta no campo de líquido após limpar
   const liquidoRef = useRef(null)
 
+  // Trava síncrona contra duplo-clique/duplo-submit: o estado `loading` já desabilita
+  // o botão, mas a atualização de estado do React não é imediata — dois cliques bem
+  // próximos podem disparar handleConfirmSave duas vezes antes do re-render. O ref
+  // é checado e setado de forma síncrona, sem depender de re-render.
+  const savingRef = useRef(false)
+
   const getInitialFormData = (user = null) => ({
     op: '',          // sempre string p/ Select controlado
     itemOp: '',      // sempre string p/ Select/Popover controlado
@@ -425,6 +431,10 @@ const NovaPesagem = () => {
       return
     }
 
+    // Já há um salvamento em andamento (ex.: duplo clique antes do re-render desabilitar o botão).
+    if (savingRef.current) return
+    savingRef.current = true
+
     setLoading(true)
     setError('')
     setSuccess('')
@@ -456,6 +466,7 @@ const NovaPesagem = () => {
         || 'Erro ao salvar pesagem.'
       setError(String(msg))
     } finally {
+      savingRef.current = false
       setLoading(false)
     }
   }

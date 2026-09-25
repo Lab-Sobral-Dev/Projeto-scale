@@ -14,6 +14,9 @@ KG_TO_G = Decimal('1000')
 # >>> Tolerância (fixa em +/- 5%)
 TOLERANCIA_PERCENTUAL = Decimal('0.05')  # 5%
 
+# >>> Janela de detecção de pesagem duplicada (mesmo item/balança/tara/líquido em sequência)
+JANELA_DUPLICIDADE_PESAGEM = timedelta(minutes=5)
+
 # =========================
 # Catálogos básicos
 # =========================
@@ -393,7 +396,31 @@ class Pesagem(models.Model):
             for item in ItemOP.objects.select_for_update().filter(pk__in=item_ids)
         }
         item = items_travados[self.item_op_id]
-        
+
+        # Trava de duplicidade: mesma balança + mesma tara/líquido do registro mais
+        # recente do item, em sequência curta, normalmente indica reenvio acidental
+        # (operador reenviou a leitura da balança sem reiniciá-la para a próxima pesagem).
+        pesagem_anterior = (
+            Pesagem.objects
+            .filter(item_op_id=self.item_op_id)
+            .exclude(pk=self.pk)
+            .order_by("-data_hora")
+            .first()
+        )
+        if (
+            pesagem_anterior
+            and pesagem_anterior.balanca_id == self.balanca_id
+            and pesagem_anterior.tara == tara_kg
+            and pesagem_anterior.liquido == liquido_g
+            and (timezone.now() - pesagem_anterior.data_hora) <= JANELA_DUPLICIDADE_PESAGEM
+        ):
+            minutos = int(JANELA_DUPLICIDADE_PESAGEM.total_seconds() // 60)
+            raise ValidationError(
+                f"Pesagem duplicada: tara ({tara_kg} kg) e líquido ({liquido_kg_informado} kg) "
+                f"idênticos ao último registro de {item.materia_prima} há menos de {minutos} min. "
+                "Confirme se a balança foi reiniciada antes de registrar novamente."
+            )
+
         # Obtém os limites de tolerância
         limite_superior_g = item.quantidade_maxima_permitida
         limite_inferior_g = item.quantidade_minima_permitida
